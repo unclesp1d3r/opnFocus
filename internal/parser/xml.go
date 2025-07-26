@@ -34,7 +34,7 @@ type XMLParser struct {
 	MaxInputSize int64
 }
 
-// NewXMLParser creates a new XMLParser configured with the default maximum input size for parsing OPNsense XML configuration files.
+// NewXMLParser returns a new XMLParser instance with the default maximum input size for secure OPNsense XML configuration parsing.
 func NewXMLParser() *XMLParser {
 	return &XMLParser{
 		MaxInputSize: DefaultMaxInputSize,
@@ -229,7 +229,7 @@ func (p *XMLParser) ParseAndValidate(ctx context.Context, r io.Reader) (*model.O
 
 
 // convertValidatorToParserValidationErrors converts validator.ValidationError slice to parser.ValidationError slice.
-// This helper bridges the gap between the two validation error types.
+// convertValidatorToParserValidationErrors converts a slice of validator.ValidationError to a slice of parser ValidationError, prefixing each field path with "opnsense.".
 func convertValidatorToParserValidationErrors(validatorErrors []validator.ValidationError) []ValidationError {
 	parserErrors := make([]ValidationError, 0, len(validatorErrors))
 
@@ -245,7 +245,7 @@ func convertValidatorToParserValidationErrors(validatorErrors []validator.Valida
 	return parserErrors
 }
 
-// skipElement skips over XML elements that are not needed by consuming tokens until the end element is found.
+// skipElement advances the XML decoder past the current element, including all nested elements, without decoding their contents.
 func skipElement(dec *xml.Decoder) error {
 	depth := 1
 	for depth > 0 {

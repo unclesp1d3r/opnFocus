@@ -26,7 +26,7 @@ func Title(s string) {
 	fmt.Println(titleStyle.Render(s))
 }
 
-// Error prints the given string to the console using a bold red error style.
+// Error prints the input string to the terminal using a bold red error style.
 func Error(s string) {
 	fmt.Println(errorStyle.Render(s))
 }
@@ -36,7 +36,7 @@ type TerminalDisplay struct {
 	renderer *glamour.TermRenderer
 }
 
-// NewTerminalDisplay creates a new terminal display with glamour rendering.
+// NewTerminalDisplay returns a TerminalDisplay instance with a Glamour renderer configured for automatic style detection and word wrapping at 120 characters. If automatic style detection fails, it falls back to a default renderer.
 func NewTerminalDisplay() *TerminalDisplay {
 	// Create renderer with auto style detection (adapts to terminal theme)
 	renderer, err := glamour.NewTermRenderer(
