@@ -71,7 +71,7 @@ const (
 	MaxReasonableComplexity = 1000
 
 	// Template file paths - relative to internal/templates/
-	// Main templates - used by convert/display commands (standard templates).
+	// Main templates - used by convert/display commands (default templates).
 	TemplateOpnSenseReportComprehensive = "opnsense_report_comprehensive.md.tmpl" // Used with --comprehensive flag
 	TemplateOpnSenseReport              = "opnsense_report.md.tmpl"               // Default template for convert/display
 
