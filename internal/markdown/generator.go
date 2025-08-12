@@ -128,15 +128,20 @@ func createTemplateFuncMap() template.FuncMap {
 	}
 
 	funcMap["getRiskLevel"] = func(severity string) string {
-		switch strings.ToLower(severity) {
-		case "high", "critical":
-			return "High Risk"
+		// Use consistent mapping with MarkdownBuilder.AssessRiskLevel
+		switch strings.ToLower(strings.TrimSpace(severity)) {
+		case "critical":
+			return "🔴 Critical Risk"
+		case "high":
+			return "🟠 High Risk"
 		case "medium":
-			return "Medium Risk"
+			return "🟡 Medium Risk"
 		case "low":
-			return "Low Risk"
+			return "🟢 Low Risk"
+		case "info", "informational":
+			return "ℹ️ Informational"
 		default:
-			return "Unknown Risk"
+			return "⚪ Unknown Risk"
 		}
 	}
 
@@ -242,15 +247,41 @@ func escapeTableContent(content any) string {
 	if content == nil {
 		return ""
 	}
+
 	str := fmt.Sprintf("%v", content)
-	// Escape pipe characters by replacing | with \|
+
+	// Escape Markdown special characters in order of precedence
+	// Backslashes must be escaped first to avoid double-escaping
+	str = strings.ReplaceAll(str, "\\", "\\\\")
+
+	// Escape asterisks (used for bold/italic)
+	str = strings.ReplaceAll(str, "*", "\\*")
+
+	// Escape underscores (used for italic/underline)
+	str = strings.ReplaceAll(str, "_", "\\_")
+
+	// Escape backticks (used for inline code)
+	str = strings.ReplaceAll(str, "`", "\\`")
+
+	// Escape square brackets (used for links)
+	str = strings.ReplaceAll(str, "[", "\\[")
+	str = strings.ReplaceAll(str, "]", "\\]")
+
+	// Escape angle brackets (used for HTML tags)
+	str = strings.ReplaceAll(str, "<", "\\<")
+	str = strings.ReplaceAll(str, ">", "\\>")
+
+	// Escape pipe characters (used for table separators)
 	str = strings.ReplaceAll(str, "|", "\\|")
+
+	// Handle newlines and carriage returns
 	// Replace carriage return + newline first to avoid double replacement
 	str = strings.ReplaceAll(str, "\r\n", "<br>")
 	// Replace remaining newlines with <br> for HTML rendering
 	str = strings.ReplaceAll(str, "\n", "<br>")
 	// Replace remaining carriage returns with <br>
 	str = strings.ReplaceAll(str, "\r", "<br>")
+
 	return str
 }
 

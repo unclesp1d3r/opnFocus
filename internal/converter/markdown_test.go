@@ -63,6 +63,8 @@ func TestMarkdownConverter_ToMarkdown(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			// TERM is already set to "dumb" at the top of the test function
+
 			c := NewMarkdownConverter()
 			md, err := c.ToMarkdown(context.Background(), tt.input)
 
