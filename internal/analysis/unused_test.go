@@ -261,6 +261,32 @@ func TestDetectUnusedObjects_DeterministicOrder(t *testing.T) {
 	}
 }
 
+func TestUnusedObjects_WiredIntoConsumers(t *testing.T) {
+	t.Parallel()
+
+	cfg := &common.CommonDevice{NamedObjects: common.NamedObjects{
+		"orphan": hostAlias("10.0.0.1"),
+	}}
+
+	// Aggregate consumer (JSON/YAML export path).
+	analysis := ComputeAnalysis(cfg)
+	require.Len(t, analysis.UnusedObjects, 1)
+	assert.Equal(t, "orphan", analysis.UnusedObjects[0].Name)
+
+	// Observation consumer (audit-findings path).
+	var found bool
+
+	for _, o := range ScanObservations(cfg) {
+		if o.Component == "namedObject[orphan]" {
+			found = true
+
+			assert.Contains(t, o.Recommendation, "confirm")
+		}
+	}
+
+	assert.True(t, found, "unused object should surface as an Observation")
+}
+
 func TestDetectUnusedObjects_FindingShape(t *testing.T) {
 	t.Parallel()
 
