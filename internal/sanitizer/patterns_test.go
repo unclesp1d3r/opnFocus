@@ -480,6 +480,7 @@ func TestLooksLikePassword(t *testing.T) {
 		{"authKey", true},
 		{"setupKey", true},
 		{"setup_key", true},
+		{"setup-key", true},
 		{"ldap_bindpw", true},
 		{"privateKey", true},
 		{"username", false},
