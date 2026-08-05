@@ -334,6 +334,76 @@ func TestSanitizeXML_SNMPv3EncKey(t *testing.T) {
 	}
 }
 
+// TestSanitizeXML_NetBirdSetupKey verifies the OPNsense os-netbird plugin's
+// enrollment key (<setupKey>) is redacted. The bare "key" FieldPattern is
+// exact-match only (see exactMatchPatterns), so camelCase/compound forms of
+// setupKey leaked in cleartext — including when NetBird is disabled or the
+// plugin has been removed but its <OPNsense><netbird> XML remains in config.
+func TestSanitizeXML_NetBirdSetupKey(t *testing.T) {
+	const setupKeyBody = "A1B2C3D4-E5F6-7890-ABCD-EF1234567890"
+
+	fixtures := []struct {
+		name string
+		xml  string
+	}{
+		{
+			name: "netbird_setupKey",
+			xml: "<opnsense><OPNsense><netbird><authentication><setupKey>" +
+				setupKeyBody +
+				"</setupKey><managementUrl>https://api.netbird.io</managementUrl>" +
+				"</authentication></netbird></OPNsense></opnsense>",
+		},
+		{
+			name: "setup_key_alias",
+			xml: "<opnsense><OPNsense><netbird><authentication><setup_key>" +
+				setupKeyBody +
+				"</setup_key></authentication></netbird></OPNsense></opnsense>",
+		},
+		{
+			name: "setup-key_alias",
+			xml: "<opnsense><OPNsense><netbird><authentication><setup-key>" +
+				setupKeyBody +
+				"</setup-key></authentication></netbird></OPNsense></opnsense>",
+		},
+		{
+			// Orphaned plugin config (service disabled / package removed) still
+			// carries the enrollment key under the OPNsense MVC namespace.
+			name: "orphaned_disabled_netbird",
+			xml: "<opnsense><OPNsense><netbird><settings><general><enabled>0</enabled>" +
+				"</general></settings><authentication><setupKey>" +
+				setupKeyBody +
+				"</setupKey></authentication></netbird></OPNsense></opnsense>",
+		},
+	}
+
+	for _, mode := range ValidModes() {
+		for _, fx := range fixtures {
+			t.Run(string(mode)+"_"+fx.name, func(t *testing.T) {
+				s := NewSanitizer(mode)
+				var output bytes.Buffer
+				if err := s.SanitizeXML(strings.NewReader(fx.xml), &output); err != nil {
+					t.Fatalf("SanitizeXML() error = %v", err)
+				}
+				result := output.String()
+				if strings.Contains(result, setupKeyBody) {
+					t.Errorf("mode=%q fixture=%q leaked NetBird setupKey: %s", mode, fx.name, result)
+				}
+				if !strings.Contains(result, redactedSecretValue) {
+					t.Errorf("mode=%q fixture=%q missing redaction marker: %s", mode, fx.name, result)
+				}
+				// Management URL is not a credential. Aggressive mode may still
+				// rewrite hostnames via the value detector; only assert survival
+				// in modes that leave hostnames intact.
+				if mode != ModeAggressive &&
+					strings.Contains(fx.xml, "api.netbird.io") &&
+					!strings.Contains(result, "https://api.netbird.io") {
+					t.Errorf("mode=%q fixture=%q unexpectedly redacted managementUrl: %s", mode, fx.name, result)
+				}
+			})
+		}
+	}
+}
+
 // TestSanitizeXML_SNMPv3Password verifies the net-snmp plugin's SNMPv3 auth
 // passphrase (<password>) is redacted via the generic password rule — guards
 // against an accidental rule reshuffle when the enckey alias was added.

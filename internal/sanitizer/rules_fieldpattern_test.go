@@ -114,6 +114,38 @@ func TestRedact_OTPSeed(t *testing.T) {
 	}
 }
 
+func TestRedact_NetBirdSetupKey(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		mode  Mode
+		field string
+	}{
+		{ModeAggressive, "setupKey"},
+		{ModeModerate, "setupKey"},
+		{ModeMinimal, "setupKey"},
+		{ModeAggressive, "setup_key"},
+		{ModeModerate, "setup_key"},
+		{ModeMinimal, "setup_key"},
+		{ModeAggressive, "setup-key"},
+		{ModeModerate, "setup-key"},
+		{ModeMinimal, "setup-key"},
+		{ModeAggressive, "OPNsense.netbird.authentication.setupKey"},
+		{ModeMinimal, "netbird.authentication.setupKey"},
+	}
+
+	for _, tt := range tests {
+		t.Run(string(tt.mode)+"_"+tt.field, func(t *testing.T) {
+			t.Parallel()
+			engine := NewRuleEngine(tt.mode)
+			result := engine.Redact(tt.field, "A1B2C3D4-E5F6-7890-ABCD-EF1234567890")
+			if result != redactedSecretValue {
+				t.Errorf("Redact(%q, setup key) = %q, want %q", tt.field, result, redactedSecretValue)
+			}
+		})
+	}
+}
+
 func TestRedact_KeyField(t *testing.T) {
 	t.Parallel()
 

@@ -130,7 +130,7 @@ func TestShouldRedactField_AuthServer(t *testing.T) {
 func TestShouldRedactField_Secret(t *testing.T) {
 	engine := NewRuleEngine(ModeMinimal)
 
-	secretFields := []string{"secret", "token", "apikey", "api_key", "authkey"}
+	secretFields := []string{"secret", "token", "apikey", "api_key", "authkey", "setupkey", "setup_key", "setup-key"}
 	for _, field := range secretFields {
 		should, rule := engine.ShouldRedactField(field)
 		if !should {
