@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/EvilBit-Labs/opnDossier/internal/compliance"
+	common "github.com/EvilBit-Labs/opnDossier/pkg/model"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -110,4 +111,70 @@ func TestApplyFindingsToCompliance(t *testing.T) {
 			assert.Equal(t, tt.expected, out)
 		})
 	}
+}
+
+// TestRunComplianceChecks_InventorySkipThroughPipeline drives the inventory-skip
+// invariant through the real RunComplianceChecks -> runPluginChecks ->
+// applyFindingsToCompliance chain, rather than calling the unexported helper in
+// isolation. Without this, a wiring regression in the caller (wrong map passed,
+// the call dropped) would go uncaught.
+//
+// The mock reports every one of its controls as evaluated, so the inventory
+// finding's referenced control IS present in the compliance map. That makes the
+// skip directly observable — in production, inventory controls are excluded from
+// the evaluated slice (GOTCHAS.md 2.4), so the flip would be a no-op either way.
+func TestRunComplianceChecks_InventorySkipThroughPipeline(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	registry := NewPluginRegistry()
+
+	mockPlugin := &mockPluginWithFindings{
+		mockCompliancePlugin: mockCompliancePlugin{
+			name:        "test-inventory-skip",
+			description: "Plugin emitting one inventory and one compliance finding",
+			version:     "1.0.0",
+		},
+		findings: []compliance.Finding{
+			{
+				Type:       "inventory",
+				Severity:   "info",
+				Title:      "DHCP Scopes Configured",
+				References: []string{"CONTROL-INV"},
+			},
+			{
+				Type:       "compliance",
+				Severity:   "high",
+				Title:      "Security Issue",
+				References: []string{"CONTROL-SEC"},
+			},
+		},
+		controls: []compliance.Control{
+			{ID: "CONTROL-INV", Title: "Inventory control", Severity: "info"},
+			{ID: "CONTROL-SEC", Title: "Security control", Severity: "high"},
+		},
+	}
+
+	if err := registry.RegisterPlugin(mockPlugin); err != nil {
+		t.Fatalf("RegisterPlugin() error = %v", err)
+	}
+
+	device := &common.CommonDevice{System: common.System{Hostname: "test-host"}}
+
+	// Act
+	result, err := registry.RunComplianceChecks(device, []string{"test-inventory-skip"}, newTestLogger(t))
+	if err != nil {
+		t.Fatalf("RunComplianceChecks() error = %v", err)
+	}
+
+	// Assert
+	pluginCompliance := result.Compliance["test-inventory-skip"]
+	if pluginCompliance == nil {
+		t.Fatal("RunComplianceChecks() missing compliance map for plugin")
+	}
+
+	assert.True(t, pluginCompliance["CONTROL-INV"],
+		"inventory finding must not flip its referenced control to non-compliant")
+	assert.False(t, pluginCompliance["CONTROL-SEC"],
+		"compliance finding must flip its referenced control to non-compliant")
 }
