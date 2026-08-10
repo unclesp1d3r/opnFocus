@@ -170,10 +170,11 @@ func TestNewModeController(t *testing.T) {
 	registry := NewPluginRegistry()
 	logger := newTestLogger(t)
 
-	// NewModeController always returns a non-nil value, so there is no nil check
-	// here; asserting against an impossible nil is dead code that also trips
-	// staticcheck SA5011 on every subsequent field access.
 	controller := NewModeController(registry, logger)
+
+	if controller == nil {
+		t.Fatal("NewModeController() returned nil")
+	}
 
 	if controller.registry != registry {
 		t.Error("NewModeController() registry not set correctly")

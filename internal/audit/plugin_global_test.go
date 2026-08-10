@@ -1353,6 +1353,10 @@ func TestRunComplianceChecks_PanickingPluginIsolation(t *testing.T) {
 			if err != nil {
 				t.Fatalf("RunComplianceChecks() unexpected error: %v", err)
 			}
+			if result == nil {
+				t.Fatal("RunComplianceChecks() returned nil result")
+			}
+
 			assertResultCounts(t, result, tt.wantFindingsCount, tt.wantPluginInfoCount)
 			assertPanickingPluginRetained(t, result, "panicking-plugin")
 		})
@@ -1476,6 +1480,10 @@ func TestRunComplianceChecks_NilLoggerFallback(t *testing.T) {
 				t.Fatalf("RunComplianceChecks() with nil logger unexpected error: %v", err)
 			}
 
+			if result == nil {
+				t.Fatal("RunComplianceChecks() returned nil result")
+			}
+
 			if len(result.Findings) != tt.wantFindingsCount {
 				t.Errorf("Findings count = %d, want %d", len(result.Findings), tt.wantFindingsCount)
 			}
@@ -1523,6 +1531,10 @@ func TestRunComplianceChecks_PerPluginSeverityArithmetic(t *testing.T) {
 	result, err := registry.RunComplianceChecks(device, []string{"stig"}, newTestLogger(t))
 	if err != nil {
 		t.Fatalf("RunComplianceChecks() error: %v", err)
+	}
+
+	if result == nil {
+		t.Fatal("RunComplianceChecks() returned nil result")
 	}
 
 	if len(result.Findings) == 0 {
@@ -1756,6 +1768,10 @@ func TestRunComplianceChecks_UnknownSeverityWarn(t *testing.T) {
 	result, err := registry.RunComplianceChecks(testConfig, []string{"test-unknown-severity"}, logger)
 	if err != nil {
 		t.Fatalf("RunComplianceChecks() error = %v", err)
+	}
+
+	if result == nil {
+		t.Fatal("RunComplianceChecks() returned nil result")
 	}
 
 	// Summary counters must stay zero for unknown severities — they are not

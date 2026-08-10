@@ -87,6 +87,26 @@ func TestApplyFindingsToCompliance(t *testing.T) {
 			expected: map[string]bool{"FIREWALL-001": true},
 		},
 		{
+			// Pins current behavior rather than asserting it is desirable. The
+			// caller seeds the map only with controls the plugin actually
+			// evaluated, so a reference to an unevaluated control injects a new
+			// key — turning an unconfirmed control into an evaluated failing
+			// one. Reachable via a control-ID typo in a plugin's finding or
+			// drift between a finding's References and the plugin's control
+			// table. If that is ever deemed wrong, this row is the place the
+			// decision surfaces.
+			name:    "a reference to a control absent from the map injects it as failing",
+			initial: map[string]bool{"FIREWALL-001": true},
+			findings: []compliance.Finding{
+				{
+					Type:       "compliance",
+					Title:      "References a control the plugin never evaluated",
+					References: []string{"FIREWALL-999"},
+				},
+			},
+			expected: map[string]bool{"FIREWALL-001": true, "FIREWALL-999": false},
+		},
+		{
 			name:    "inventory finding with no references is a no-op",
 			initial: map[string]bool{"FIREWALL-001": true},
 			findings: []compliance.Finding{
