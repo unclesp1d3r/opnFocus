@@ -91,9 +91,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Bump Go toolchain to 1.26.5 for GO-2026-5856 ([#683](https://github.com/EvilBit-Labs/opnDossier/pull/683))
 
-- **release**: Prepare v1.6.0
-
-
 ### Fixed
 
 - **ci**: Fix govulncheck crash, remediate stdlib CVEs, unblock Dependabot coverage ([#656](https://github.com/EvilBit-Labs/opnDossier/pull/656))
