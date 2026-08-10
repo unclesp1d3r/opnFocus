@@ -23,13 +23,13 @@ func TestNewPluginManager(t *testing.T) {
 
 	logger := newTestLogger(t)
 
+	// NewPluginManager always returns a non-nil value, so these subtests assert
+	// on its fields directly. A nil check would be dead code and trips
+	// staticcheck SA5011 on every subsequent field access.
 	t.Run("nil registry allocates a private one", func(t *testing.T) {
 		t.Parallel()
 
 		manager := NewPluginManager(logger, nil)
-		if manager == nil {
-			t.Fatal("NewPluginManager() returned nil")
-		}
 		if manager.registry == nil {
 			t.Error("NewPluginManager(nil) registry not initialized")
 		}
@@ -43,9 +43,6 @@ func TestNewPluginManager(t *testing.T) {
 
 		reg := NewPluginRegistry()
 		manager := NewPluginManager(logger, reg)
-		if manager == nil {
-			t.Fatal("NewPluginManager() returned nil")
-		}
 		if manager.registry != reg {
 			t.Error(
 				"NewPluginManager(reg) did not retain the supplied registry; a second registry was allocated — see todo #143",
