@@ -5,6 +5,35 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.7.0] - 2026-08-10
+
+### Added
+
+- **audit**: Shared detection engine + blue-mode analysis (slice 1) ([#694](https://github.com/EvilBit-Labs/opnDossier/pull/694))
+
+- **audit**: Red audit lens — observation-driven exposure analysis (#281 slice 2) ([#695](https://github.com/EvilBit-Labs/opnDossier/pull/695))
+
+- **performance**: Add documentation on memoizing recursive graph resolution to prevent exponential output size
+
+- **audit**: Firewall rule shadowing detection ([#696](https://github.com/EvilBit-Labs/opnDossier/pull/696))
+
+- Unused named-object (alias) detection ([#710](https://github.com/EvilBit-Labs/opnDossier/pull/710))
+
+
+### Changed
+
+- **releasing**: Clarify GoReleaser publishes on tag push
+
+- **readme**: Update Pinning SHA example to v1.6.0
+
+- Remove benchmark workflow, keep benchmarks as local recipes ([#697](https://github.com/EvilBit-Labs/opnDossier/pull/697))
+
+
+### Fixed
+
+- **sanitizer**: Redact NetBird setupKey enrollment token ([#728](https://github.com/EvilBit-Labs/opnDossier/pull/728))
+
+
 ## [1.6.0] - 2026-07-17
 
 ### Added
@@ -61,7 +90,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Modernize issue templates, add SUPPORT.md and FUNDING.yml ([#676](https://github.com/EvilBit-Labs/opnDossier/pull/676))
 
 - Bump Go toolchain to 1.26.5 for GO-2026-5856 ([#683](https://github.com/EvilBit-Labs/opnDossier/pull/683))
-
 
 ### Fixed
 
