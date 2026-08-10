@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/EvilBit-Labs/opnDossier/internal/constants"
 	common "github.com/EvilBit-Labs/opnDossier/pkg/model"
 	"github.com/nao1215/markdown"
 )
@@ -71,7 +72,7 @@ func (b *MarkdownBuilder) writeAuditPluginSections(md *markdown.Markdown, cc *co
 func writeAuditSecurityAndInventory(md *markdown.Markdown, cc *common.ComplianceResults) {
 	var securityFindings, inventoryFindings []common.ComplianceFinding
 	for _, f := range cc.Findings {
-		if f.Type == findingTypeInventory {
+		if f.Type == constants.FindingTypeInventory {
 			inventoryFindings = append(inventoryFindings, f)
 		} else {
 			securityFindings = append(securityFindings, f)
@@ -79,7 +80,7 @@ func writeAuditSecurityAndInventory(md *markdown.Markdown, cc *common.Compliance
 	}
 	for _, pluginName := range slices.Sorted(maps.Keys(cc.PluginResults)) {
 		for _, f := range cc.PluginResults[pluginName].Findings {
-			if f.Type == findingTypeInventory {
+			if f.Type == constants.FindingTypeInventory {
 				inventoryFindings = append(inventoryFindings, f)
 			}
 		}
@@ -293,7 +294,7 @@ func (b *MarkdownBuilder) writePluginFindingsTable(
 
 	for _, f := range result.Findings {
 		// Inventory findings are rendered in Configuration Notes, not the findings table.
-		if f.Type == findingTypeInventory {
+		if f.Type == constants.FindingTypeInventory {
 			continue
 		}
 

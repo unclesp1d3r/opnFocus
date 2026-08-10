@@ -28,6 +28,12 @@ const (
 
 	// FindingTypeSecurity identifies security-related audit findings.
 	FindingTypeSecurity = "security"
+	// FindingTypeCompliance identifies findings raised against a compliance control.
+	FindingTypeCompliance = "compliance"
+	// FindingTypeInventory identifies informational inventory findings. These are
+	// excluded from the compliance map and rendered as configuration notes rather
+	// than security findings.
+	FindingTypeInventory = "inventory"
 
 	// ThemeLight specifies the light color theme for terminal output.
 	ThemeLight = "light"

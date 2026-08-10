@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/EvilBit-Labs/opnDossier/internal/compliance"
+	"github.com/EvilBit-Labs/opnDossier/internal/constants"
 	common "github.com/EvilBit-Labs/opnDossier/pkg/model"
 )
 
@@ -270,7 +271,7 @@ func (fp *Plugin) RunChecks(
 		}
 
 		findings = append(findings, compliance.Finding{
-			Type:           "compliance",
+			Type:           constants.FindingTypeCompliance,
 			Severity:       fp.severityByID[entry.controlID],
 			Title:          entry.title,
 			Description:    entry.description,
@@ -287,7 +288,7 @@ func (fp *Plugin) RunChecks(
 	findings = append(findings, newFindings...)
 	evaluated = append(evaluated, newEvaluated...)
 
-	// Run inventory checks (FIREWALL-062+) — Type: "inventory", excluded from
+	// Run inventory checks (FIREWALL-062+) — constants.FindingTypeInventory, excluded from
 	// compliance map. Inventory controls are NOT appended to evaluated because
 	// they are informational and do not participate in compliance pass/fail.
 	findings = append(findings, fp.runInventoryChecks(device)...)

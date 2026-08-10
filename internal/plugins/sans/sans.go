@@ -3,6 +3,7 @@ package sans
 
 import (
 	"github.com/EvilBit-Labs/opnDossier/internal/compliance"
+	"github.com/EvilBit-Labs/opnDossier/internal/constants"
 	common "github.com/EvilBit-Labs/opnDossier/pkg/model"
 )
 
@@ -338,7 +339,7 @@ func (sp *Plugin) finding(id, title, description, recommendation, component stri
 	tags = append(tags, "sans")
 
 	return compliance.Finding{
-		Type:           "compliance",
+		Type:           constants.FindingTypeCompliance,
 		Severity:       sp.controlSeverity(id),
 		Title:          title,
 		Description:    description,

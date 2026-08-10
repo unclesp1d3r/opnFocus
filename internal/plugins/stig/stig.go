@@ -176,7 +176,7 @@ func (sp *Plugin) RunChecks(
 	// V-206694: Default deny policy
 	if !sp.hasDefaultDenyPolicy(device) {
 		findings = append(findings, compliance.Finding{
-			Type:           "compliance",
+			Type:           constants.FindingTypeCompliance,
 			Severity:       sp.controlSeverity("V-206694"),
 			Title:          "Missing Default Deny Policy",
 			Description:    "Firewall does not implement a default deny policy for all traffic",
@@ -191,7 +191,7 @@ func (sp *Plugin) RunChecks(
 	// V-206674: Specific packet filtering
 	if sp.hasOverlyPermissiveRules(device) {
 		findings = append(findings, compliance.Finding{
-			Type:           "compliance",
+			Type:           constants.FindingTypeCompliance,
 			Severity:       sp.controlSeverity("V-206674"),
 			Title:          "Overly Permissive Firewall Rules",
 			Description:    "Firewall contains rules that are too broad or permissive",
@@ -206,7 +206,7 @@ func (sp *Plugin) RunChecks(
 	// V-206690: Unnecessary services
 	if sp.hasUnnecessaryServices(device) {
 		findings = append(findings, compliance.Finding{
-			Type:           "compliance",
+			Type:           constants.FindingTypeCompliance,
 			Severity:       sp.controlSeverity("V-206690"),
 			Title:          "Unnecessary Network Services Enabled",
 			Description:    "Firewall has unnecessary network services enabled",
@@ -221,7 +221,7 @@ func (sp *Plugin) RunChecks(
 	// V-206682: Comprehensive logging
 	if !sp.hasComprehensiveLogging(device) {
 		findings = append(findings, compliance.Finding{
-			Type:           "compliance",
+			Type:           constants.FindingTypeCompliance,
 			Severity:       sp.controlSeverity("V-206682"),
 			Title:          "Insufficient Firewall Logging",
 			Description:    "Firewall does not generate comprehensive logs for all traffic",
@@ -236,7 +236,7 @@ func (sp *Plugin) RunChecks(
 	// V-206701: DoS prevention filters (rate limiting on rules)
 	if !sp.hasDoSPreventionFilters(device) {
 		findings = append(findings, compliance.Finding{
-			Type:           "compliance",
+			Type:           constants.FindingTypeCompliance,
 			Severity:       sp.controlSeverity("V-206701"),
 			Title:          "Missing DoS Prevention Filters",
 			Description:    "Firewall does not implement rate limiting or connection throttling on pass rules",
@@ -262,7 +262,7 @@ func (sp *Plugin) RunChecks(
 			{"V-206681", "Source Information Logging Not Configured", "Firewall does not log source IP/identifier information"},
 		} {
 			findings = append(findings, compliance.Finding{
-				Type:           "compliance",
+				Type:           constants.FindingTypeCompliance,
 				Severity:       sp.controlSeverity(ctrl.id),
 				Title:          ctrl.title,
 				Description:    ctrl.desc,
@@ -279,7 +279,7 @@ func (sp *Plugin) RunChecks(
 	// We can partially check: is IDS enabled?
 	if !sp.hasDoSAlerting(device) {
 		findings = append(findings, compliance.Finding{
-			Type:           "compliance",
+			Type:           constants.FindingTypeCompliance,
 			Severity:       sp.controlSeverity("V-206711"),
 			Title:          "DoS Incident Alerting Not Configured",
 			Description:    "Firewall does not have IDS/IPS-based DoS alerting configured",

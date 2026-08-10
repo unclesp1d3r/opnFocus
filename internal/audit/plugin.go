@@ -15,6 +15,7 @@ import (
 
 	"github.com/EvilBit-Labs/opnDossier/internal/analysis"
 	"github.com/EvilBit-Labs/opnDossier/internal/compliance"
+	"github.com/EvilBit-Labs/opnDossier/internal/constants"
 	"github.com/EvilBit-Labs/opnDossier/internal/logging"
 	common "github.com/EvilBit-Labs/opnDossier/pkg/model"
 )
@@ -396,14 +397,14 @@ func invokePluginWithRecovery(
 }
 
 // applyFindingsToCompliance flips evaluated controls referenced by non-inventory
-// findings to false (non-compliant). Inventory findings (Type: "inventory") are
+// findings to false (non-compliant). Inventory findings (constants.FindingTypeInventory) are
 // informational observations and deliberately skipped — their referenced
 // controls are not in the evaluated slice and thus not in the compliance map,
 // so the flip would be a no-op. We skip them explicitly for clarity and to
 // guard against accidental map pollution.
 func applyFindingsToCompliance(out map[string]bool, findings []compliance.Finding) {
 	for _, finding := range findings {
-		if finding.Type == "inventory" {
+		if finding.Type == constants.FindingTypeInventory {
 			continue
 		}
 		for _, ref := range finding.References {

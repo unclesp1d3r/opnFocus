@@ -51,6 +51,14 @@ func TestFindingTypeConstant(t *testing.T) {
 	if FindingTypeSecurity != "security" {
 		t.Errorf("FindingTypeSecurity = %q, want %q", FindingTypeSecurity, "security")
 	}
+
+	if FindingTypeCompliance != "compliance" {
+		t.Errorf("FindingTypeCompliance = %q, want %q", FindingTypeCompliance, "compliance")
+	}
+
+	if FindingTypeInventory != "inventory" {
+		t.Errorf("FindingTypeInventory = %q, want %q", FindingTypeInventory, "inventory")
+	}
 }
 
 func TestThemeConstants(t *testing.T) {
