@@ -288,7 +288,7 @@ func (fp *Plugin) RunChecks(
 	findings = append(findings, newFindings...)
 	evaluated = append(evaluated, newEvaluated...)
 
-	// Run inventory checks (FIREWALL-062+) — constants.FindingTypeInventory, excluded from
+	// Run inventory checks (FIREWALL-062+) — Type: constants.FindingTypeInventory, excluded from
 	// compliance map. Inventory controls are NOT appended to evaluated because
 	// they are informational and do not participate in compliance pass/fail.
 	findings = append(findings, fp.runInventoryChecks(device)...)
