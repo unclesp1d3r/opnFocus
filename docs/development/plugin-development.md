@@ -20,6 +20,7 @@ All plugins must implement the `compliance.Plugin` interface:
 ```go
 import (
     "github.com/EvilBit-Labs/opnDossier/internal/compliance"
+    "github.com/EvilBit-Labs/opnDossier/internal/constants"
     common "github.com/EvilBit-Labs/opnDossier/pkg/model"
 )
 
@@ -44,7 +45,7 @@ The `Finding` struct is generic and uses `References`, `Tags`, and `Metadata` fi
 
 ```go
 // compliance.Finding
-Type           string            // Category (e.g., "compliance")
+Type           string            // Category; use a constants.FindingType* value (e.g., constants.FindingTypeCompliance)
 Severity       common.Severity   // Severity level: use constants like common.SeverityCritical, common.SeverityHigh, etc.
 Title          string
 Description    string
@@ -88,6 +89,7 @@ package plugins
 import (
     "fmt"
     "github.com/EvilBit-Labs/opnDossier/internal/compliance"
+    "github.com/EvilBit-Labs/opnDossier/internal/constants"
     common "github.com/EvilBit-Labs/opnDossier/pkg/model"
 )
 
@@ -154,7 +156,7 @@ func (cp *CustomPlugin) RunChecks(
     // evaluated in the same single traversal.
     evaluated = append(evaluated, "CUSTOM-001")
     findings = append(findings, compliance.Finding{
-        Type:           "compliance",
+        Type:           constants.FindingTypeCompliance,
         Severity:       cp.controlSeverity("CUSTOM-001"),
         Title:          "Missing Custom Security Feature",
         Description:    "The configuration is missing required custom security feature",
@@ -176,6 +178,7 @@ package main
 
 import (
     "github.com/EvilBit-Labs/opnDossier/internal/compliance"
+    "github.com/EvilBit-Labs/opnDossier/internal/constants"
     common "github.com/EvilBit-Labs/opnDossier/pkg/model"
 )
 
@@ -359,7 +362,7 @@ The audit engine requires the `Finding.Severity` field to generate accurate seve
 
    ```go
    findings = append(findings, compliance.Finding{
-       Type:           "compliance",
+       Type:           constants.FindingTypeCompliance,
        Severity:       p.controlSeverity("MY-PLUGIN-001"),
        Title:          "Example Finding",
        Description:    "Description of the issue",
