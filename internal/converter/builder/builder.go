@@ -16,10 +16,6 @@ import (
 // destinationAny is the canonical string used to represent an unrestricted destination in firewall rules.
 const destinationAny = "any"
 
-// findingTypeInventory is the Type value for informational inventory findings
-// that are rendered in "Configuration Notes" rather than "Security Findings".
-const findingTypeInventory = "inventory"
-
 // SectionBuilder defines methods for building individual report sections.
 // Each method renders a specific configuration domain into a markdown string
 // or returns an empty string when the section has no data.

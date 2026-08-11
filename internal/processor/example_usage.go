@@ -223,7 +223,7 @@ func ExampleCustomCheck() CustomCheck {
 
 			if cfg.Theme == "" {
 				findings = append(findings, Finding{
-					Type:           "ui",
+					Type:           constants.FindingTypeUI,
 					Title:          "Default Theme in Use",
 					Description:    "The system is using the default theme.",
 					Recommendation: "Consider setting a specific theme for consistency.",

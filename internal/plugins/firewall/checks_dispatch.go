@@ -3,6 +3,7 @@ package firewall
 
 import (
 	"github.com/EvilBit-Labs/opnDossier/internal/compliance"
+	"github.com/EvilBit-Labs/opnDossier/internal/constants"
 	common "github.com/EvilBit-Labs/opnDossier/pkg/model"
 )
 
@@ -355,7 +356,7 @@ func (fp *Plugin) runNewChecks(device *common.CommonDevice) ([]compliance.Findin
 		}
 
 		findings = append(findings, compliance.Finding{
-			Type:           "compliance",
+			Type:           constants.FindingTypeCompliance,
 			Severity:       fp.controlSeverity(entry.controlID),
 			Title:          entry.title,
 			Description:    entry.description,

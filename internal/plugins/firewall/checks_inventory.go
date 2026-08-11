@@ -6,11 +6,12 @@ import (
 	"strings"
 
 	"github.com/EvilBit-Labs/opnDossier/internal/compliance"
+	"github.com/EvilBit-Labs/opnDossier/internal/constants"
 	common "github.com/EvilBit-Labs/opnDossier/pkg/model"
 )
 
 // runInventoryChecks produces informational findings for configuration inventory.
-// These use Type: "inventory" and are excluded from the compliance map — they
+// These use constants.FindingTypeInventory and are excluded from the compliance map — they
 // are intentionally NOT appended to RunChecks' evaluated slice and therefore
 // do not affect pass/fail status.
 func (fp *Plugin) runInventoryChecks(device *common.CommonDevice) []compliance.Finding {
@@ -19,7 +20,7 @@ func (fp *Plugin) runInventoryChecks(device *common.CommonDevice) []compliance.F
 	// FIREWALL-062: DHCP Scope Inventory
 	if cr := fp.checkDHCPInventory(device); cr.Known && cr.Result {
 		findings = append(findings, compliance.Finding{
-			Type:        "inventory",
+			Type:        constants.FindingTypeInventory,
 			Severity:    fp.controlSeverity("FIREWALL-062"),
 			Title:       "DHCP Scopes Configured",
 			Description: fp.dhcpInventoryDescription(device),
@@ -33,7 +34,7 @@ func (fp *Plugin) runInventoryChecks(device *common.CommonDevice) []compliance.F
 	// FIREWALL-063: Active Interface Summary
 	if cr := fp.checkActiveInterfaces(device); cr.Known && cr.Result {
 		findings = append(findings, compliance.Finding{
-			Type:        "inventory",
+			Type:        constants.FindingTypeInventory,
 			Severity:    fp.controlSeverity("FIREWALL-063"),
 			Title:       "Active Interfaces",
 			Description: fp.interfaceInventoryDescription(device),
