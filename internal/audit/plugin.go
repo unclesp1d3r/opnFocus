@@ -356,7 +356,7 @@ func (pr *PluginRegistry) runPluginChecks(
 	for _, id := range evaluated {
 		complianceMap[id] = true
 	}
-	applyFindingsToCompliance(complianceMap, findings)
+	applyFindingsToCompliance(complianceMap, findings, pluginName, logger)
 	result.Compliance[pluginName] = complianceMap
 	return nil
 }
@@ -397,20 +397,66 @@ func invokePluginWithRecovery(
 }
 
 // applyFindingsToCompliance flips evaluated controls referenced by non-inventory
-// findings to false (non-compliant). Inventory findings (constants.FindingTypeInventory) are
-// informational observations and deliberately skipped — their referenced
-// controls are not in the evaluated slice and thus not in the compliance map,
-// so the flip would be a no-op. We skip them explicitly for clarity and to
-// guard against accidental map pollution.
-func applyFindingsToCompliance(out map[string]bool, findings []compliance.Finding) {
+// findings to false (non-compliant). Inventory findings
+// (constants.FindingTypeInventory) are informational observations and
+// deliberately skipped — for first-party plugins their referenced controls are
+// not in the evaluated slice and thus not in the compliance map, so the flip
+// would be a no-op. We skip them explicitly for clarity and to guard against
+// accidental map pollution.
+//
+// A reference to a control absent from the map injects it as false, promoting an
+// unconfirmed control to an evaluated failing one. That is intentional — a
+// finding is evidence the control failed — but it means a control-ID typo in a
+// plugin surfaces as a failing control rather than being ignored.
+//
+// logger may be nil, in which case the diagnostics below are skipped.
+func applyFindingsToCompliance(
+	out map[string]bool,
+	findings []compliance.Finding,
+	pluginName string,
+	logger *logging.Logger,
+) {
 	for _, finding := range findings {
 		if finding.Type == constants.FindingTypeInventory {
+			// The inventory exemption is the one path that can suppress a
+			// compliance failure. Finding.Type is an unvalidated string from an
+			// arbitrary plugin, so a finding mislabeled "inventory" would exempt
+			// itself silently. A high or critical severity on an inventory
+			// finding is almost certainly that mislabel — warn rather than
+			// swallow it. The exemption still applies: this surfaces the
+			// suspicious input without letting a plugin change gate behavior.
+			if isEscalatedSeverity(finding.Severity) && logger != nil {
+				logger.Warn(
+					"inventory-typed finding carries escalated severity; compliance flip suppressed",
+					"plugin", pluginName,
+					"title", finding.Title,
+					"severity", finding.Severity,
+					"references", finding.References,
+				)
+			}
+
 			continue
 		}
+
+		if !constants.IsValidFindingType(finding.Type) && logger != nil {
+			logger.Warn(
+				"finding carries an unrecognized Type; treated as compliance-affecting",
+				"plugin", pluginName,
+				"title", finding.Title,
+				"type", finding.Type,
+			)
+		}
+
 		for _, ref := range finding.References {
 			out[ref] = false
 		}
 	}
+}
+
+// isEscalatedSeverity reports whether s is a severity that should never appear
+// on an informational inventory finding.
+func isEscalatedSeverity(s string) bool {
+	return s == string(analysis.SeverityCritical) || s == string(analysis.SeverityHigh)
 }
 
 // deduplicatePluginNames normalizes names to lowercase and returns a new slice

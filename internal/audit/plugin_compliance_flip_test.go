@@ -1,10 +1,12 @@
 package audit
 
 import (
+	"bytes"
 	"maps"
 	"testing"
 
 	"github.com/EvilBit-Labs/opnDossier/internal/compliance"
+	"github.com/EvilBit-Labs/opnDossier/internal/logging"
 	common "github.com/EvilBit-Labs/opnDossier/pkg/model"
 	"github.com/stretchr/testify/assert"
 )
@@ -125,7 +127,7 @@ func TestApplyFindingsToCompliance(t *testing.T) {
 			maps.Copy(out, tt.initial)
 
 			// Act
-			applyFindingsToCompliance(out, tt.findings)
+			applyFindingsToCompliance(out, tt.findings, "test-plugin", nil)
 
 			// Assert
 			assert.Equal(t, tt.expected, out)
@@ -197,4 +199,85 @@ func TestRunComplianceChecks_InventorySkipThroughPipeline(t *testing.T) {
 		"inventory finding must not flip its referenced control to non-compliant")
 	assert.False(t, pluginCompliance["CONTROL-SEC"],
 		"compliance finding must flip its referenced control to non-compliant")
+}
+
+// TestApplyFindingsToCompliance_MislabelWarnings covers the two diagnostics that
+// keep the inventory exemption from being a silent suppression path. Finding.Type
+// is an unvalidated string supplied by an arbitrary plugin, including a
+// dynamically loaded one (GOTCHAS.md 2.5), so a finding mislabeled "inventory"
+// can exempt itself from the compliance flip. The exemption still applies — a
+// plugin must not be able to change gate behavior — but it no longer happens
+// without a trace.
+func TestApplyFindingsToCompliance_MislabelWarnings(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name        string
+		finding     compliance.Finding
+		wantLogged  string
+		wantFlipped bool
+	}{
+		{
+			name: "escalated severity on an inventory finding is warned",
+			finding: compliance.Finding{
+				Type:       "inventory",
+				Severity:   "critical",
+				Title:      "Mislabeled as inventory",
+				References: []string{"CONTROL-A"},
+			},
+			wantLogged:  "escalated severity",
+			wantFlipped: false,
+		},
+		{
+			name: "unrecognized type is warned and still treated as compliance-affecting",
+			finding: compliance.Finding{
+				Type:       "complaince",
+				Severity:   "high",
+				Title:      "Typo in the Type value",
+				References: []string{"CONTROL-A"},
+			},
+			wantLogged:  "unrecognized Type",
+			wantFlipped: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			// Arrange
+			var buf bytes.Buffer
+
+			logger, err := logging.New(logging.Config{Level: "warn", Output: &buf})
+			if err != nil {
+				t.Fatalf("logging.New() error = %v", err)
+			}
+
+			out := map[string]bool{"CONTROL-A": true}
+
+			// Act
+			applyFindingsToCompliance(out, []compliance.Finding{tt.finding}, "test-plugin", logger)
+
+			// Assert
+			assert.Contains(t, buf.String(), tt.wantLogged)
+			assert.Equal(t, !tt.wantFlipped, out["CONTROL-A"])
+		})
+	}
+}
+
+// TestApplyFindingsToCompliance_NilLoggerNoPanic pins that the diagnostics above
+// are optional. The unit table passes a nil logger throughout, so a regression
+// that dereferenced it unconditionally would surface here rather than as a panic
+// deep in an unrelated test.
+func TestApplyFindingsToCompliance_NilLoggerNoPanic(t *testing.T) {
+	t.Parallel()
+
+	out := map[string]bool{"CONTROL-A": true}
+
+	assert.NotPanics(t, func() {
+		applyFindingsToCompliance(out, []compliance.Finding{
+			{Type: "inventory", Severity: "critical", References: []string{"CONTROL-A"}},
+			{Type: "complaince", Severity: "high", References: []string{"CONTROL-A"}},
+		}, "test-plugin", nil)
+	})
 }
