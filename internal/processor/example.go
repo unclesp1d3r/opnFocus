@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/EvilBit-Labs/opnDossier/internal/constants"
 	common "github.com/EvilBit-Labs/opnDossier/pkg/model"
 )
 
@@ -80,7 +81,7 @@ func (p *ExampleProcessor) performBasicAnalysis(
 	// Basic configuration checks
 	if cfg.System.Hostname == "" {
 		report.AddFinding(SeverityCritical, Finding{
-			Type:           "configuration",
+			Type:           constants.FindingTypeConfiguration,
 			Title:          "Missing Hostname",
 			Description:    "The system hostname is not configured.",
 			Recommendation: "Configure a hostname for the system to improve identification and management.",
@@ -90,7 +91,7 @@ func (p *ExampleProcessor) performBasicAnalysis(
 
 	if cfg.System.Domain == "" {
 		report.AddFinding(SeverityMedium, Finding{
-			Type:           "configuration",
+			Type:           constants.FindingTypeConfiguration,
 			Title:          "Missing Domain Name",
 			Description:    "The system domain name is not configured.",
 			Recommendation: "Configure a domain name for proper FQDN resolution.",
@@ -101,7 +102,7 @@ func (p *ExampleProcessor) performBasicAnalysis(
 	// Check for default/weak configurations
 	if cfg.System.WebGUI.Protocol == "http" {
 		report.AddFinding(SeverityHigh, Finding{
-			Type:           "security",
+			Type:           constants.FindingTypeSecurity,
 			Title:          "Insecure Web GUI Protocol",
 			Description:    "The web GUI is configured to use HTTP instead of HTTPS.",
 			Recommendation: "Configure the web GUI to use HTTPS for secure access.",
@@ -128,7 +129,7 @@ func (p *ExampleProcessor) performDeadRuleAnalysis(
 	rules := cfg.FirewallRules
 	if len(rules) == 0 {
 		report.AddFinding(SeverityInfo, Finding{
-			Type:           "configuration",
+			Type:           constants.FindingTypeConfiguration,
 			Title:          "No Firewall Rules Configured",
 			Description:    "No firewall rules are configured in the system.",
 			Recommendation: "Consider configuring appropriate firewall rules for security.",
@@ -149,7 +150,7 @@ func (p *ExampleProcessor) performDeadRuleAnalysis(
 
 	if rulesWithoutDescriptions > 0 {
 		report.AddFinding(SeverityLow, Finding{
-			Type:  "maintenance",
+			Type:  constants.FindingTypeMaintenance,
 			Title: "Firewall Rules Missing Descriptions",
 			Description: fmt.Sprintf(
 				"%d firewall rules are missing descriptions, making them difficult to maintain.",
@@ -178,7 +179,7 @@ func (p *ExampleProcessor) performSecurityAnalysis(
 	// Check for SSH configuration
 	if cfg.System.SSH.Group != "" {
 		report.AddFinding(SeverityInfo, Finding{
-			Type:           "security",
+			Type:           constants.FindingTypeSecurity,
 			Title:          "SSH Access Enabled",
 			Description:    "SSH access is enabled for the system.",
 			Recommendation: "Ensure SSH access is properly secured with key-based authentication and restricted to authorized users only.",
@@ -190,7 +191,7 @@ func (p *ExampleProcessor) performSecurityAnalysis(
 	if cfg.SNMP.ROCommunity != "" {
 		if cfg.SNMP.ROCommunity == "public" {
 			report.AddFinding(SeverityHigh, Finding{
-				Type:           "security",
+				Type:           constants.FindingTypeSecurity,
 				Title:          "Default SNMP Community String",
 				Description:    "SNMP is configured with the default 'public' community string.",
 				Recommendation: "Change the SNMP community string to a secure, non-default value.",
@@ -198,7 +199,7 @@ func (p *ExampleProcessor) performSecurityAnalysis(
 			})
 		} else {
 			report.AddFinding(SeverityLow, Finding{
-				Type:           "security",
+				Type:           constants.FindingTypeSecurity,
 				Title:          "SNMP Enabled",
 				Description:    "SNMP is enabled on the system.",
 				Recommendation: "Ensure SNMP access is restricted to authorized networks and users.",
@@ -225,7 +226,7 @@ func (p *ExampleProcessor) performPerformanceAnalysis(
 	// Check system optimization settings
 	if cfg.System.Optimization == "" {
 		report.AddFinding(SeverityInfo, Finding{
-			Type:           "performance",
+			Type:           constants.FindingTypePerformance,
 			Title:          "System Optimization Not Configured",
 			Description:    "System optimization level is not explicitly configured.",
 			Recommendation: "Consider configuring an appropriate optimization level based on your system's hardware and usage patterns.",
@@ -236,7 +237,7 @@ func (p *ExampleProcessor) performPerformanceAnalysis(
 	// Check for hardware offloading settings
 	if cfg.System.DisableChecksumOffloading {
 		report.AddFinding(SeverityInfo, Finding{
-			Type:           "performance",
+			Type:           constants.FindingTypePerformance,
 			Title:          "Checksum Offloading Disabled",
 			Description:    "Hardware checksum offloading is disabled.",
 			Recommendation: "Evaluate whether enabling checksum offloading would improve performance in your environment.",
@@ -277,7 +278,7 @@ func (p *ExampleProcessor) performComplianceCheck(
 func checkAdminUsers(cfg *common.CommonDevice, report *Report) {
 	if len(cfg.Users) == 0 {
 		report.AddFinding(SeverityCritical, Finding{
-			Type:           "compliance",
+			Type:           constants.FindingTypeCompliance,
 			Title:          "No Administrative Users Configured",
 			Description:    "No administrative users are configured in the system.",
 			Recommendation: "Configure at least one administrative user account for system management.",
@@ -307,7 +308,7 @@ func checkAdminUsers(cfg *common.CommonDevice, report *Report) {
 
 	if !enabledAdminFound {
 		report.AddFinding(SeverityCritical, Finding{
-			Type:           "compliance",
+			Type:           constants.FindingTypeCompliance,
 			Title:          "No Administrative Users Configured",
 			Description:    "No enabled administrative users are configured in the system.",
 			Recommendation: "Ensure at least one enabled administrative user account is available for system management.",
@@ -318,7 +319,7 @@ func checkAdminUsers(cfg *common.CommonDevice, report *Report) {
 
 	if len(disabledAdminUsers) > 0 {
 		report.AddFinding(SeverityMedium, Finding{
-			Type:  "compliance",
+			Type:  constants.FindingTypeCompliance,
 			Title: "Weak User Account Configuration",
 			Description: fmt.Sprintf(
 				"Administrative users are disabled: %s.",
@@ -346,7 +347,7 @@ func checkTimeSync(cfg *common.CommonDevice, report *Report) {
 		return
 	}
 	report.AddFinding(SeverityMedium, Finding{
-		Type:           "compliance",
+		Type:           constants.FindingTypeCompliance,
 		Title:          "Time Synchronization Not Configured",
 		Description:    "No time servers or NTP configuration is present.",
 		Recommendation: "Configure time synchronization to ensure accurate timestamps for logging and security.",
@@ -357,7 +358,7 @@ func checkTimeSync(cfg *common.CommonDevice, report *Report) {
 func checkAuditLogging(cfg *common.CommonDevice, report *Report) {
 	if !cfg.Syslog.Enabled {
 		report.AddFinding(SeverityHigh, Finding{
-			Type:           "compliance",
+			Type:           constants.FindingTypeCompliance,
 			Title:          "Audit Logging Not Configured",
 			Description:    "Syslog is disabled, preventing audit events from being recorded.",
 			Recommendation: "Enable comprehensive audit logging including system, authentication, and firewall events. Configure remote syslog server for compliance and forensic analysis.",
@@ -380,7 +381,7 @@ func checkAuditLogging(cfg *common.CommonDevice, report *Report) {
 
 	if len(missingCategories) > 0 {
 		report.AddFinding(SeverityMedium, Finding{
-			Type:  "compliance",
+			Type:  constants.FindingTypeCompliance,
 			Title: "Incomplete Audit Logging",
 			Description: fmt.Sprintf(
 				"Syslog is enabled but missing critical categories: %s.",
@@ -399,7 +400,7 @@ func checkAuditLogging(cfg *common.CommonDevice, report *Report) {
 		cfg.Syslog.RemoteServer3 != ""
 	if !remoteConfigured {
 		report.AddFinding(SeverityLow, Finding{
-			Type:           "compliance",
+			Type:           constants.FindingTypeCompliance,
 			Title:          "Remote Audit Logging Not Configured",
 			Description:    "Syslog is enabled locally, but no remote syslog server is configured for log retention and monitoring.",
 			Recommendation: "Configure a remote syslog server to ensure logs are preserved off-device for compliance requirements, forensic analysis, and protection against log tampering.",

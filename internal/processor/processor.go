@@ -10,6 +10,7 @@ import (
 	"runtime/debug"
 	"strings"
 
+	"github.com/EvilBit-Labs/opnDossier/internal/constants"
 	"github.com/EvilBit-Labs/opnDossier/internal/converter"
 	"github.com/EvilBit-Labs/opnDossier/internal/logging"
 	common "github.com/EvilBit-Labs/opnDossier/pkg/model"
@@ -134,7 +135,7 @@ func (p *CoreProcessor) Process(ctx context.Context, cfg *common.CommonDevice, o
 		}
 
 		report.AddFinding(severity, Finding{
-			Type:        "validation",
+			Type:        constants.FindingTypeValidation,
 			Title:       "Configuration Validation Error",
 			Description: validationErr.Error(),
 			Component:   validationErr.Field,

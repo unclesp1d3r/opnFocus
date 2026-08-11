@@ -47,7 +47,7 @@ func (p *CoreProcessor) analyzeDeadRules(cfg *common.CommonDevice, report *Repor
 		switch f.Kind {
 		case common.DeadRuleKindDuplicate:
 			report.AddFinding(SeverityLow, Finding{
-				Type:           "duplicate-rule",
+				Type:           constants.FindingTypeDuplicateRule,
 				Title:          "Duplicate Firewall Rule",
 				Description:    f.Description,
 				Component:      fmt.Sprintf("filter.rule[%d]", f.RuleIndex),
@@ -55,7 +55,7 @@ func (p *CoreProcessor) analyzeDeadRules(cfg *common.CommonDevice, report *Repor
 			})
 		default:
 			report.AddFinding(SeverityMedium, Finding{
-				Type:           "dead-rule",
+				Type:           constants.FindingTypeDeadRule,
 				Title:          "Unreachable Rules After Block All",
 				Description:    f.Description,
 				Component:      fmt.Sprintf("filter.rule[%d]", f.RuleIndex),
@@ -97,7 +97,7 @@ func (p *CoreProcessor) analyzeUnusedInterfaces(cfg *common.CommonDevice, report
 	unused := analysis.DetectUnusedInterfaces(cfg)
 	for _, f := range unused {
 		report.AddFinding(SeverityLow, Finding{
-			Type:           "unused-interface",
+			Type:           constants.FindingTypeUnusedInterface,
 			Title:          "Unused Network Interface",
 			Description:    f.Description,
 			Component:      "interfaces." + f.InterfaceName,
@@ -111,7 +111,7 @@ func (p *CoreProcessor) analyzeConsistency(cfg *common.CommonDevice, report *Rep
 	issues := analysis.DetectConsistency(cfg)
 	for _, f := range issues {
 		report.AddFinding(mapSeverity(f.Severity), Finding{
-			Type:           "consistency",
+			Type:           constants.FindingTypeConsistency,
 			Title:          f.Issue,
 			Description:    f.Description,
 			Component:      f.Component,
@@ -160,7 +160,7 @@ func (p *CoreProcessor) analyzePerformanceIssues(cfg *common.CommonDevice, repor
 
 	for _, f := range issues {
 		report.AddFinding(mapSeverity(f.Severity), Finding{
-			Type:           "performance",
+			Type:           constants.FindingTypePerformance,
 			Title:          f.Issue,
 			Description:    f.Description,
 			Component:      f.Component,

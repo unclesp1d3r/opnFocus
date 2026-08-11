@@ -48,16 +48,87 @@ func TestProtocolConstant(t *testing.T) {
 }
 
 func TestFindingTypeConstant(t *testing.T) {
-	if FindingTypeSecurity != "security" {
-		t.Errorf("FindingTypeSecurity = %q, want %q", FindingTypeSecurity, "security")
+	// Expected values are raw literals on purpose. Comparing a constant to
+	// itself would prove nothing; these pin the wire values that routing logic
+	// and existing tests across other packages depend on.
+	tests := []struct {
+		name     string
+		got      string
+		expected string
+	}{
+		{"FindingTypeSecurity", FindingTypeSecurity, "security"},
+		{"FindingTypeCompliance", FindingTypeCompliance, "compliance"},
+		{"FindingTypeInventory", FindingTypeInventory, "inventory"},
+		{"FindingTypePerformance", FindingTypePerformance, "performance"},
+		{"FindingTypeHygiene", FindingTypeHygiene, "hygiene"},
+		{"FindingTypeWANExposedService", FindingTypeWANExposedService, "wan-exposed-service"},
+		{"FindingTypePortForward", FindingTypePortForward, "port-forward"},
+		{"FindingTypeConfigWeakness", FindingTypeConfigWeakness, "config-weakness"},
+		{"FindingTypeConfiguration", FindingTypeConfiguration, "configuration"},
+		{"FindingTypeValidation", FindingTypeValidation, "validation"},
+		{"FindingTypeMaintenance", FindingTypeMaintenance, "maintenance"},
+		{"FindingTypeUI", FindingTypeUI, "ui"},
+		{"FindingTypeDuplicateRule", FindingTypeDuplicateRule, "duplicate-rule"},
+		{"FindingTypeDeadRule", FindingTypeDeadRule, "dead-rule"},
+		{"FindingTypeUnusedInterface", FindingTypeUnusedInterface, "unused-interface"},
+		{"FindingTypeConsistency", FindingTypeConsistency, "consistency"},
 	}
 
-	if FindingTypeCompliance != "compliance" {
-		t.Errorf("FindingTypeCompliance = %q, want %q", FindingTypeCompliance, "compliance")
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if tt.got != tt.expected {
+				t.Errorf("%s = %q, want %q", tt.name, tt.got, tt.expected)
+			}
+		})
+	}
+}
+
+func TestValidFindingTypesReturnsFreshCopy(t *testing.T) {
+	first := ValidFindingTypes()
+	if len(first) == 0 {
+		t.Fatal("ValidFindingTypes() returned an empty slice")
 	}
 
-	if FindingTypeInventory != "inventory" {
-		t.Errorf("FindingTypeInventory = %q, want %q", FindingTypeInventory, "inventory")
+	first[0] = "mutated"
+
+	if ValidFindingTypes()[0] == "mutated" {
+		t.Error("ValidFindingTypes() leaked shared state; callers can mutate the canonical list")
+	}
+}
+
+func TestValidFindingTypesCoversEveryConstant(t *testing.T) {
+	// Guards the drift this whole consolidation exists to prevent: a new
+	// FindingType* constant added without a matching ValidFindingTypes entry
+	// would make IsValidFindingType reject a legitimate value.
+	declared := []string{
+		FindingTypeSecurity, FindingTypeCompliance, FindingTypeInventory,
+		FindingTypePerformance, FindingTypeHygiene, FindingTypeWANExposedService,
+		FindingTypePortForward, FindingTypeConfigWeakness, FindingTypeConfiguration,
+		FindingTypeValidation, FindingTypeMaintenance, FindingTypeUI,
+		FindingTypeDuplicateRule, FindingTypeDeadRule, FindingTypeUnusedInterface,
+		FindingTypeConsistency,
+	}
+
+	if got, want := len(ValidFindingTypes()), len(declared); got != want {
+		t.Errorf("ValidFindingTypes() has %d entries, want %d", got, want)
+	}
+
+	for _, d := range declared {
+		if !IsValidFindingType(d) {
+			t.Errorf("IsValidFindingType(%q) = false, want true", d)
+		}
+	}
+}
+
+func TestIsValidFindingTypeRejectsUnknown(t *testing.T) {
+	tests := []string{"", "complaince", "Inventory", " inventory", "bogus"}
+
+	for _, tt := range tests {
+		t.Run(tt, func(t *testing.T) {
+			if IsValidFindingType(tt) {
+				t.Errorf("IsValidFindingType(%q) = true, want false", tt)
+			}
+		})
 	}
 }
 
