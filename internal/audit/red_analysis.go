@@ -326,7 +326,7 @@ func (r *Report) addWANExposedServices(services []exposedService, blackhat bool)
 			svc.recommendation,
 			svc.component,
 			&AttackSurface{
-				Type:            "wan-exposed-service",
+				Type:            constants.FindingTypeWANExposedService,
 				Ports:           portsOf(svc.port),
 				Services:        []string{svc.name},
 				Vulnerabilities: svc.vulnerabilities,
@@ -370,7 +370,7 @@ func (r *Report) addWeakNATRules(blackhat bool) {
 			"Restrict the source scope of the port forward and its associated pass rule, or remove the rule if the exposure is unnecessary.",
 			fmt.Sprintf("nat.inbound[%d]", i),
 			&AttackSurface{
-				Type:            "port-forward",
+				Type:            constants.FindingTypePortForward,
 				Ports:           portsOf(parsePort(nat.ExternalPort, unknownPort)),
 				Services:        natServices(nat),
 				Vulnerabilities: []string{"exposed-internal-host"},
@@ -462,7 +462,7 @@ func (r *Report) addAttackSurfaces(observations []analysis.Observation, blackhat
 			obs.Recommendation,
 			obs.Component,
 			&AttackSurface{
-				Type: "config-weakness",
+				Type: constants.FindingTypeConfigWeakness,
 				// Ports/Services have no omitempty, so emit empty slices (not
 				// nil) to keep the JSON shape consistent with the service and
 				// port-forward producers, which serialize [] rather than null.

@@ -68,7 +68,8 @@ The `.golangci.yml` `gocognit` linter is configured to fail at cognitive complex
 Reclassified info-severity controls (e.g., FIREWALL-003 "Message of the Day") participate in the compliance map normally — they can PASS or FAIL. Severity only affects presentation priority (summary counts, sort order), NOT compliance status. The compliance flip in `RunComplianceChecks` is never skipped based on severity.
 
 - **Gotcha:** A finding with `Severity == "info"` that references a control still flips that control to non-compliant. This is intentional — severity is triage priority, not compliance gating.
-- **Gotcha:** Inventory controls (`Type: "inventory"`) are excluded from `EvaluatedControlIDs` entirely and do not appear in the compliance map. They only appear in "Configuration Notes."
+- **Gotcha:** Inventory controls (`Type: constants.FindingTypeInventory`) are excluded from the `evaluated` slice `RunChecks` returns, so they never enter the compliance map. They only appear in "Configuration Notes." (This slice was historically called `EvaluatedControlIDs`; that field no longer exists.)
+- **Gotcha:** `applyFindingsToCompliance` skips inventory findings on an exact `Type` match, and `Finding.Type` is an unvalidated string supplied by the plugin. A finding mislabeled as inventory would exempt itself from the compliance flip, so the skip warns when an inventory-typed finding carries `high`/`critical` severity, and warns again on any `Type` that `constants.IsValidFindingType` does not recognize. The exemption still applies — a plugin must not be able to change gate behavior — but it is no longer silent.
 - **Gotcha:** `countSeverities` tracks unrecognized severity strings in a private `unknown` counter. Callers with loggers should warn when `counts.unknown > 0`.
 
 ### 2.5 Dynamic Plugin Trust Model

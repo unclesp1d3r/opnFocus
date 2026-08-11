@@ -45,7 +45,11 @@ jobs:
         uses: jdx/mise-action@7e36c90d9ab29c415a2384db3006f3ec8a8cc654 # v4.2.4
         with:
           install: true
-          cache: true
+          # Cache disabled on the release path: a poisoned runtime cache could
+          # substitute the toolchain that builds and verifies release artifacts,
+          # silently invalidating the integrity check. Releases are infrequent
+          # enough that the cache saves little. (zizmor: cache-poisoning)
+          cache: false
           github_token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Import GPG key
@@ -152,12 +156,12 @@ jobs:
           path: dist
 
       - name: Generate attestation for checksums
-        uses: actions/attest-build-provenance@0f67c3f4856b2e3261c31976d6725780e5e4c373 # v4.1.1
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
         with:
           subject-path: dist/*checksums*.txt
 
       - name: Generate attestation for archives
-        uses: actions/attest-build-provenance@0f67c3f4856b2e3261c31976d6725780e5e4c373 # v4.1.1
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
         with:
           subject-path: |
             dist/*.tar.gz
@@ -180,7 +184,11 @@ jobs:
         uses: jdx/mise-action@7e36c90d9ab29c415a2384db3006f3ec8a8cc654 # v4.2.4
         with:
           install: true
-          cache: true
+          # Cache disabled on the release path: a poisoned runtime cache could
+          # substitute the toolchain that builds and verifies release artifacts,
+          # silently invalidating the integrity check. Releases are infrequent
+          # enough that the cache saves little. (zizmor: cache-poisoning)
+          cache: false
           github_token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Download artifacts

@@ -2,6 +2,7 @@
 package constants
 
 import (
+	"slices"
 	"time"
 )
 
@@ -28,6 +29,47 @@ const (
 
 	// FindingTypeSecurity identifies security-related audit findings.
 	FindingTypeSecurity = "security"
+	// FindingTypeCompliance identifies findings raised against a compliance control.
+	FindingTypeCompliance = "compliance"
+	// FindingTypeInventory identifies informational inventory findings. These are
+	// excluded from the compliance map and rendered as configuration notes rather
+	// than security findings.
+	FindingTypeInventory = "inventory"
+	// FindingTypePerformance identifies performance-related findings.
+	FindingTypePerformance = "performance"
+	// FindingTypeHygiene identifies configuration-hygiene observations.
+	FindingTypeHygiene = "hygiene"
+	// FindingTypeWANExposedService identifies a red-mode finding for a management
+	// service reachable from the WAN.
+	FindingTypeWANExposedService = "wan-exposed-service"
+	// FindingTypePortForward identifies a red-mode finding for an inbound NAT
+	// port forward.
+	FindingTypePortForward = "port-forward"
+	// FindingTypeConfigWeakness identifies a red-mode finding for a configuration
+	// weakness reframed as attack surface.
+	FindingTypeConfigWeakness = "config-weakness"
+	// FindingTypeConfiguration identifies findings about missing or malformed
+	// configuration values.
+	FindingTypeConfiguration = "configuration"
+	// FindingTypeValidation identifies findings raised by schema validation.
+	FindingTypeValidation = "validation"
+	// FindingTypeMaintenance identifies maintainability findings such as
+	// undocumented rules.
+	FindingTypeMaintenance = "maintenance"
+	// FindingTypeUI identifies findings about presentation or theme settings.
+	FindingTypeUI = "ui"
+	// FindingTypeDuplicateRule identifies a firewall rule duplicated by an
+	// earlier rule.
+	FindingTypeDuplicateRule = "duplicate-rule"
+	// FindingTypeDeadRule identifies a firewall rule shadowed into
+	// unreachability.
+	FindingTypeDeadRule = "dead-rule"
+	// FindingTypeUnusedInterface identifies a configured but unreferenced
+	// interface.
+	FindingTypeUnusedInterface = "unused-interface"
+	// FindingTypeConsistency identifies cross-section configuration
+	// inconsistencies.
+	FindingTypeConsistency = "consistency"
 
 	// ThemeLight specifies the light color theme for terminal output.
 	ThemeLight = "light"
@@ -121,4 +163,37 @@ var ValidPowerdModes = map[string]struct{}{
 	"adaptive":   {},
 	"minimum":    {},
 	"maximum":    {},
+}
+
+// ValidFindingTypes returns a fresh copy of every recognized finding Type value.
+// Returns a new slice each call to prevent callers from mutating shared state.
+func ValidFindingTypes() []string {
+	return []string{
+		FindingTypeSecurity,
+		FindingTypeCompliance,
+		FindingTypeInventory,
+		FindingTypePerformance,
+		FindingTypeHygiene,
+		FindingTypeWANExposedService,
+		FindingTypePortForward,
+		FindingTypeConfigWeakness,
+		FindingTypeConfiguration,
+		FindingTypeValidation,
+		FindingTypeMaintenance,
+		FindingTypeUI,
+		FindingTypeDuplicateRule,
+		FindingTypeDeadRule,
+		FindingTypeUnusedInterface,
+		FindingTypeConsistency,
+	}
+}
+
+// IsValidFindingType reports whether t is a recognized finding Type.
+//
+// Finding.Type is an untyped string accepted from any compliance plugin,
+// including dynamically loaded ones, and nothing validates it at a parse
+// boundary. Callers that route on Type should use this to surface an
+// unrecognized value rather than silently taking a default branch.
+func IsValidFindingType(t string) bool {
+	return slices.Contains(ValidFindingTypes(), t)
 }

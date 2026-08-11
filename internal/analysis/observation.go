@@ -1,6 +1,10 @@
 package analysis
 
-import "slices"
+import (
+	"slices"
+
+	"github.com/EvilBit-Labs/opnDossier/internal/constants"
+)
 
 // Confidence represents how confident the shared detection engine is that an
 // Observation reflects a real, actionable condition. Confidence never gates
@@ -70,7 +74,7 @@ type Observation struct {
 // in Metadata rather than dropped.
 func (o Observation) ToFinding() Finding {
 	return Finding{
-		Type:           "hygiene",
+		Type:           constants.FindingTypeHygiene,
 		Severity:       string(o.Severity),
 		Title:          o.Title,
 		Description:    o.Description,
