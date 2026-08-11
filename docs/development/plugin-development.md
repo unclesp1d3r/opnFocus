@@ -17,10 +17,11 @@ opnDossier uses a plugin-based architecture for compliance standards, allowing d
 
 All plugins must implement the `compliance.Plugin` interface:
 
+> **Build location.** `compliance.Plugin` and the `constants.FindingType*` values live under `internal/`, so Go's internal-package rule prevents an unrelated module from importing them. Build a plugin from inside this repository's module tree — a package in the repo, or a module with a `replace` directive pointing at a local checkout. A plugin in a wholly separate module will not compile against these imports.
+
 ```go
 import (
     "github.com/EvilBit-Labs/opnDossier/internal/compliance"
-    "github.com/EvilBit-Labs/opnDossier/internal/constants"
     common "github.com/EvilBit-Labs/opnDossier/pkg/model"
 )
 

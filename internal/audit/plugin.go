@@ -396,18 +396,16 @@ func invokePluginWithRecovery(
 	return findings, evaluated, false, runErr
 }
 
-// applyFindingsToCompliance flips evaluated controls referenced by non-inventory
-// findings to false (non-compliant). Inventory findings
-// (constants.FindingTypeInventory) are informational observations and
-// deliberately skipped — for first-party plugins their referenced controls are
-// not in the evaluated slice and thus not in the compliance map, so the flip
-// would be a no-op. We skip them explicitly for clarity and to guard against
-// accidental map pollution.
+// applyFindingsToCompliance flips controls referenced by non-inventory findings
+// to false (non-compliant).
 //
-// A reference to a control absent from the map injects it as false, promoting an
-// unconfirmed control to an evaluated failing one. That is intentional — a
-// finding is evidence the control failed — but it means a control-ID typo in a
-// plugin surfaces as a failing control rather than being ignored.
+// A reference to a control absent from the map injects it as false rather than
+// being ignored, promoting an unconfirmed control to an evaluated failing one.
+// That is intentional — a finding is evidence the control failed — but it makes
+// the inventory skip load-bearing rather than cosmetic: first-party plugins do
+// not add inventory control IDs to the evaluated slice, so without the skip an
+// inventory finding's reference would be injected as a failing control the
+// plugin never actually evaluated.
 //
 // logger may be nil, in which case the diagnostics below are skipped.
 func applyFindingsToCompliance(

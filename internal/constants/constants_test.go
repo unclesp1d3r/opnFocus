@@ -83,7 +83,7 @@ func TestFindingTypeConstant(t *testing.T) {
 	}
 }
 
-func TestValidFindingTypesReturnsFreshCopy(t *testing.T) {
+func TestValidFindingTypes_CallerMutatesResult_CanonicalListUnchanged(t *testing.T) {
 	first := ValidFindingTypes()
 	if len(first) == 0 {
 		t.Fatal("ValidFindingTypes() returned an empty slice")
@@ -96,7 +96,7 @@ func TestValidFindingTypesReturnsFreshCopy(t *testing.T) {
 	}
 }
 
-func TestValidFindingTypesCoversEveryConstant(t *testing.T) {
+func TestValidFindingTypes_EveryDeclaredConstant_IsRecognized(t *testing.T) {
 	// Guards the drift this whole consolidation exists to prevent: a new
 	// FindingType* constant added without a matching ValidFindingTypes entry
 	// would make IsValidFindingType reject a legitimate value.
@@ -120,7 +120,7 @@ func TestValidFindingTypesCoversEveryConstant(t *testing.T) {
 	}
 }
 
-func TestIsValidFindingTypeRejectsUnknown(t *testing.T) {
+func TestIsValidFindingType_UnknownValue_ReturnsFalse(t *testing.T) {
 	tests := []string{"", "complaince", "Inventory", " inventory", "bogus"}
 
 	for _, tt := range tests {

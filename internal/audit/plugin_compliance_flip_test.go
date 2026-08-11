@@ -135,7 +135,7 @@ func TestApplyFindingsToCompliance(t *testing.T) {
 	}
 }
 
-// TestRunComplianceChecks_InventorySkipThroughPipeline drives the inventory-skip
+// TestRunComplianceChecks_InventoryFinding_LeavesComplianceMapUnflipped drives the inventory-skip
 // invariant through the real RunComplianceChecks -> runPluginChecks ->
 // applyFindingsToCompliance chain, rather than calling the unexported helper in
 // isolation. Without this, a wiring regression in the caller (wrong map passed,
@@ -145,7 +145,7 @@ func TestApplyFindingsToCompliance(t *testing.T) {
 // finding's referenced control IS present in the compliance map. That makes the
 // skip directly observable — in production, inventory controls are excluded from
 // the evaluated slice (GOTCHAS.md 2.4), so the flip would be a no-op either way.
-func TestRunComplianceChecks_InventorySkipThroughPipeline(t *testing.T) {
+func TestRunComplianceChecks_InventoryFinding_LeavesComplianceMapUnflipped(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
@@ -201,14 +201,14 @@ func TestRunComplianceChecks_InventorySkipThroughPipeline(t *testing.T) {
 		"compliance finding must flip its referenced control to non-compliant")
 }
 
-// TestApplyFindingsToCompliance_MislabelWarnings covers the two diagnostics that
+// TestApplyFindingsToCompliance_MislabeledType_WarnsWithoutChangingGate covers the two diagnostics that
 // keep the inventory exemption from being a silent suppression path. Finding.Type
 // is an unvalidated string supplied by an arbitrary plugin, including a
 // dynamically loaded one (GOTCHAS.md 2.5), so a finding mislabeled "inventory"
 // can exempt itself from the compliance flip. The exemption still applies — a
 // plugin must not be able to change gate behavior — but it no longer happens
 // without a trace.
-func TestApplyFindingsToCompliance_MislabelWarnings(t *testing.T) {
+func TestApplyFindingsToCompliance_MislabeledType_WarnsWithoutChangingGate(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -265,11 +265,11 @@ func TestApplyFindingsToCompliance_MislabelWarnings(t *testing.T) {
 	}
 }
 
-// TestApplyFindingsToCompliance_NilLoggerNoPanic pins that the diagnostics above
+// TestApplyFindingsToCompliance_NilLogger_DoesNotPanic pins that the diagnostics above
 // are optional. The unit table passes a nil logger throughout, so a regression
 // that dereferenced it unconditionally would surface here rather than as a panic
 // deep in an unrelated test.
-func TestApplyFindingsToCompliance_NilLoggerNoPanic(t *testing.T) {
+func TestApplyFindingsToCompliance_NilLogger_DoesNotPanic(t *testing.T) {
 	t.Parallel()
 
 	out := map[string]bool{"CONTROL-A": true}
