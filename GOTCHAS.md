@@ -13,14 +13,6 @@ The `cmd/` package uses package-level global variables for CLI flags (required b
 - **Solution:** Remove `t.Parallel()` from the parent test and all subtests that interact with global flags. Use `t.Cleanup()` to restore original global values after the test.
 - **Enforcement:** The `.golangci.yml` `forbidigo` rule forbids `t.Parallel()` anywhere in `cmd/` — catches the regression at lint time. The race detector runs in CI (the `Race Detector` job in `.github/workflows/ci.yml`) and locally via `just test-race` (or `just ci-check`). A prior pre-push `just ci-check` hook broke non-interactive push clients, so the full gate is still not wired to a git hook. See [CONTRIBUTING.md § Git Hooks](CONTRIBUTING.md#git-hooks) for the current setup.
 
-### 1.2 Wall-Clock Assertions and `-race`
-
-Race instrumentation multiplies execution cost, so a latency assertion calibrated without it measures the instrumentation. On a loaded machine `TestPerformanceBaselines` failed 10 of 10 runs under `-race` and passed 10 of 10 without it, which is why the detector was previously kept out of CI.
-
-- **Rule:** never add a wall-clock upper bound to a test without deciding what it does under `-race`.
-- **Pattern:** `internal/testing/racedetect.Enabled` is a build-tagged constant. Skip the assertion when the test is a latency baseline (`TestPerformanceBaselines`), or scale the bound when the bound is a coarse guard rather than a measurement (`cancelAbortBudget` in `internal/converter`, which only needs to tell "aborted" apart from "generated the whole document").
-- **Do not** reach for `-short` to dodge this. It also skips the stress and thread-safety tests, which are the ones most worth running under the detector.
-
 ### 1.2 Race Detector Collateral
 
 When a data race occurs in a test touching global state, the Go race detector may report collateral races in unrelated, stateless functions (e.g., `truncateString` or `escapePipeForMarkdown`) that happen to be running in other parallel tests.
@@ -50,6 +42,14 @@ The `.golangci.yml` `gocognit` linter is configured to fail at cognitive complex
 - **Fix pattern:** extract per-variant closures into helper functions returning `func(*testing.B)` (e.g., `runMultiFormatGenerate(ctx, gen, device, formats, preEnrich) func(*testing.B)`). Each helper drops the cognitive count of the enclosing function below the threshold without changing the test surface.
 - **Don't:** add `//nolint:gocognit` to mask it. The threshold catches a real readability drift; helper extraction fixes both the lint and the readability.
 - **Recurrence vector:** any test/benchmark orchestration function that grows from 2 to 4+ dispatch arms inside a `for _, tc := range cases` loop.
+
+### 1.6 Wall-Clock Assertions and `-race`
+
+Race instrumentation multiplies execution cost, so a latency assertion calibrated without it measures the instrumentation. On a loaded machine `TestPerformanceBaselines` failed 10 of 10 runs under `-race` and passed 10 of 10 without it, which is why the detector was previously kept out of CI.
+
+- **Rule:** never add a wall-clock upper bound to a test without deciding what it does under `-race`.
+- **Pattern:** `internal/testing/racedetect.Enabled` is a build-tagged constant. Skip the assertion when the test is a latency baseline (`TestPerformanceBaselines`), or scale the bound when the bound is a coarse guard rather than a measurement (`cancelAbortBudget` in `internal/converter`, which only needs to tell "aborted" apart from "generated the whole document").
+- **Do not** reach for `-short` to dodge this. It also skips the stress and thread-safety tests, which are the ones most worth running under the detector.
 
 ## 2. Plugin Architecture
 
