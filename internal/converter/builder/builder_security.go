@@ -22,7 +22,7 @@ func (b *MarkdownBuilder) writeSecuritySection(md *markdown.Markdown, data *comm
 		if mode == "" {
 			mode = data.NAT.OutboundMode
 		}
-		md.PlainTextf("%s: %s", markdown.Bold("NAT Mode"), mode).LF().
+		md.PlainTextf("%s: %s", markdown.Bold("NAT Mode"), formatters.EscapeMarkdownValue(string(mode))).LF().
 			PlainTextf("%s: %s", markdown.Bold("NAT Reflection"), formatters.FormatBool(natSummary.ReflectionDisabled)).
 			LF().
 			PlainTextf(
@@ -231,10 +231,10 @@ func BuildFirewallRulesTableSet(rules []common.FirewallRule) *markdown.TableSet 
 			interfaceLinks,
 			string(rule.Type),
 			string(rule.IPProtocol),
-			rule.Protocol,
-			source,
-			dest,
-			rule.Target,
+			formatters.EscapeTableContent(rule.Protocol),
+			formatters.EscapeTableContent(source),
+			formatters.EscapeTableContent(dest),
+			formatters.EscapeTableContent(rule.Target),
 			formatters.EscapeTableContent(rule.Source.Port),
 			formatters.EscapeTableContent(rule.Destination.Port),
 			formatters.FormatBoolInverted(rule.Disabled),

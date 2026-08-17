@@ -270,9 +270,10 @@ func (b *MarkdownBuilder) BuildStandardReport(data *common.CommonDevice) (string
 		H1(platformName+" Configuration Summary").
 		H2("System Information").
 		BulletList(
-			markdown.Bold("Hostname")+": "+data.System.Hostname,
-			markdown.Bold("Domain")+": "+data.System.Domain,
-			markdown.Bold("Platform")+": "+strings.TrimSpace(platformName+" "+data.System.Firmware.Version),
+			markdown.Bold("Hostname")+": "+formatters.EscapeMarkdownValue(data.System.Hostname),
+			markdown.Bold("Domain")+": "+formatters.EscapeMarkdownValue(data.System.Domain),
+			markdown.Bold("Platform")+
+				": "+formatters.EscapeMarkdownValue(strings.TrimSpace(platformName+" "+data.System.Firmware.Version)),
 			markdown.Bold("Generated On")+": "+b.generated.Format(time.RFC3339),
 			markdown.Bold("Parsed By")+": opnDossier v"+b.toolVersion,
 		).
@@ -307,9 +308,10 @@ func (b *MarkdownBuilder) BuildComprehensiveReport(data *common.CommonDevice) (s
 		H1(platformName+" Configuration Summary").
 		H2("System Information").
 		BulletList(
-			markdown.Bold("Hostname")+": "+data.System.Hostname,
-			markdown.Bold("Domain")+": "+data.System.Domain,
-			markdown.Bold("Platform")+": "+strings.TrimSpace(platformName+" "+data.System.Firmware.Version),
+			markdown.Bold("Hostname")+": "+formatters.EscapeMarkdownValue(data.System.Hostname),
+			markdown.Bold("Domain")+": "+formatters.EscapeMarkdownValue(data.System.Domain),
+			markdown.Bold("Platform")+
+				": "+formatters.EscapeMarkdownValue(strings.TrimSpace(platformName+" "+data.System.Firmware.Version)),
 			markdown.Bold("Generated On")+": "+b.generated.Format(time.RFC3339),
 			markdown.Bold("Parsed By")+": opnDossier v"+b.toolVersion,
 		).

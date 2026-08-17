@@ -7,6 +7,7 @@ import (
 	"slices"
 	"strings"
 
+	convfmt "github.com/EvilBit-Labs/opnDossier/internal/converter/formatters"
 	"github.com/EvilBit-Labs/opnDossier/internal/diff"
 )
 
@@ -56,12 +57,12 @@ func (f *MarkdownFormatter) formatMetadata(result *diff.Result) error {
 	meta := result.Metadata
 
 	if meta.OldFile != "" {
-		if _, err := fmt.Fprintf(f.writer, "**Old File:** `%s`\n", meta.OldFile); err != nil {
+		if _, err := fmt.Fprintf(f.writer, "**Old File:** %s\n", codeSpan(meta.OldFile)); err != nil {
 			return err
 		}
 	}
 	if meta.NewFile != "" {
-		if _, err := fmt.Fprintf(f.writer, "**New File:** `%s`\n", meta.NewFile); err != nil {
+		if _, err := fmt.Fprintf(f.writer, "**New File:** %s\n", codeSpan(meta.NewFile)); err != nil {
 			return err
 		}
 	}
@@ -204,11 +205,11 @@ func (f *MarkdownFormatter) formatSection(section diff.Section, changes []diff.C
 // formatChangeDetails outputs detailed information for a single change.
 func (f *MarkdownFormatter) formatChangeDetails(change diff.Change) error {
 	symbol := changeSymbolMarkdown(change.Type)
-	if _, err := fmt.Fprintf(f.writer, "### %s %s\n\n", symbol, change.Description); err != nil {
+	if _, err := fmt.Fprintf(f.writer, "### %s %s\n\n", symbol, escapeMarkdown(change.Description)); err != nil {
 		return err
 	}
 
-	if _, err := fmt.Fprintf(f.writer, "- **Path:** `%s`\n", change.Path); err != nil {
+	if _, err := fmt.Fprintf(f.writer, "- **Path:** %s\n", codeSpan(change.Path)); err != nil {
 		return err
 	}
 	if _, err := fmt.Fprintf(f.writer, "- **Type:** %s\n", change.Type.String()); err != nil {
@@ -226,12 +227,12 @@ func (f *MarkdownFormatter) formatChangeDetails(change diff.Change) error {
 	}
 
 	if change.OldValue != "" {
-		if _, err := fmt.Fprintf(f.writer, "- **Old Value:** `%s`\n", change.OldValue); err != nil {
+		if _, err := fmt.Fprintf(f.writer, "- **Old Value:** %s\n", codeSpan(change.OldValue)); err != nil {
 			return err
 		}
 	}
 	if change.NewValue != "" {
-		if _, err := fmt.Fprintf(f.writer, "- **New Value:** `%s`\n", change.NewValue); err != nil {
+		if _, err := fmt.Fprintf(f.writer, "- **New Value:** %s\n", codeSpan(change.NewValue)); err != nil {
 			return err
 		}
 	}
@@ -270,8 +271,49 @@ func securityBadge(impact string) string {
 	}
 }
 
-// escapeMarkdown escapes special markdown characters in a string.
+// escapeMarkdown escapes markdown metacharacters in a config-derived string.
+//
+// This used to escape pipes only, which kept a table row intact but not the
+// value inert. Change descriptions carry configuration text (the interface and
+// firewall analyzers interpolate iface.Description and the rule description),
+// and the HTML diff report renders with raw HTML passthrough on for its
+// <details> wrappers, so `<img src=x onerror=...>` became live markup.
 func escapeMarkdown(s string) string {
-	// Escape pipe characters for table cells
-	return strings.ReplaceAll(s, "|", "\\|")
+	return convfmt.EscapeMarkdownValue(s)
+}
+
+// codeSpan wraps value in a markdown code span sized to its contents.
+//
+// Code span contents are literal and goldmark HTML-escapes them on render.
+// Backslash escaping is wrong here: it does not apply inside a code span and
+// would show up literally.
+//
+// The one way out is a backtick run matching the fence, so the fence is sized to
+// one more than the longest run in the value. A value starting or ending with a
+// backtick also needs the padding spaces CommonMark strips back off. Newlines
+// are collapsed because a code span cannot span lines.
+func codeSpan(value string) string {
+	value = strings.NewReplacer("\r\n", " ", "\n", " ", "\r", " ").Replace(value)
+
+	longest, current := 0, 0
+
+	for _, r := range value {
+		if r != '`' {
+			current = 0
+
+			continue
+		}
+
+		current++
+		if current > longest {
+			longest = current
+		}
+	}
+
+	fence := strings.Repeat("`", longest+1)
+	if strings.HasPrefix(value, "`") || strings.HasSuffix(value, "`") {
+		return fence + " " + value + " " + fence
+	}
+
+	return fence + value + fence
 }

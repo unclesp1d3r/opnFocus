@@ -32,17 +32,17 @@ func (b *MarkdownBuilder) writeSystemSection(md *markdown.Markdown, data *common
 
 func writeSystemBasics(md *markdown.Markdown, sys common.System) {
 	md.H3("Basic Information").
-		PlainTextf("%s: %s", markdown.Bold("Hostname"), sys.Hostname).LF().
-		PlainTextf("%s: %s", markdown.Bold("Domain"), sys.Domain).LF()
+		PlainTextf("%s: %s", markdown.Bold("Hostname"), formatters.EscapeMarkdownValue(sys.Hostname)).LF().
+		PlainTextf("%s: %s", markdown.Bold("Domain"), formatters.EscapeMarkdownValue(sys.Domain)).LF()
 
 	if sys.Optimization != "" {
-		md.PlainTextf("%s: %s", markdown.Bold("Optimization"), sys.Optimization).LF()
+		md.PlainTextf("%s: %s", markdown.Bold("Optimization"), formatters.EscapeMarkdownValue(sys.Optimization)).LF()
 	}
 	if sys.Timezone != "" {
-		md.PlainTextf("%s: %s", markdown.Bold("Timezone"), sys.Timezone).LF()
+		md.PlainTextf("%s: %s", markdown.Bold("Timezone"), formatters.EscapeMarkdownValue(sys.Timezone)).LF()
 	}
 	if sys.Language != "" {
-		md.PlainTextf("%s: %s", markdown.Bold("Language"), sys.Language).LF()
+		md.PlainTextf("%s: %s", markdown.Bold("Language"), formatters.EscapeMarkdownValue(sys.Language)).LF()
 	}
 }
 
@@ -51,7 +51,7 @@ func writeSystemWebGUI(md *markdown.Markdown, sys common.System) {
 		return
 	}
 	md.H3("Web GUI Configuration").
-		PlainTextf("%s: %s", markdown.Bold(colProtocol), sys.WebGUI.Protocol).LF()
+		PlainTextf("%s: %s", markdown.Bold(colProtocol), formatters.EscapeMarkdownValue(sys.WebGUI.Protocol)).LF()
 }
 
 func writeSystemSettings(md *markdown.Markdown, sys common.System) {
@@ -61,10 +61,12 @@ func writeSystemSettings(md *markdown.Markdown, sys common.System) {
 		PlainTextf("%s: %d", markdown.Bold("Next GID"), sys.NextGID).LF()
 
 	if len(sys.TimeServers) > 0 {
-		md.PlainTextf("%s: %s", markdown.Bold("Time Servers"), strings.Join(sys.TimeServers, ", ")).LF()
+		md.PlainTextf("%s: %s", markdown.Bold("Time Servers"), formatters.EscapeMarkdownValue(strings.Join(sys.TimeServers, ", "))).
+			LF()
 	}
 	if len(sys.DNSServers) > 0 {
-		md.PlainTextf("%s: %s", markdown.Bold("DNS Server"), strings.Join(sys.DNSServers, ", ")).LF()
+		md.PlainTextf("%s: %s", markdown.Bold("DNS Server"), formatters.EscapeMarkdownValue(strings.Join(sys.DNSServers, ", "))).
+			LF()
 	}
 }
 
@@ -106,15 +108,15 @@ func writeSystemFeatures(md *markdown.Markdown, sys common.System) {
 func writeSystemMisc(md *markdown.Markdown, sys common.System) {
 	if sys.Bogons.Interval != "" {
 		md.H3("Bogons Configuration").
-			PlainTextf("%s: %s", markdown.Bold("Interval"), sys.Bogons.Interval).LF()
+			PlainTextf("%s: %s", markdown.Bold("Interval"), formatters.EscapeMarkdownValue(sys.Bogons.Interval)).LF()
 	}
 	if sys.SSH.Group != "" {
 		md.H3("SSH Configuration").
-			PlainTextf("%s: %s", markdown.Bold("Group"), sys.SSH.Group).LF()
+			PlainTextf("%s: %s", markdown.Bold("Group"), formatters.EscapeMarkdownValue(sys.SSH.Group)).LF()
 	}
 	if sys.Firmware.Version != "" {
 		md.H3("Firmware Information").
-			PlainTextf("%s: %s", markdown.Bold("Version"), sys.Firmware.Version).LF()
+			PlainTextf("%s: %s", markdown.Bold("Version"), formatters.EscapeMarkdownValue(sys.Firmware.Version)).LF()
 	}
 }
 
