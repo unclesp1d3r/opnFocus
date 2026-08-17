@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/EvilBit-Labs/opnDossier/internal/constants"
+	"github.com/EvilBit-Labs/opnDossier/internal/converter/formatters"
 	common "github.com/EvilBit-Labs/opnDossier/pkg/model"
 	"github.com/nao1215/markdown"
 )
@@ -39,7 +40,7 @@ func (b *MarkdownBuilder) BuildAuditSection(data *common.CommonDevice) string {
 	//nolint:errcheck,gosec // Build writes to bytes.Buffer which cannot fail
 	md.Build()
 
-	return buf.String()
+	return formatters.NormalizeToLF(buf.String())
 }
 
 // writeAuditPluginSections emits the per-plugin H3 blocks under "Compliance

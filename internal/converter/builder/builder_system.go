@@ -123,7 +123,7 @@ func (b *MarkdownBuilder) BuildSystemSection(data *common.CommonDevice) string {
 	var buf bytes.Buffer
 	md := markdown.NewMarkdown(&buf)
 	b.writeSystemSection(md, data)
-	return md.String()
+	return renderMarkdown(md)
 }
 
 // WriteUserTable writes a users table and returns md for chaining.

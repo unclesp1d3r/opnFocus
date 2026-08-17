@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/EvilBit-Labs/opnDossier/internal/converter/formatters"
 	"github.com/nao1215/markdown"
 )
 
@@ -32,7 +33,7 @@ func (r *Report) ToMarkdown() string {
 		return "# OPNsense Configuration Analysis Report\n\nError generating report.\n"
 	}
 
-	return buf.String()
+	return formatters.NormalizeToLF(buf.String())
 }
 
 // Helper functions for Markdown generation
@@ -324,7 +325,7 @@ func (r *Report) Summary() string {
 		return fmt.Sprintf("Error generating summary: %v", err)
 	}
 
-	return buf.String()
+	return formatters.NormalizeToLF(buf.String())
 }
 
 // addFindingsSection adds a findings section using the markdown library.

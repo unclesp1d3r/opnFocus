@@ -249,6 +249,15 @@ When changing a `Document` field type from an opnsense type to a local pfSense f
 
 `OutboundNATRule.Target` is the NAT target address. `InboundNATRule.InternalIP` is the port-forward destination — there is no `Target` field on `InboundNATRule`. `FirewallRule` has no `Tag`/`Tagged` fields — those exist only on `OutboundNATRule`.
 
+### 10.4 Never Return `md.String()` or `buf.String()` Raw
+
+`github.com/nao1215/markdown` emits the host's line ending — its `internal.LineFeed` returns `"\r\n"` on Windows and `"\n"` everywhere else. Any function that returns `md.String()`, or the `bytes.Buffer`/`strings.Builder` a `markdown.Markdown` was built into, therefore produces CRLF on a Windows checkout. That breaks every LF golden fixture and contradicts the LF guarantee in `internal/export`.
+
+- **Rule:** in `internal/converter/builder`, return `renderMarkdown(md)`. Anywhere else, wrap the exit in `formatters.NormalizeToLF`. This bit both the builder and `internal/processor/report_markdown.go`, which construct markdown independently.
+- **`glamour.Render` is not affected** — it re-renders and emits LF, so `MarkdownConverter.ToMarkdown` was already clean. Do not add a redundant normalization there.
+- **Detection:** `TestReportOutputIsLF` (builder) and `TestReportMarkdownIsLF` (processor) assert the invariant across the public output surface, but they can only fail on Windows. The Windows CI job runs the full suite for this reason.
+- **CRLF on disk is still available** via `OPNDOSSIER_PLATFORM_LINE_ENDINGS=1`, handled in `internal/export` at write time.
+
 ## 11. Sanitizer
 
 ### 11.1 pfSense `bcrypt-hash` Field Name

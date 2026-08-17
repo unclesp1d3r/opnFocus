@@ -194,7 +194,7 @@ func (b *MarkdownBuilder) WriteComprehensiveReport(w io.Writer, data *common.Com
 		var buf bytes.Buffer
 		md := markdown.NewMarkdown(&buf)
 		b.WriteSysctlTable(md.H2("System Tunables"), filteredSysctl)
-		if _, err := io.WriteString(w, md.String()); err != nil {
+		if _, err := io.WriteString(w, renderMarkdown(md)); err != nil {
 			return fmt.Errorf("failed to write tunables section: %w", err)
 		}
 	}
@@ -218,7 +218,7 @@ func (b *MarkdownBuilder) writeReportHeader(w io.Writer, data *common.CommonDevi
 			markdown.Bold("Parsed By")+": opnDossier v"+b.getToolVersion(),
 		)
 
-	_, err := io.WriteString(w, md.String())
+	_, err := io.WriteString(w, renderMarkdown(md))
 	return err
 }
 
@@ -238,7 +238,7 @@ func (b *MarkdownBuilder) writeTableOfContents(w io.Writer, comprehensive, hasTu
 		H2("Table of Contents").
 		BulletList(tocItems...)
 
-	_, err := io.WriteString(w, md.String())
+	_, err := io.WriteString(w, renderMarkdown(md))
 	return err
 }
 
@@ -257,7 +257,7 @@ func (b *MarkdownBuilder) writeStandardReportFooter(
 	md := markdown.NewMarkdown(&buf)
 	b.WriteSysctlTable(md.H2("System Tunables"), filteredSysctl)
 
-	_, err := io.WriteString(w, md.String())
+	_, err := io.WriteString(w, renderMarkdown(md))
 	return err
 }
 

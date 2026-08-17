@@ -33,7 +33,7 @@ func (b *MarkdownBuilder) BuildNetworkSection(data *common.CommonDevice) string 
 	var buf bytes.Buffer
 	md := markdown.NewMarkdown(&buf)
 	b.writeNetworkSection(md, data)
-	return md.String()
+	return renderMarkdown(md)
 }
 
 // WriteInterfaceTable writes an interfaces table and returns md for chaining.

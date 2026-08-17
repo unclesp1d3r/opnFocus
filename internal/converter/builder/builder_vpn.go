@@ -34,7 +34,7 @@ func (b *MarkdownBuilder) BuildIPsecSection(data *common.CommonDevice) string {
 	var buf bytes.Buffer
 	md := markdown.NewMarkdown(&buf)
 	b.writeIPsecSection(md, data)
-	return md.String()
+	return renderMarkdown(md)
 }
 
 // writeOpenVPNSection writes the OpenVPN configuration section to the markdown instance.
@@ -113,7 +113,7 @@ func (b *MarkdownBuilder) BuildOpenVPNSection(data *common.CommonDevice) string 
 	var buf bytes.Buffer
 	md := markdown.NewMarkdown(&buf)
 	b.writeOpenVPNSection(md, data)
-	return md.String()
+	return renderMarkdown(md)
 }
 
 // writeVLANSection writes the VLAN configuration section to the markdown instance.
@@ -126,7 +126,7 @@ func (b *MarkdownBuilder) buildVLANSection(data *common.CommonDevice) string {
 	var buf bytes.Buffer
 	md := markdown.NewMarkdown(&buf)
 	b.writeVLANSection(md, data)
-	return md.String()
+	return renderMarkdown(md)
 }
 
 // writeStaticRoutesSection writes the static routes section to the markdown instance.
@@ -139,7 +139,7 @@ func (b *MarkdownBuilder) buildStaticRoutesSection(data *common.CommonDevice) st
 	var buf bytes.Buffer
 	md := markdown.NewMarkdown(&buf)
 	b.writeStaticRoutesSection(md, data)
-	return md.String()
+	return renderMarkdown(md)
 }
 
 // writeHASection writes the High Availability and CARP configuration section to the markdown instance.
@@ -196,5 +196,5 @@ func (b *MarkdownBuilder) BuildHASection(data *common.CommonDevice) string {
 	var buf bytes.Buffer
 	md := markdown.NewMarkdown(&buf)
 	b.writeHASection(md, data)
-	return md.String()
+	return renderMarkdown(md)
 }
