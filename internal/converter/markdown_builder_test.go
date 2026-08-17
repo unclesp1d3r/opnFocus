@@ -46,7 +46,11 @@ func TestMarkdownBuilder_BuildSystemSection(t *testing.T) {
 	assert.Contains(t, result, "test.local")
 	assert.Contains(t, result, "normal")
 	assert.Contains(t, result, "UTC")
-	assert.Contains(t, result, "en_US")
+	// The underscore is backslash-escaped: config-derived values now go through
+	// formatters.EscapeMarkdownValue so a value cannot inject markdown syntax
+	// (or raw HTML) into the report. Rendered markdown and HTML still show
+	// "en_US"; only the raw markdown carries the escape.
+	assert.Contains(t, result, `en\_US`)
 	assert.Contains(t, result, "https")
 	assert.Contains(t, result, "wheel")
 	assert.Contains(t, result, "23.1.1")
@@ -1525,7 +1529,11 @@ func TestMarkdownBuilder_BuildSystemSection_WithAllFields(t *testing.T) {
 	assert.Contains(t, result, "test.local")
 	assert.Contains(t, result, "normal")
 	assert.Contains(t, result, "UTC")
-	assert.Contains(t, result, "en_US")
+	// The underscore is backslash-escaped: config-derived values now go through
+	// formatters.EscapeMarkdownValue so a value cannot inject markdown syntax
+	// (or raw HTML) into the report. Rendered markdown and HTML still show
+	// "en_US"; only the raw markdown carries the escape.
+	assert.Contains(t, result, `en\_US`)
 	assert.Contains(t, result, "https")
 	assert.Contains(t, result, "wheel")
 	assert.Contains(t, result, "23.1.1")

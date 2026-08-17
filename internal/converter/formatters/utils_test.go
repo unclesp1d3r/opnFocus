@@ -383,3 +383,40 @@ func TestSanitizeID(t *testing.T) {
 		})
 	}
 }
+
+// TestEscapeMarkdownValue pins the escape set itself, so a future change to the
+// replacer that drops angle brackets fails here with a clear message rather
+// than at the far end of the rendering pipeline.
+//
+// The angle-bracket cases are the load-bearing ones: they are what stops a
+// config value from being parsed as raw HTML and passed into the generated
+// report as live markup.
+func TestEscapeMarkdownValue(t *testing.T) {
+	tests := []struct {
+		name  string
+		input string
+		want  string
+	}{
+		{name: "angle brackets", input: "<img src=x>", want: `\<img src=x\>`},
+		{name: "closing tag", input: "</script>", want: `\</script\>`},
+		{name: "emphasis", input: "a*b*c", want: `a\*b\*c`},
+		{name: "underscore", input: "en_US", want: `en\_US`},
+		{name: "link syntax", input: "[a](b)", want: `\[a\](b)`},
+		{name: "backtick", input: "a`b`c", want: "a\\`b\\`c"},
+		{name: "pipe", input: "a|b", want: `a\|b`},
+		{name: "backslash", input: `a\b`, want: `a\\b`},
+		{name: "newline collapses to space", input: "a\nb", want: "a b"},
+		{name: "crlf collapses to space", input: "a\r\nb", want: "a b"},
+		{name: "surrounding space trimmed", input: "  value  ", want: "value"},
+		{name: "plain text untouched", input: "firewall.example.com", want: "firewall.example.com"},
+		{name: "empty", input: "", want: ""},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := EscapeMarkdownValue(tt.input); got != tt.want {
+				t.Errorf("EscapeMarkdownValue(%q) = %q, want %q", tt.input, got, tt.want)
+			}
+		})
+	}
+}

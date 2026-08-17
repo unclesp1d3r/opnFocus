@@ -7,21 +7,39 @@ import (
 	"strings"
 )
 
-// stringEscape applies the table-content escape rules to a single string.
-// Both fast paths in EscapeTableContent share this helper so the escape
+// stringEscape applies the markdown escape rules to a single string.
+// Every exported escaper in this package shares this helper so the escape
 // strategy stays defined in one place.
 func stringEscape(s string) string {
-	return strings.TrimSpace(escapeTableReplacer.Replace(s))
+	return strings.TrimSpace(escapeMarkdownReplacer.Replace(s))
+}
+
+// EscapeMarkdownValue escapes markdown metacharacters in a value that came from
+// a parsed configuration, so it renders as literal text wherever the report
+// interpolates it: a table cell, a bullet item, or a plain paragraph line.
+//
+// The angle brackets are the security-relevant part. Goldmark's inline parser
+// recognises a run such as `<img src=x onerror=...>` as raw HTML rather than
+// text, and a raw-HTML node is not a text node, so the renderer's text escaping
+// never applies to it. Escaping `<` keeps the value a text node, which is what
+// stops a hostname or interface description lifted out of an untrusted
+// config.xml from becoming live markup in the generated HTML report.
+//
+// The remaining characters are formatting rather than safety: an unescaped `*`,
+// `_`, `[` or backtick in a description silently reformats the surrounding
+// report, and a bare `|` splits a table row.
+func EscapeMarkdownValue(value string) string {
+	return stringEscape(value)
 }
 
 // Pre-compiled regex for SanitizeID to avoid repeated compilation.
 // This pattern matches any sequence of non-alphanumeric characters.
 var sanitizeIDRegex = regexp.MustCompile(`[^a-zA-Z0-9]+`)
 
-// escapeTableReplacer performs all markdown table escapes in a single pass.
+// escapeMarkdownReplacer performs all markdown escapes in a single pass.
 //
 //nolint:gochecknoglobals // Immutable replacer, avoids per-call allocation
-var escapeTableReplacer = strings.NewReplacer(
+var escapeMarkdownReplacer = strings.NewReplacer(
 	"\\", "\\\\",
 	"*", "\\*",
 	"_", "\\_",
@@ -37,7 +55,10 @@ var escapeTableReplacer = strings.NewReplacer(
 )
 
 // EscapeTableContent escapes content for safe display in markdown tables.
-// This function ensures that special Markdown characters don't break table formatting or rendering.
+// It applies the same escape set as [EscapeMarkdownValue] and exists as a
+// separate name because most call sites are table cells, where the name
+// documents the intent at the call site, and because it accepts any value
+// rather than only a string.
 //
 // Two fast paths skip fmt.Sprintf("%v", ...) reflection boxing for
 // string-kind inputs — the unnamed string path covers the common
