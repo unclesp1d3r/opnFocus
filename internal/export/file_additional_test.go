@@ -106,8 +106,12 @@ func TestFileExporter_CheckPathTraversal(t *testing.T) {
 			wantErr: false,
 		},
 		{
+			// Must be a real absolute path for this platform. A POSIX literal
+			// such as "/tmp/test.txt" is not absolute on Windows
+			// (filepath.IsAbs wants a volume), so it fell through to the
+			// CWD-relative branch and was rejected as traversal.
 			name:    "absolute path without traversal",
-			path:    "/tmp/test.txt",
+			path:    filepath.Join(t.TempDir(), "test.txt"),
 			wantErr: false,
 		},
 		{
@@ -235,7 +239,11 @@ func TestResolveWithMissingTail(t *testing.T) {
 	t.Run("completely non-existent path resolves via root ancestor", func(t *testing.T) {
 		// On Unix, "/" always exists, so the function will resolve via the root.
 		// This tests the walk-up behavior reaching a valid ancestor (the root).
-		bogus := "/nonexistent_root_abc123/deep/path/file.txt"
+		// Rooted at the volume so every ancestor above the root is missing,
+		// which is what exercises the walk-up. A POSIX literal such as
+		// "/nonexistent_root_abc123/..." is not absolute on Windows.
+		bogus := filepath.Join(filepath.VolumeName(t.TempDir())+string(filepath.Separator),
+			"nonexistent_root_abc123", "deep", "path", "file.txt")
 		resolved, err := resolveWithMissingTail(bogus)
 		require.NoError(t, err)
 		assert.True(
