@@ -11,7 +11,15 @@ The `cmd/` package uses package-level global variables for CLI flags (required b
 - **Problem:** Concurrent tests modifying `sharedDeviceType`, `sharedAuditMode`, or the `rootCmd` flag set will cause non-deterministic data races.
 - **Symptom:** `just test-race` fails with "DATA RACE" reports in the `cmd` package.
 - **Solution:** Remove `t.Parallel()` from the parent test and all subtests that interact with global flags. Use `t.Cleanup()` to restore original global values after the test.
-- **Enforcement:** The `.golangci.yml` `forbidigo` rule forbids `t.Parallel()` anywhere in `cmd/` — catches the regression at lint time. The race detector itself runs only locally via `just test-race` (or `just ci-check`); CI cannot host it reliably, and a prior pre-push `just ci-check` hook broke non-interactive push clients. See [CONTRIBUTING.md § Git Hooks](CONTRIBUTING.md#git-hooks) for the current setup.
+- **Enforcement:** The `.golangci.yml` `forbidigo` rule forbids `t.Parallel()` anywhere in `cmd/` — catches the regression at lint time. The race detector runs in CI (the `Race Detector` job in `.github/workflows/ci.yml`) and locally via `just test-race` (or `just ci-check`). A prior pre-push `just ci-check` hook broke non-interactive push clients, so the full gate is still not wired to a git hook. See [CONTRIBUTING.md § Git Hooks](CONTRIBUTING.md#git-hooks) for the current setup.
+
+### 1.2 Wall-Clock Assertions and `-race`
+
+Race instrumentation multiplies execution cost, so a latency assertion calibrated without it measures the instrumentation. On a loaded machine `TestPerformanceBaselines` failed 10 of 10 runs under `-race` and passed 10 of 10 without it, which is why the detector was previously kept out of CI.
+
+- **Rule:** never add a wall-clock upper bound to a test without deciding what it does under `-race`.
+- **Pattern:** `internal/testing/racedetect.Enabled` is a build-tagged constant. Skip the assertion when the test is a latency baseline (`TestPerformanceBaselines`), or scale the bound when the bound is a coarse guard rather than a measurement (`cancelAbortBudget` in `internal/converter`, which only needs to tell "aborted" apart from "generated the whole document").
+- **Do not** reach for `-short` to dodge this. It also skips the stress and thread-safety tests, which are the ones most worth running under the detector.
 
 ### 1.2 Race Detector Collateral
 
