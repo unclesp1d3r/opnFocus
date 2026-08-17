@@ -78,10 +78,18 @@ func (fp *Plugin) checkDNSSECValidation(device *common.CommonDevice) checkResult
 }
 
 // FIREWALL-059 (checkDNSResolverAccessRestriction) and FIREWALL-060
-// (checkConfigurationRevisionTracking) were no-op helpers returning unknown —
-// the CommonDevice model does not expose Unbound interface binding or
-// revision tracking. Removed with the EvaluatedControlIDs cleanup; controls
-// remain in controls.go so the report labels them UNCONFIRMED.
+// (checkConfigurationRevisionTracking) were no-op helpers returning unknown.
+// Removed with the EvaluatedControlIDs cleanup; controls remain in controls.go
+// so the report labels them UNCONFIRMED.
+//
+// The two are not equally blocked:
+//   - FIREWALL-060 is not blocked at all. Revision metadata is plumbed
+//     end-to-end on both vendors and is readable today at device.Revision
+//     (pkg/model/revision.go). Only the check function is missing.
+//   - FIREWALL-059 is partially blocked. Both vendor schemas parse the Unbound
+//     interface binding (opnsense UnboundPlusGeneral.ActiveInterface,
+//     pfsense UnboundConfig.ActiveInterface), but common.UnboundConfig has no
+//     corresponding field and neither converter carries it across.
 
 // checkHAConfiguration checks whether a high-availability configuration is
 // in place when pfsync peer IP is configured.
