@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"maps"
 	"strconv"
-	"strings"
 	"sync"
 	"time"
 )
@@ -106,8 +105,26 @@ func (m *Mapper) MapPublicIP(original string) string {
 }
 
 // MapPrivateIP returns a consistent replacement for a private IP address.
-// If preserveStructure is true, it preserves the network class structure.
-func (m *Mapper) MapPrivateIP(original string, preserveStructure bool) string {
+//
+// The replacement is a marker rather than an address, matching MapPublicIP.
+// The previous scheme numbered replacements into 10.0.0.0/24, which produced
+// two defects that a marker removes by construction:
+//
+//   - Past 255 distinct addresses it emitted invalid octets such as
+//     "10.0.0.260". A 300-address config produced 45 of them.
+//   - The replacement space overlapped the input space, so a pseudonym could
+//     be a real address from the same file. Sanitizing 10.0.0.5 and 10.0.0.1
+//     mapped the first to "10.0.0.1", leaving the genuine 10.0.0.1 in the
+//     output attached to the wrong host and indistinguishable from a
+//     redaction. No address range avoids this while remaining RFC1918, which
+//     is what the input is by definition.
+//
+// Only aggressive mode remaps private addresses, and its output is already not
+// a loadable configuration: it renders public IPs, passwords and SNMP
+// communities as markers, and numeric fields such as UIDs as text. Moderate
+// mode preserves private addresses unchanged and is the mode for topology
+// analysis of a sanitized file.
+func (m *Mapper) MapPrivateIP(original string) string {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -116,22 +133,9 @@ func (m *Mapper) MapPrivateIP(original string, preserveStructure bool) string {
 	}
 
 	m.privateIPCounter++
-	var replacement string
-
-	if preserveStructure {
-		// Preserve the first two octets to maintain network visibility
-		// 192.168.1.100 -> 192.168.X.Y
-		parts := strings.Split(original, ".")
-		if len(parts) >= minOctetsForStructure {
-			replacement = fmt.Sprintf("%s.%s.X.%d", parts[0], parts[1], m.privateIPCounter)
-		} else {
-			replacement = fmt.Sprintf("10.0.0.%d", m.privateIPCounter)
-		}
-	} else {
-		replacement = fmt.Sprintf("10.0.0.%d", m.privateIPCounter)
-	}
-
+	replacement := fmt.Sprintf("[REDACTED-PRIVATE-IP-%d]", m.privateIPCounter)
 	m.ipMappings[original] = replacement
+
 	return replacement
 }
 
@@ -168,7 +172,6 @@ func (m *Mapper) MapUsername(original string) string {
 // Domain redaction constants.
 const (
 	defaultRedactedDomain = "example.com"
-	minOctetsForStructure = 2
 )
 
 // MapDomain returns a consistent replacement for a domain name.

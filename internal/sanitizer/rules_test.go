@@ -11,10 +11,11 @@ import (
 const expectedRedactedPassValue = "[REDACTED-PASSWORD]"
 
 const (
-	expectedRedactedPublicIP1 = "[REDACTED-PUBLIC-IP-1]"
-	expectedMappedHostname1   = "host-001.example.com"
-	expectedMappedEmail1      = "user1@example.com"
-	testBase64PubKey          = "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=="
+	expectedRedactedPublicIP1  = "[REDACTED-PUBLIC-IP-1]"
+	expectedRedactedPrivateIP1 = "[REDACTED-PRIVATE-IP-1]"
+	expectedMappedHostname1    = "host-001.example.com"
+	expectedMappedEmail1       = "user1@example.com"
+	testBase64PubKey           = "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=="
 )
 
 func TestValidModes(t *testing.T) {
@@ -274,8 +275,8 @@ func TestRedact_PrivateIP(t *testing.T) {
 	engine := NewRuleEngine(ModeAggressive)
 
 	result := engine.Redact("lan_ip", "192.168.1.1")
-	if result != "10.0.0.1" {
-		t.Errorf("Redact private IP = %q, want %q", result, "10.0.0.1")
+	if result != expectedRedactedPrivateIP1 {
+		t.Errorf("Redact private IP = %q, want %q", result, expectedRedactedPrivateIP1)
 	}
 }
 

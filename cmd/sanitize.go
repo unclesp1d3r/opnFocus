@@ -141,8 +141,14 @@ SANITIZATION MODES:
 
 REFERENTIAL INTEGRITY:
   The sanitizer keeps consistent mappings inside a single run:
-    - The same original value is always replaced with the same redacted value.
-    - Network relationships remain visible (e.g. 192.168.1.1 -> 10.0.0.1).
+    - The same original value is always replaced with the same redacted value,
+      so two fields referring to one host still match after sanitizing.
+    - Replacements are markers, not plausible substitutes, so a redacted value
+      can never be mistaken for a real one (e.g. 192.168.1.1 becomes
+      [REDACTED-PRIVATE-IP-1]).
+  Aggressive mode therefore produces a document for reading and sharing, not a
+  loadable configuration. Use moderate mode when the sanitized file still needs
+  to parse and support topology analysis; it preserves private addresses.
   Use --mapping to write a JSON reverse-lookup table alongside the output.
 
 OUTPUT:
