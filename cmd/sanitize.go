@@ -428,14 +428,40 @@ func pathsResolveToSameFile(pathA, pathB string) (bool, error) {
 	return os.SameFile(infoA, infoB), nil
 }
 
-// writeSanitizeArtifact creates path, writes content, and flushes it to disk.
+// sanitizeArtifactPermissions is the mode both sanitize outputs are created
+// with. It matches export.DefaultFilePermissions, which every other command in
+// this tool already writes with.
+//
+// os.Create would use 0666 masked by umask, so typically 0644. That is the
+// wrong default here. The --mapping file is the reverse-lookup table: it holds
+// every original hostname, address, username, and email in cleartext next to
+// its pseudonym, and it is written into whatever directory the operator happens
+// to be working in. The sanitized configuration itself still carries real
+// topology in moderate and minimal modes.
+const sanitizeArtifactPermissions = 0o600
+
+// writeSanitizeArtifact creates path with owner-only permissions, writes
+// content, and flushes it to disk.
+//
 // Close failures are returned rather than logged: a failed close can mean the
 // bytes never reached the filesystem, and this command exists to produce files
 // an operator is about to share.
+//
+// The explicit Chmod is not redundant. The mode passed to OpenFile applies to
+// newly created files only, so re-running sanitize over a mapping file that an
+// earlier version left at 0644 would otherwise keep it world-readable, which is
+// exactly the case worth fixing. Chmod makes the resulting permissions the same
+// whether or not the target already existed.
 func writeSanitizeArtifact(path string, content []byte) error {
-	file, err := os.Create(path)
+	file, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, sanitizeArtifactPermissions)
 	if err != nil {
 		return fmt.Errorf("create: %w", err)
+	}
+
+	if err := file.Chmod(sanitizeArtifactPermissions); err != nil {
+		_ = file.Close()
+
+		return fmt.Errorf("set permissions: %w", err)
 	}
 
 	if _, err := file.Write(content); err != nil {

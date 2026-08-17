@@ -475,3 +475,86 @@ func TestPathsResolveToSameFile_CaseInsensitive(t *testing.T) {
 		t.Error("paths differing only in case should resolve to the same file on this platform")
 	}
 }
+
+// TestSanitizeArtifactsAreOwnerOnly checks the permissions of both files the
+// command creates. The mapping file is the sensitive one: it holds every
+// original hostname, address, username, and email in cleartext next to its
+// pseudonym, so a 0644 default in a shared working directory would undo much of
+// the point of sanitizing.
+//
+// The mode bits are POSIX-only; NTFS does not map onto FileMode.Perm(), so the
+// assertion is skipped on Windows rather than asserted and quietly wrong.
+func TestSanitizeArtifactsAreOwnerOnly(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("POSIX permission bits do not map onto NTFS ACLs")
+	}
+
+	tmpDir := t.TempDir()
+	input := filepath.Join(tmpDir, "config.xml")
+	writeSanitizeFixture(t, input)
+
+	output := filepath.Join(tmpDir, "sanitized.xml")
+	mapping := filepath.Join(tmpDir, "mapping.json")
+
+	if err := runSanitize(t, input, "-o", output, "--mapping", mapping, "--force"); err != nil {
+		t.Fatalf("sanitize failed: %v", err)
+	}
+
+	for _, path := range []string{output, mapping} {
+		info, err := os.Stat(path)
+		if err != nil {
+			t.Fatalf("failed to stat %s: %v", path, err)
+		}
+
+		if got := info.Mode().Perm(); got != sanitizeArtifactPermissions {
+			t.Errorf("%s has mode %#o, want %#o", filepath.Base(path), got, sanitizeArtifactPermissions)
+		}
+	}
+}
+
+// TestSanitizeTightensExistingArtifactPermissions covers the case the OpenFile
+// mode argument alone does not: the target already exists, so O_CREATE does not
+// apply a mode to it. Re-running sanitize over a mapping file that an earlier
+// version left world-readable has to end with it owner-only.
+func TestSanitizeTightensExistingArtifactPermissions(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("POSIX permission bits do not map onto NTFS ACLs")
+	}
+
+	tmpDir := t.TempDir()
+	input := filepath.Join(tmpDir, "config.xml")
+	writeSanitizeFixture(t, input)
+
+	output := filepath.Join(tmpDir, "sanitized.xml")
+	mapping := filepath.Join(tmpDir, "mapping.json")
+
+	// Seed both destinations world-readable, as an earlier release would have
+	// left them. Written owner-only first and widened with Chmod so the fixture
+	// setup does not itself trip the write-permission linter.
+	const worldReadable = 0o644
+
+	for _, path := range []string{output, mapping} {
+		if err := os.WriteFile(path, []byte("stale"), sanitizeArtifactPermissions); err != nil {
+			t.Fatalf("failed to seed %s: %v", path, err)
+		}
+
+		if err := os.Chmod(path, worldReadable); err != nil {
+			t.Fatalf("failed to widen permissions on %s: %v", path, err)
+		}
+	}
+
+	if err := runSanitize(t, input, "-o", output, "--mapping", mapping, "--force"); err != nil {
+		t.Fatalf("sanitize failed: %v", err)
+	}
+
+	for _, path := range []string{output, mapping} {
+		info, err := os.Stat(path)
+		if err != nil {
+			t.Fatalf("failed to stat %s: %v", path, err)
+		}
+
+		if got := info.Mode().Perm(); got != sanitizeArtifactPermissions {
+			t.Errorf("%s kept mode %#o, want %#o", filepath.Base(path), got, sanitizeArtifactPermissions)
+		}
+	}
+}
