@@ -65,13 +65,13 @@ jobs:
           go-version: ${{ matrix.go-version }}
           cache: true
 
-      - name: Run tests (Unix)
-        if: runner.os != 'Windows'
+      # Windows previously ran `just ci-smoke` (./cmd/... and ./internal/config/...
+      # only) on the belief that the full suite was too slow there. It was not
+      # slow, it failed: nao1215/markdown emitted CRLF against LF golden fixtures,
+      # and several tests hardcoded POSIX paths. Both are fixed, and the full
+      # suite measures 24s on Windows against 18s for ci-smoke.
+      - name: Run tests
         run: just test
-
-      - name: Run tests (Windows) # I don't remember why this is necessary, but I believe it was due to the speed of tests on the Windows runners
-        if: runner.os == 'Windows'
-        run: just ci-smoke
 
   # ─────────────────────────────────────────────────────────────────────────
   # Integration Tests - E2E testing with real config files
