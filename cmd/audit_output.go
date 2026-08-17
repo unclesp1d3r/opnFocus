@@ -4,6 +4,7 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"os"
 	"path/filepath"
 	"strings"
 
@@ -70,11 +71,13 @@ func emitAuditResult(
 		emitConfig = nil
 	}
 
-	actualOutputFile, err := determineOutputPath(result.inputFile, perInputOutputFile, fileExt, emitConfig, force)
-	if err != nil {
-		ctxLogger.Error("Failed to determine output path", "error", err)
+	actualOutputFile := determineOutputPath(perInputOutputFile, emitConfig)
 
-		return fmt.Errorf("failed to determine output path for %s: %w", result.inputFile, err)
+	// Emission is already serialized on the parent goroutine, so prompting here
+	// is safe. confirmOverwrite also declines cleanly when stdin is not a
+	// terminal instead of failing on an unexplained EOF.
+	if err := confirmOverwrite(os.Stdin, cmd.ErrOrStderr(), actualOutputFile, force); err != nil {
+		return err
 	}
 
 	// Export to file when requested.

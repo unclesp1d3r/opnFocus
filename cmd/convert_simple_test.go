@@ -3,7 +3,6 @@ package cmd
 import (
 	"context"
 	"errors"
-	"os"
 	"testing"
 
 	"github.com/EvilBit-Labs/opnDossier/internal/config"
@@ -12,52 +11,26 @@ import (
 	common "github.com/EvilBit-Labs/opnDossier/pkg/model"
 )
 
-// TestDetermineOutputPathSimple tests basic output path determination.
+// TestDetermineOutputPathSimple covers destination resolution. Overwrite
+// protection moved to confirmOverwrite, so this function no longer touches the
+// filesystem and cannot fail.
 func TestDetermineOutputPathSimple(t *testing.T) {
-	// Test with no output specified - should return empty for stdout
-	result, err := determineOutputPath("config.xml", "", ".md", nil, false)
-	if err != nil {
-		t.Errorf("Unexpected error: %v", err)
-	}
-	if result != "" {
-		t.Errorf("Expected empty result, got: %s", result)
+	if got := determineOutputPath("", nil); got != "" {
+		t.Errorf("no output configured should mean stdout, got: %s", got)
 	}
 
-	// Test with CLI flag output
-	result, err = determineOutputPath("config.xml", "output.md", ".md", nil, false)
-	if err != nil {
-		t.Errorf("Unexpected error: %v", err)
-	}
-	if result != "output.md" {
-		t.Errorf("Expected 'output.md', got: %s", result)
+	if got := determineOutputPath("output.md", nil); got != "output.md" {
+		t.Errorf("Expected 'output.md', got: %s", got)
 	}
 
-	// Test with config output
 	cfg := &config.Config{OutputFile: "config-output.md"}
-	result, err = determineOutputPath("config.xml", "", ".md", cfg, false)
-	if err != nil {
-		t.Errorf("Unexpected error: %v", err)
-	}
-	if result != "config-output.md" {
-		t.Errorf("Expected 'config-output.md', got: %s", result)
+	if got := determineOutputPath("", cfg); got != "config-output.md" {
+		t.Errorf("Expected 'config-output.md', got: %s", got)
 	}
 
-	// Test with forced overwrite of existing file
-	tempFile, err := os.CreateTemp(t.TempDir(), "test-*.md")
-	if err != nil {
-		t.Fatalf("Failed to create temp file: %v", err)
-	}
-	defer os.Remove(tempFile.Name())
-	if err := tempFile.Close(); err != nil {
-		t.Fatalf("Failed to close temp file: %v", err)
-	}
-
-	result, err = determineOutputPath("config.xml", tempFile.Name(), ".md", nil, true)
-	if err != nil {
-		t.Errorf("Unexpected error with force=true: %v", err)
-	}
-	if result != tempFile.Name() {
-		t.Errorf("Expected temp file name, got: %s", result)
+	// The CLI flag wins over a configured output_file.
+	if got := determineOutputPath("flag.md", cfg); got != "flag.md" {
+		t.Errorf("CLI flag should take precedence, got: %s", got)
 	}
 }
 

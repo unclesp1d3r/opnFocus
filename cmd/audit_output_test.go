@@ -6,7 +6,6 @@ import (
 
 	"github.com/EvilBit-Labs/opnDossier/internal/config"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 // TestEmitAuditResult_MultiFileAutoNaming verifies that multi-file audit runs
@@ -43,10 +42,8 @@ func TestEmitAuditResult_MultiFileAutoNaming(t *testing.T) {
 
 	// Verify the derived paths pass through determineOutputPath correctly
 	// (treated as explicit CLI outputFile, so config is ignored)
-	resolvedPath1, err1 := determineOutputPath(result1.inputFile, path1, ".md", nil, force)
-	resolvedPath2, err2 := determineOutputPath(result2.inputFile, path2, ".md", nil, force)
-	require.NoError(t, err1)
-	require.NoError(t, err2)
+	resolvedPath1 := determineOutputPath(path1, nil)
+	resolvedPath2 := determineOutputPath(path2, nil)
 
 	assert.Equal(t, "tmp_config1-audit.md", resolvedPath1)
 	assert.Equal(t, "tmp_config2-audit.md", resolvedPath2)
@@ -75,10 +72,8 @@ func TestEmitAuditResult_MultiFileConfigOutputFileIgnored(t *testing.T) {
 	cfgWithOutput := &config.Config{OutputFile: "tmp/shared-report.md"}
 
 	// Without the fix, both inputs would resolve to the shared config path
-	pathA, errA := determineOutputPath("tmp/config1.xml", "", ".md", cfgWithOutput, true)
-	pathB, errB := determineOutputPath("tmp/config2.xml", "", ".md", cfgWithOutput, true)
-	require.NoError(t, errA)
-	require.NoError(t, errB)
+	pathA := determineOutputPath("", cfgWithOutput)
+	pathB := determineOutputPath("", cfgWithOutput)
 	assert.Equal(t, pathA, pathB, "raw config OutputFile causes collision")
 
 	// With the fix, deriveAuditOutputPath produces unique paths and nil config
@@ -86,10 +81,8 @@ func TestEmitAuditResult_MultiFileConfigOutputFileIgnored(t *testing.T) {
 	derivedA := deriveAuditOutputPath("tmp/config1.xml", ".md")
 	derivedB := deriveAuditOutputPath("tmp/config2.xml", ".md")
 
-	resolvedA, errResolvedA := determineOutputPath("tmp/config1.xml", derivedA, ".md", nil, true)
-	resolvedB, errResolvedB := determineOutputPath("tmp/config2.xml", derivedB, ".md", nil, true)
-	require.NoError(t, errResolvedA)
-	require.NoError(t, errResolvedB)
+	resolvedA := determineOutputPath(derivedA, nil)
+	resolvedB := determineOutputPath(derivedB, nil)
 
 	assert.Equal(t, "tmp_config1-audit.md", resolvedA)
 	assert.Equal(t, "tmp_config2-audit.md", resolvedB)

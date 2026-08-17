@@ -2,7 +2,6 @@
 package cmd
 
 import (
-	"bufio"
 	"context"
 	"errors"
 	"fmt"
@@ -107,7 +106,7 @@ var convertCmd = &cobra.Command{ //nolint:gochecknoglobals // Cobra command
 	Short:             "Convert OPNsense configuration files to structured formats.",
 	GroupID:           groupCore,
 	ValidArgsFunction: ValidXMLFiles,
-	PreRunE: func(cmd *cobra.Command, _ []string) error {
+	PreRunE: func(cmd *cobra.Command, args []string) error {
 		// Get logger from CommandContext for validation warnings
 		cmdCtx := GetCommandContext(cmd)
 		var cmdLogger *logging.Logger
@@ -117,6 +116,15 @@ var convertCmd = &cobra.Command{ //nolint:gochecknoglobals // Cobra command
 
 		// Normalize flags (apply side-effects like --no-wrap → wrap=0)
 		normalizeConvertFlags()
+
+		// Reject a single --output shared across several inputs. Each worker
+		// would write the same path and the last one would silently win.
+		if err := validateMultiFileOutput(
+			outputFile, len(args),
+			"omit --output to write each report to stdout, or convert one file at a time",
+		); err != nil {
+			return err
+		}
 
 		// Validate flag combinations specific to convert command
 		if err := validateConvertFlags(cmd.Flags(), cmdLogger); err != nil {
@@ -148,9 +156,11 @@ CONTENT OPTIONS:
 
 OUTPUT DESTINATION:
   By default, output is printed to stdout. Use --output/-o to save to a file.
-  When processing multiple input files, --output is ignored and each output
-  file is auto-named after the input (config.xml -> config.md, config.json, ...).
-  Use --force to overwrite existing files without prompting.
+  --output is rejected when several input files are given, because one
+  destination cannot hold several reports; omit it to write them to stdout in
+  input order, or convert one file at a time.
+  Use --force to overwrite an existing file without prompting. When stdout is
+  not a terminal the prompt cannot be answered, so --force is required there.
 
 RELATED:
   audit      - Convert plus compliance checks (STIG/SANS/firewall)
@@ -189,17 +199,20 @@ RELATED:
 
 // convertResult pairs a per-file outcome with its error slot so a single slice
 // entry can represent either success or failure. Preserves input ordering for
-// deterministic error aggregation after wg.Wait().
+// deterministic error aggregation and emission after wg.Wait().
 type convertResult struct {
-	err error
+	output string
+	err    error
 }
 
 // runConvert processes one or more configuration files through the convert
-// pipeline. It parses each file concurrently and exports the rendered output
-// to the configured destination (file or stdout). Per-file work is extracted
-// into processConvertFile; results are buffered in an indexed slice and errors
-// are joined via errors.Join after wg.Wait() (no channel — mirrors the
-// cmd/audit.go:runAudit + processAuditFile pattern).
+// pipeline. It parses and renders each file concurrently, then emits the
+// results serially in input order (GOTCHAS §8.3: concurrent generation, serial
+// emission — the same shape cmd/audit.go:runAudit uses).
+//
+// The output destination is resolved once, before any worker starts. Resolving
+// it per file inside the workers meant several of them could target one path,
+// and meant the overwrite prompt ran concurrently on stdin.
 func runConvert(cmd *cobra.Command, args []string) error {
 	ctx := cmd.Context()
 	if ctx == nil {
@@ -219,6 +232,36 @@ func runConvert(cmd *cobra.Command, args []string) error {
 	cmdLogger := cmdCtx.Logger
 	cmdConfig := cmdCtx.Config
 
+	// Resolve format once: it is a single flag for the whole run, and the
+	// handler supplies the file extension the destination needs.
+	eff := buildEffectiveFormat(format, cmdConfig)
+	opt := buildConversionOptions(eff, cmdConfig)
+
+	// Validate the format once up front rather than per file. The registry
+	// lookup is the only thing that can reject it, and every file in the run
+	// shares the same --format value.
+	if _, err := converter.DefaultRegistry.Get(string(opt.Format)); err != nil {
+		return fmt.Errorf(
+			"%w: %q (supported: %s)",
+			ErrUnsupportedOutputFormat,
+			opt.Format,
+			strings.Join(converter.DefaultRegistry.ValidFormatsWithAliases(), ", "),
+		)
+	}
+
+	multiFile := len(args) > 1
+
+	destination, err := resolveConvertDestination(cmd, cmdConfig, cmdLogger, multiFile)
+	if err != nil {
+		if errors.Is(err, ErrOperationCancelled) {
+			cmdLogger.Info("Operation cancelled by user")
+
+			return nil
+		}
+
+		return err
+	}
+
 	// Create a timeout context for file processing
 	timeoutCtx, cancel := context.WithTimeout(ctx, constants.DefaultProcessingTimeout)
 	defer cancel()
@@ -228,11 +271,8 @@ func runConvert(cmd *cobra.Command, args []string) error {
 	maxConcurrent := max(runtime.NumCPU(), 1)
 	sem := make(chan struct{}, maxConcurrent)
 
-	// Buffer per-file outcomes indexed by input position. Replaces the former
-	// sized errs channel: each goroutine writes exactly one entry, and the
-	// parent goroutine aggregates after wg.Wait(). The indexed slice removes
-	// the latent deadlock that would occur if the body ever emitted more than
-	// one error per goroutine (see todo #112).
+	// Buffer per-file outcomes indexed by input position so both errors and
+	// emission stay in input order regardless of completion order.
 	results := make([]convertResult, len(args))
 
 	var wg sync.WaitGroup
@@ -243,29 +283,67 @@ func runConvert(cmd *cobra.Command, args []string) error {
 		go func(idx int, fp string) {
 			defer wg.Done()
 
-			results[idx] = processConvertFile(timeoutCtx, fp, sem, cmd, cmdLogger, cmdConfig)
+			results[idx] = processConvertFile(timeoutCtx, fp, sem, opt, cmdLogger, cmdConfig)
 		}(i, filePath)
 	}
 
 	wg.Wait()
 
-	// Aggregate errors in input order via errors.Join for proper Unwrap() support.
+	// Emit serially in input order. Concurrent writes to a single destination
+	// lose reports, and concurrent writes to stdout interleave once a report
+	// exceeds the pipe buffer.
 	var allErrors []error
 
 	for _, r := range results {
 		if r.err != nil {
 			allErrors = append(allErrors, r.err)
+
+			continue
+		}
+
+		if err := emitConvertOutput(ctx, cmd, cmdLogger, r.output, destination); err != nil {
+			allErrors = append(allErrors, err)
 		}
 	}
 
 	return errors.Join(allErrors...)
 }
 
-// processConvertFile runs the full convert pipeline for a single input file
-// under the shared concurrency semaphore. It parses the XML, generates the
-// requested output format, resolves the output path, and exports to file or
-// stdout — preserving the pre-refactor behavior where emission happens
-// inside the worker (unlike audit, which defers emission to the parent).
+// resolveConvertDestination determines the single output path for the run and
+// settles overwrite protection before any work happens.
+//
+// An empty return means stdout. Multi-file runs always go to stdout: --output is
+// rejected in PreRunE, and a configured output_file is ignored here, since one
+// destination cannot hold several reports.
+func resolveConvertDestination(
+	cmd *cobra.Command,
+	cfg *config.Config,
+	logger *logging.Logger,
+	multiFile bool,
+) (string, error) {
+	if multiFile {
+		if cfg != nil && cfg.OutputFile != "" {
+			logger.Info(
+				"Configured output_file ignored for multi-file convert; output goes to stdout",
+				"configured_output", cfg.OutputFile,
+			)
+		}
+
+		return "", nil
+	}
+
+	destination := determineOutputPath(outputFile, cfg)
+	if err := confirmOverwrite(os.Stdin, cmd.ErrOrStderr(), destination, force); err != nil {
+		return "", err
+	}
+
+	return destination, nil
+}
+
+// processConvertFile runs the convert pipeline for a single input file under
+// the shared concurrency semaphore and returns the rendered report. It performs
+// no I/O emission, so it is safe to call from a goroutine; the parent writes
+// the buffered results in input order (GOTCHAS §8.3).
 //
 // A context timeout or cancellation before the semaphore is acquired returns
 // the ctx error wrapped with the input file path. All subsequent failures are
@@ -275,7 +353,7 @@ func processConvertFile(
 	ctx context.Context,
 	fp string,
 	sem chan struct{},
-	cmd *cobra.Command,
+	opt converter.Options,
 	cmdLogger *logging.Logger,
 	cmdConfig *config.Config,
 ) convertResult {
@@ -294,28 +372,18 @@ func processConvertFile(
 		return convertResult{err: err}
 	}
 
-	eff := buildEffectiveFormat(format, cmdConfig)
-	opt := buildConversionOptions(eff, cmdConfig)
 	ctxLogger.Debug("Converting with options", "format", opt.Format, "theme", opt.Theme, "sections", opt.Sections)
 
-	output, handler, err := generateOutputByFormat(ctx, device, opt, ctxLogger)
+	output, err := generateWithProgrammaticGenerator(ctx, device, opt, ctxLogger)
 	if err != nil {
 		ctxLogger.Error("Failed to convert", "error", err)
+
 		return convertResult{err: fmt.Errorf("failed to convert from %s: %w", fp, err)}
 	}
 
 	ctxLogger.Debug("Conversion completed successfully")
 
-	actualOutputFile, err := determineOutputPath(fp, outputFile, handler.FileExtension(), cmdConfig, force)
-	if err != nil {
-		ctxLogger.Error("Failed to determine output path", "error", err)
-		return convertResult{err: fmt.Errorf("failed to determine output path for %s: %w", fp, err)}
-	}
-
-	if err := emitConvertOutput(ctx, cmd, ctxLogger, output, actualOutputFile); err != nil {
-		return convertResult{err: err}
-	}
-	return convertResult{}
+	return convertResult{output: output}
 }
 
 // parseConvertInput cleans fp, opens the file, and parses it into a CommonDevice.
@@ -497,71 +565,27 @@ func buildConversionOptions(
 	return opt
 }
 
-// determineOutputPath determines the output file path with smart naming and overwrite protection.
-// It handles the following scenarios:
-// 1. If outputFile is specified, use it (with overwrite protection)
-// 2. If multiple files are being processed, use input filename with appropriate extension
-// 3. If config has output_file but no CLI flag, use input filename with appropriate extension
-// 4. If no output specified, return empty string (stdout)
+// determineOutputPath resolves the output destination. An empty return means
+// stdout. Precedence is --output, then a configured output_file.
 //
-// The function ensures no automatic directory creation and provides overwrite prompts
-// unless the force flag is set.
-func determineOutputPath(inputFile, outputFile, fileExt string, cfg *config.Config, force bool) (string, error) {
-	// If no output file specified, return empty string for stdout
-	if outputFile == "" && (cfg == nil || cfg.OutputFile == "") {
-		return "", nil
-	}
-
-	var actualOutputFile string
-
-	// Determine the output file path using switch statement
+// Overwrite protection is deliberately not applied here. Callers invoke
+// confirmOverwrite themselves, so convert can settle it once before starting
+// concurrent work rather than from inside a worker.
+//
+// This previously accepted the input filename and extension to auto-name the
+// destination, but that branch was unreachable: a run with neither --output nor
+// a configured output_file returns early for stdout, so the switch never hit its
+// default. Callers wanting a derived per-input path build it themselves, as
+// deriveAuditOutputPath does.
+func determineOutputPath(outputFile string, cfg *config.Config) string {
 	switch {
 	case outputFile != "":
-		// CLI flag takes precedence
-		actualOutputFile = outputFile
+		return outputFile
 	case cfg != nil && cfg.OutputFile != "":
-		// Use config value if CLI flag not specified
-		actualOutputFile = cfg.OutputFile
+		return cfg.OutputFile
 	default:
-		// Use input filename with appropriate extension as default
-		base := filepath.Base(inputFile)
-		ext := filepath.Ext(base)
-		actualOutputFile = strings.TrimSuffix(base, ext) + fileExt
+		return ""
 	}
-
-	// Check if file already exists and handle overwrite protection
-
-	if _, err := os.Stat(actualOutputFile); err == nil {
-		// File exists, check if we should overwrite
-		if !force {
-			// Prompt user for confirmation (using stderr to avoid interfering with piped output)
-
-			fmt.Fprintf(os.Stderr, "File '%s' already exists. Overwrite? (y/N): ", actualOutputFile)
-
-			// Use bufio.NewReader to correctly capture entire input line including spaces
-			reader := bufio.NewReader(os.Stdin)
-
-			response, err := reader.ReadString('\n')
-			if err != nil {
-				return "", fmt.Errorf("failed to read user input: %w", err)
-			}
-
-			// Trim whitespace and newline characters
-			response = strings.TrimSpace(response)
-
-			// Empty input defaults to "N" (no)
-			if response == "" {
-				response = "N"
-			}
-
-			// Only proceed if user explicitly confirms with 'y' or 'Y'
-			if response != "y" && response != "Y" {
-				return "", ErrOperationCancelled
-			}
-		}
-	}
-
-	return actualOutputFile, nil
 }
 
 // generateOutputByFormat generates the document output in the requested format using the programmatic generator.
