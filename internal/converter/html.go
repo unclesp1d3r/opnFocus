@@ -211,12 +211,14 @@ func RenderMarkdownToHTML(md string) (string, error) {
 //
 // This one keeps html.WithUnsafe() because its only production consumer,
 // internal/diff/formatters, writes literal <details>/<summary> wrappers around
-// each change block and needs them to survive rendering. The diff formatter
-// places config-derived values inside backtick code spans, which goldmark
-// parses as code rather than raw HTML, so the passthrough is not currently
-// reachable from untrusted input on that path. That is a property of how the
-// diff formatter happens to be written rather than something enforced here, so
-// it is worth re-checking whenever the diff formatter changes.
+// each change block and needs them to survive rendering.
+//
+// That makes the diff formatter, not this renderer, responsible for keeping
+// config-derived values inert. It does so by escaping change descriptions with
+// formatters.EscapeMarkdownValue and wrapping paths and raw values in
+// correctly sized code spans. Anything added to that formatter which writes a
+// configuration value must do the same; passthrough is on here and will not
+// catch the mistake.
 var richGoldmarkRenderer = goldmark.New(
 	goldmark.WithExtensions(extension.GFM, extension.DefinitionList, emoji.Emoji, extension.Footnote),
 	goldmark.WithParserOptions(
