@@ -103,6 +103,25 @@ func newInjectionTestDevice(payload string) *common.CommonDevice {
 			AlertSaveLogs:     payload,
 			Detect:            common.IDSDetect{Profile: payload},
 		},
+		// VLAN and static route tables are reached from builder_vpn.go, a third
+		// render path again, and their tag and timestamp columns went in raw.
+		VLANs: []common.VLAN{{
+			VLANIf:      payload,
+			PhysicalIf:  payload,
+			Tag:         payload,
+			Description: payload,
+			Created:     payload,
+			Updated:     payload,
+		}},
+		Routing: common.Routing{
+			StaticRoutes: []common.StaticRoute{{
+				Network:     payload,
+				Gateway:     payload,
+				Description: payload,
+				Created:     payload,
+				Updated:     payload,
+			}},
+		},
 		NAT: common.NATConfig{
 			OutboundRules: []common.NATRule{{
 				Interfaces:  []string{"lan"},
@@ -179,29 +198,42 @@ func TestReportMarkdownEscapesConfigValues(t *testing.T) {
 
 	device := newInjectionTestDevice(payload)
 
-	gen, err := NewHybridGenerator(builder.NewMarkdownBuilder(), nil)
-	require.NoError(t, err)
+	// Both variants. Several tables, the VLAN and static route ones among them,
+	// are only emitted by the comprehensive report, so a standard-only check
+	// leaves their columns unguarded.
+	for _, comprehensive := range []bool{false, true} {
+		opts := DefaultOptions().WithFormat(FormatMarkdown)
+		opts.Comprehensive = comprehensive
 
-	out, err := gen.Generate(context.Background(), device, DefaultOptions().WithFormat(FormatMarkdown))
-	require.NoError(t, err)
+		gen, err := NewHybridGenerator(builder.NewMarkdownBuilder(), nil)
+		require.NoError(t, err)
 
-	require.Contains(t, out, injectionMarker, "payload should be present in the report")
+		out, err := gen.Generate(context.Background(), device, opts)
+		require.NoError(t, err)
 
-	// Assert on the rendered result rather than on the markdown spelling. There
-	// are two valid ways to contain a value: backslash-escape the
-	// metacharacters, or put it in a correctly fenced code span, where the
-	// characters are literal and must appear verbatim. Checking the markdown
-	// text for "<b>" would fail the code span form even though it is inert, and
-	// would say nothing about whether the escaping actually worked.
-	rendered, err := RenderMarkdownToHTML(out)
-	require.NoError(t, err)
+		require.Contains(t, out, injectionMarker,
+			"comprehensive=%v: payload should be present in the report", comprehensive)
 
-	assert.NotContains(t, rendered, "<b>", "angle brackets became live markup")
-	assert.NotContains(t, rendered, "<em>emph</em>", "asterisks were parsed as emphasis")
-	assert.NotContains(t, rendered, `<a href="x"`, "brackets were parsed as a link")
+		// Assert on the rendered result rather than on the markdown spelling.
+		// There are two valid ways to contain a value: backslash-escape the
+		// metacharacters, or put it in a correctly fenced code span, where the
+		// characters are literal and must appear verbatim. Checking the markdown
+		// text for "<b>" would fail the code span form even though it is inert,
+		// and would say nothing about whether the escaping actually worked.
+		rendered, err := RenderMarkdownToHTML(out)
+		require.NoError(t, err)
 
-	// Containment is only half of it. A value can also be silently truncated,
-	// which is what an unescaped pipe does to a table cell, so require the whole
-	// payload to survive somewhere in the output.
-	assert.Contains(t, rendered, "pipe", "payload was truncated rather than escaped")
+		assert.NotContains(t, rendered, "<b>",
+			"comprehensive=%v: angle brackets became live markup", comprehensive)
+		assert.NotContains(t, rendered, "<em>emph</em>",
+			"comprehensive=%v: asterisks were parsed as emphasis", comprehensive)
+		assert.NotContains(t, rendered, `<a href="x"`,
+			"comprehensive=%v: brackets were parsed as a link", comprehensive)
+
+		// Containment is only half of it. A value can also be silently
+		// truncated, which is what an unescaped pipe does to a table cell, so
+		// require the whole payload to survive.
+		assert.Contains(t, rendered, "pipe",
+			"comprehensive=%v: payload was truncated rather than escaped", comprehensive)
+	}
 }

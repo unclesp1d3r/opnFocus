@@ -128,10 +128,10 @@ func BuildVLANTableSet(vlans []common.VLAN) *markdown.TableSet {
 			rows = append(rows, []string{
 				formatters.EscapeTableContent(vlan.VLANIf),
 				formatters.EscapeTableContent(vlan.PhysicalIf),
-				vlan.Tag,
+				formatters.EscapeTableContent(vlan.Tag),
 				formatters.EscapeTableContent(vlan.Description),
-				vlan.Created,
-				vlan.Updated,
+				formatters.EscapeTableContent(vlan.Created),
+				formatters.EscapeTableContent(vlan.Updated),
 			})
 		}
 	}
@@ -179,8 +179,8 @@ func BuildStaticRoutesTableSet(routes []common.StaticRoute) *markdown.TableSet {
 				formatters.EscapeTableContent(route.Gateway),
 				formatters.EscapeTableContent(route.Description),
 				status,
-				route.Created,
-				route.Updated,
+				formatters.EscapeTableContent(route.Created),
+				formatters.EscapeTableContent(route.Updated),
 			})
 		}
 	}
