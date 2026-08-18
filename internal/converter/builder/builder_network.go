@@ -2,7 +2,6 @@ package builder
 
 import (
 	"bytes"
-	"fmt"
 	"strings"
 
 	"github.com/EvilBit-Labs/opnDossier/internal/converter/formatters"
@@ -58,9 +57,9 @@ func BuildInterfaceTableSet(interfaces []common.Interface) *markdown.TableSet {
 		}
 
 		rows = append(rows, []string{
-			fmt.Sprintf("`%s`", formatters.EscapeTableContent(iface.Name)),
-			fmt.Sprintf("`%s`", formatters.EscapeTableContent(description)),
-			fmt.Sprintf("`%s`", formatters.EscapeTableContent(iface.IPAddress)),
+			formatters.CodeSpanCell(iface.Name),
+			formatters.CodeSpanCell(description),
+			formatters.CodeSpanCell(iface.IPAddress),
 			cidr,
 			formatters.FormatBool(iface.Enabled),
 		})

@@ -91,8 +91,8 @@
 |---------|---------|---------|---------|---------|
 | `` | `` | `` |  | ✗ |
 | `invalid-interface` | `Interface with \| pipes \| and   newlines` | `999.999.999.999` | /999 | ✗ |
-| `interface\*with\*chars` | `Interface with \*asterisks\* and \_underscores\_` | `192.168.1.100` | /24 | ✓ |
-| `interface\`with\`backticks` | `Interface with \`code\` and \\backslashes\\` | `192.168.2.100` | /24 | ✓ |
+| `interface*with*chars` | `Interface with *asterisks* and _underscores_` | `192.168.1.100` | /24 | ✓ |
+| ``interface`with`backticks`` | ``Interface with `code` and \backslashes\`` | `192.168.2.100` | /24 | ✓ |
 
 ### Unnamed Interface
 **Enabled**: ✗

@@ -282,38 +282,10 @@ func escapeMarkdown(s string) string {
 	return convfmt.EscapeMarkdownValue(s)
 }
 
-// codeSpan wraps value in a markdown code span sized to its contents.
-//
-// Code span contents are literal and goldmark HTML-escapes them on render.
-// Backslash escaping is wrong here: it does not apply inside a code span and
-// would show up literally.
-//
-// The one way out is a backtick run matching the fence, so the fence is sized to
-// one more than the longest run in the value. A value starting or ending with a
-// backtick also needs the padding spaces CommonMark strips back off. Newlines
-// are collapsed because a code span cannot span lines.
+// codeSpan wraps value in a markdown code span sized to its contents. It
+// delegates to [convfmt.CodeSpan] so both report generators share one
+// implementation; see that function for why backslash escaping is not an option
+// inside a code span.
 func codeSpan(value string) string {
-	value = strings.NewReplacer("\r\n", " ", "\n", " ", "\r", " ").Replace(value)
-
-	longest, current := 0, 0
-
-	for _, r := range value {
-		if r != '`' {
-			current = 0
-
-			continue
-		}
-
-		current++
-		if current > longest {
-			longest = current
-		}
-	}
-
-	fence := strings.Repeat("`", longest+1)
-	if strings.HasPrefix(value, "`") || strings.HasSuffix(value, "`") {
-		return fence + " " + value + " " + fence
-	}
-
-	return fence + value + fence
+	return convfmt.CodeSpan(value)
 }

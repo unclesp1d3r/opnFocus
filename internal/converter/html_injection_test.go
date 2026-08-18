@@ -2,7 +2,6 @@ package converter
 
 import (
 	"context"
-	"strings"
 	"testing"
 
 	"github.com/EvilBit-Labs/opnDossier/internal/converter/builder"
@@ -155,16 +154,21 @@ func TestReportMarkdownEscapesConfigValues(t *testing.T) {
 
 	require.Contains(t, out, injectionMarker, "payload should be present in the report")
 
-	// Every occurrence of the payload must carry the escaped spelling. Checking
-	// the escaped form is present is not enough on its own, because one escaped
-	// site would mask a dozen unescaped ones.
-	for line := range strings.SplitSeq(out, "\n") {
-		if !strings.Contains(line, injectionMarker) {
-			continue
-		}
+	// Assert on the rendered result rather than on the markdown spelling. There
+	// are two valid ways to contain a value: backslash-escape the
+	// metacharacters, or put it in a correctly fenced code span, where the
+	// characters are literal and must appear verbatim. Checking the markdown
+	// text for "<b>" would fail the code span form even though it is inert, and
+	// would say nothing about whether the escaping actually worked.
+	rendered, err := RenderMarkdownToHTML(out)
+	require.NoError(t, err)
 
-		assert.NotContains(t, line, "<b>", "unescaped angle brackets in: %s", line)
-		assert.NotContains(t, line, "*emph*", "unescaped emphasis in: %s", line)
-		assert.NotContains(t, line, "[link]", "unescaped link syntax in: %s", line)
-	}
+	assert.NotContains(t, rendered, "<b>", "angle brackets became live markup")
+	assert.NotContains(t, rendered, "<em>emph</em>", "asterisks were parsed as emphasis")
+	assert.NotContains(t, rendered, `<a href="x"`, "brackets were parsed as a link")
+
+	// Containment is only half of it. A value can also be silently truncated,
+	// which is what an unescaped pipe does to a table cell, so require the whole
+	// payload to survive somewhere in the output.
+	assert.Contains(t, rendered, "pipe", "payload was truncated rather than escaped")
 }
