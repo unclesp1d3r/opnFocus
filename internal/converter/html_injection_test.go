@@ -88,6 +88,39 @@ func newInjectionTestDevice(payload string) *common.CommonDevice {
 			ROCommunity: payload,
 		},
 		NTP: common.NTPConfig{PreferredServer: payload},
+		// IDS and NAT reached their tables with no escaper at all. They are
+		// separate render paths from the interface and firewall tables above, so
+		// the fixture has to carry them or the escaping there goes unguarded.
+		IDS: &common.IDSConfig{
+			Enabled:           true,
+			Interfaces:        []string{payload},
+			HomeNetworks:      []string{payload},
+			MPMAlgo:           payload,
+			DefaultPacketSize: payload,
+			LogPayload:        payload,
+			Verbosity:         payload,
+			AlertLogrotate:    payload,
+			AlertSaveLogs:     payload,
+			Detect:            common.IDSDetect{Profile: payload},
+		},
+		NAT: common.NATConfig{
+			OutboundRules: []common.NATRule{{
+				Interfaces:  []string{"lan"},
+				Protocol:    payload,
+				Target:      payload,
+				Description: payload,
+				Source:      common.RuleEndpoint{Address: payload, Port: payload},
+				Destination: common.RuleEndpoint{Address: payload, Port: payload},
+			}},
+			InboundRules: []common.InboundNATRule{{
+				Interfaces:   []string{"lan"},
+				Protocol:     payload,
+				ExternalPort: payload,
+				InternalIP:   payload,
+				InternalPort: payload,
+				Description:  payload,
+			}},
+		},
 	}
 }
 
