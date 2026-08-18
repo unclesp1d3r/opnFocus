@@ -419,42 +419,60 @@ func pathsResolveToSameFile(pathA, pathB string) (bool, error) {
 // in cleartext beside its pseudonym.
 const sanitizeArtifactPermissions = 0o600
 
-// writeSanitizeArtifact creates path with owner-only permissions, writes
-// content, and flushes it to disk. Close failures are returned rather than
-// logged, since a failed close can mean the bytes never reached the filesystem.
+// writeSanitizeArtifact writes content to path with owner-only permissions,
+// replacing the destination only once the bytes are safely on disk.
 //
-// The explicit Chmod is not redundant: OpenFile's mode applies to newly created
-// files only, so re-running over a mapping file an earlier version left at 0644
-// would otherwise keep it world-readable.
+// The write goes to a temporary file in the same directory and is renamed into
+// place at the end. Opening the destination directly with O_TRUNC would destroy
+// an existing artifact before the first byte is written, so a disk-full or sync
+// failure would return an error having already lost the previous result. The
+// rename is the last step and is atomic on a single filesystem, which is why the
+// temporary file has to be a sibling rather than in the system temp directory.
+//
+// Chmod is applied to the temporary file before the rename. os.CreateTemp makes
+// files 0600, but that is its behavior rather than a documented guarantee, and
+// setting the mode explicitly keeps this correct if it ever changes.
+//
+// Close failures are returned rather than logged, since a failed close can mean
+// the bytes never reached the filesystem.
 func writeSanitizeArtifact(path string, content []byte) error {
 	// Path is the operator's own --output or --mapping value, already checked by
 	// validateSanitizePaths for collisions with the input and with each other,
 	// and by determineSanitizeOutputPath for the overwrite gate.
-	file, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, sanitizeArtifactPermissions) // #nosec G304
+	dir := filepath.Dir(path)
+
+	tmp, err := os.CreateTemp(dir, filepath.Base(path)+".tmp_*")
 	if err != nil {
-		return fmt.Errorf("create: %w", err)
+		return fmt.Errorf("create temporary file: %w", err)
 	}
 
-	if err := file.Chmod(sanitizeArtifactPermissions); err != nil {
-		_ = file.Close()
+	tmpPath := tmp.Name()
 
-		return fmt.Errorf("set permissions: %w", err)
-	}
+	// Removes the temporary file on every failure path below. After a successful
+	// rename the path no longer exists, so the Remove is a no-op.
+	defer func() {
+		_ = tmp.Close()
+		_ = os.Remove(tmpPath)
+	}()
 
-	if _, err := file.Write(content); err != nil {
-		_ = file.Close()
-
+	if _, err := tmp.Write(content); err != nil {
 		return fmt.Errorf("write: %w", err)
 	}
 
-	if err := file.Sync(); err != nil {
-		_ = file.Close()
-
+	if err := tmp.Sync(); err != nil {
 		return fmt.Errorf("sync: %w", err)
 	}
 
-	if err := file.Close(); err != nil {
+	if err := tmp.Close(); err != nil {
 		return fmt.Errorf("close: %w", err)
+	}
+
+	if err := os.Chmod(tmpPath, sanitizeArtifactPermissions); err != nil {
+		return fmt.Errorf("set permissions: %w", err)
+	}
+
+	if err := os.Rename(tmpPath, path); err != nil {
+		return fmt.Errorf("replace destination: %w", err)
 	}
 
 	return nil
