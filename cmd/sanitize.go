@@ -262,7 +262,7 @@ RELATED:
 			if err := writeSanitizeArtifact(actualOutputFile, sanitized.Bytes()); err != nil {
 				return fmt.Errorf("failed to write output file %s: %w", actualOutputFile, err)
 			}
-		} else if _, err := os.Stdout.Write(sanitized.Bytes()); err != nil {
+		} else if _, err := cmd.OutOrStdout().Write(sanitized.Bytes()); err != nil {
 			return fmt.Errorf("failed to write sanitized output: %w", err)
 		}
 
@@ -439,6 +439,17 @@ func writeSanitizeArtifact(path string, content []byte) error {
 	// Path is the operator's own --output or --mapping value, already checked by
 	// validateSanitizePaths for collisions with the input and with each other,
 	// and by determineSanitizeOutputPath for the overwrite gate.
+
+	// A destination that is not a regular file gets written through rather than
+	// replaced. Renaming onto a device node or a FIFO substitutes a regular file
+	// for it, which is not what -o /dev/null or -o /dev/stdout asks for, and
+	// CreateTemp in the destination's directory is not permitted in /dev anyway.
+	// The truncation guarantee the temporary file provides is meaningless for
+	// these targets, since there is no previous content to lose.
+	if info, err := os.Stat(path); err == nil && !info.Mode().IsRegular() {
+		return writeSanitizeArtifactDirect(path, content)
+	}
+
 	dir := filepath.Dir(path)
 
 	tmp, err := os.CreateTemp(dir, filepath.Base(path)+".tmp_*")
@@ -473,6 +484,32 @@ func writeSanitizeArtifact(path string, content []byte) error {
 
 	if err := os.Rename(tmpPath, path); err != nil {
 		return fmt.Errorf("replace destination: %w", err)
+	}
+
+	return nil
+}
+
+// writeSanitizeArtifactDirect writes to a destination that is not a regular
+// file, such as /dev/null, /dev/stdout, or a FIFO.
+//
+// No temporary file, no rename, and no Chmod: the node already exists, its
+// permissions belong to whoever created it, and replacing it is exactly the
+// behavior this avoids. O_TRUNC is safe here because a character device or a
+// pipe has no previous content that truncation could destroy.
+func writeSanitizeArtifactDirect(path string, content []byte) error {
+	file, err := os.OpenFile(path, os.O_WRONLY, sanitizeArtifactPermissions) // #nosec G304
+	if err != nil {
+		return fmt.Errorf("open: %w", err)
+	}
+
+	if _, err := file.Write(content); err != nil {
+		_ = file.Close()
+
+		return fmt.Errorf("write: %w", err)
+	}
+
+	if err := file.Close(); err != nil {
+		return fmt.Errorf("close: %w", err)
 	}
 
 	return nil

@@ -67,7 +67,8 @@ func TestWriteSanitizeArtifactReplacesExistingFile(t *testing.T) {
 	tmpDir := t.TempDir()
 
 	dest := filepath.Join(tmpDir, "artifact.xml")
-	if err := os.WriteFile(dest, []byte("stale"), 0o644); err != nil { //nolint:gosec // deliberately permissive
+	//nolint:gosec // deliberately permissive: the point is that it comes back owner-only
+	if err := os.WriteFile(dest, []byte("stale"), 0o644); err != nil {
 		t.Fatalf("failed to seed destination: %v", err)
 	}
 
