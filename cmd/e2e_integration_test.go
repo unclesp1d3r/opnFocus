@@ -271,9 +271,33 @@ func TestE2EMultipleConfigFiles(t *testing.T) {
 		}
 	}
 
+	// A multi-file run writes one report per input, named after the input and
+	// resolved against the working directory. Copy the fixtures somewhere
+	// disposable and run from there, so the reports do not land in the source
+	// tree.
+	workDir := t.TempDir()
+
+	inputs := make([]string, 0, len(testFiles))
+
+	for _, testFile := range testFiles {
+		content, err := os.ReadFile(testFile) //nolint:gosec // repository fixture
+		if err != nil {
+			t.Fatalf("failed to read fixture %s: %v", testFile, err)
+		}
+
+		name := filepath.Base(testFile)
+		if err := os.WriteFile(filepath.Join(workDir, name), content, 0o600); err != nil {
+			t.Fatalf("failed to stage fixture %s: %v", name, err)
+		}
+
+		inputs = append(inputs, name)
+	}
+
+	t.Chdir(workDir)
+
 	var stdout, stderr bytes.Buffer
 	cmd := newTestCommand()
-	args := append([]string{"convert", "--format", "markdown"}, testFiles...)
+	args := append([]string{"convert", "--format", "markdown"}, inputs...)
 	cmd.SetArgs(args)
 	cmd.SetOut(&stdout)
 	cmd.SetErr(&stderr)
@@ -281,5 +305,17 @@ func TestE2EMultipleConfigFiles(t *testing.T) {
 	err := cmd.Execute()
 	if err != nil {
 		t.Fatalf("convert command with multiple files failed: %v\nstderr: %s", err, stderr.String())
+	}
+
+	if stdout.Len() != 0 {
+		t.Errorf("multi-file run wrote %d bytes to stdout; each report should go to its own file",
+			stdout.Len())
+	}
+
+	for _, in := range inputs {
+		out := derivePerInputOutputPath(in, "", ".md")
+		if _, err := os.Stat(out); err != nil {
+			t.Errorf("expected a report at %s for input %s: %v", out, in, err)
+		}
 	}
 }

@@ -157,7 +157,7 @@ For practical developer guidance on public package purity and the boundary verif
 - **Warning Handling**: All commands log conversion warnings via structured logging; warnings suppressed when `--quiet` flag is used
 - **File Organization**: Audit command split into two files following file-size guidelines:
   - `audit.go` — Command definition, flags, `PreRunE` validation, `runAudit`, and `generateAuditOutput`
-  - `audit_output.go` — Output emission logic (`emitAuditResult`), path derivation (`deriveAuditOutputPath`), and segment escaping (`escapePathSegment`)
+  - `audit_output.go` — Output emission logic (`emitAuditResult`), path derivation (`derivePerInputOutputPath`, shared with `convert`), and segment escaping (`escapePathSegment`)
 
 ### 2. Configuration Management
 

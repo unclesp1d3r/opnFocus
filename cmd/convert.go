@@ -121,7 +121,7 @@ var convertCmd = &cobra.Command{ //nolint:gochecknoglobals // Cobra command
 		// would write the same path and the last one would silently win.
 		if err := validateMultiFileOutput(
 			outputFile, len(args),
-			"omit --output to write each report to stdout, or convert one file at a time",
+			"omit --output so each report is written to its own auto-named file, or convert one file at a time",
 		); err != nil {
 			return err
 		}
@@ -157,9 +157,10 @@ CONTENT OPTIONS:
 OUTPUT DESTINATION:
   By default, output is printed to stdout. Use --output/-o to save to a file.
   --output is rejected when several input files are given, because one
-  destination cannot hold several reports; omit it to write them to stdout in
-  input order, or convert one file at a time.
-  Use --force to overwrite an existing file without prompting. When stdout is
+  destination cannot hold several reports. Multi-file runs instead write each
+  report to its own file, auto-named after the input
+  (config.xml -> config.md, config.json, ...), the same way audit does.
+  Use --force to overwrite existing files without prompting. When stdout is
   not a terminal the prompt cannot be answered, so --force is required there.
 
 RELATED:
@@ -239,8 +240,10 @@ func runConvert(cmd *cobra.Command, args []string) error {
 
 	// Validate the format once up front rather than per file. The registry
 	// lookup is the only thing that can reject it, and every file in the run
-	// shares the same --format value.
-	if _, err := converter.DefaultRegistry.Get(string(opt.Format)); err != nil {
+	// shares the same --format value. The handler also supplies the extension a
+	// derived per-input destination needs.
+	handler, err := converter.DefaultRegistry.Get(string(opt.Format))
+	if err != nil {
 		return fmt.Errorf(
 			"%w: %q (supported: %s)",
 			ErrUnsupportedOutputFormat,
@@ -248,6 +251,8 @@ func runConvert(cmd *cobra.Command, args []string) error {
 			strings.Join(converter.DefaultRegistry.ValidFormatsWithAliases(), ", "),
 		)
 	}
+
+	fileExt := handler.FileExtension()
 
 	multiFile := len(args) > 1
 
@@ -294,14 +299,27 @@ func runConvert(cmd *cobra.Command, args []string) error {
 	// exceeds the pipe buffer.
 	var allErrors []error
 
-	for _, r := range results {
+	for i, r := range results {
 		if r.err != nil {
 			allErrors = append(allErrors, r.err)
 
 			continue
 		}
 
-		if err := emitConvertOutput(ctx, cmd, cmdLogger, r.output, destination); err != nil {
+		perInput, err := convertDestinationFor(cmd, cmdLogger, args[i], destination, multiFile, fileExt)
+		if err != nil {
+			if errors.Is(err, ErrOperationCancelled) {
+				cmdLogger.Info("Skipping file, operation cancelled by user", "input_file", args[i])
+
+				continue
+			}
+
+			allErrors = append(allErrors, err)
+
+			continue
+		}
+
+		if err := emitConvertOutput(ctx, cmd, cmdLogger, r.output, perInput); err != nil {
 			allErrors = append(allErrors, err)
 		}
 	}
@@ -309,12 +327,49 @@ func runConvert(cmd *cobra.Command, args []string) error {
 	return errors.Join(allErrors...)
 }
 
+// convertDestinationFor resolves where one report goes.
+//
+// Single-file runs use the destination already settled by
+// resolveConvertDestination. Multi-file runs derive a per-input path instead, so
+// each report lands in its own file. Concatenating them on stdout is not a
+// usable alternative: markdown and text merge readably, but a second JSON
+// document produces "}{" and fails to parse, two HTML documents give two
+// doctypes, and two YAML documents without separators parse as one mapping in
+// which the later keys silently replace the earlier ones.
+//
+// Overwrite protection runs here rather than up front because the paths are not
+// known until the format extension is resolved. Emission is already serialized
+// on the parent goroutine, so prompting is safe, matching cmd/audit_output.go.
+func convertDestinationFor(
+	cmd *cobra.Command,
+	ctxLogger *logging.Logger,
+	inputFile, destination string,
+	multiFile bool,
+	fileExt string,
+) (string, error) {
+	if !multiFile {
+		return destination, nil
+	}
+
+	derived := derivePerInputOutputPath(inputFile, "", fileExt)
+
+	if err := confirmOverwrite(os.Stdin, cmd.ErrOrStderr(), derived, force); err != nil {
+		return "", err
+	}
+
+	ctxLogger.Debug("Derived per-input output path", "input_file", inputFile, "output_file", derived)
+
+	return derived, nil
+}
+
 // resolveConvertDestination determines the single output path for the run and
 // settles overwrite protection before any work happens.
 //
-// An empty return means stdout. Multi-file runs always go to stdout: --output is
-// rejected in PreRunE, and a configured output_file is ignored here, since one
-// destination cannot hold several reports.
+// An empty return means stdout, which is the single-file default. Multi-file
+// runs do not use this destination at all: --output is rejected in PreRunE and a
+// configured output_file is ignored here, because one destination cannot hold
+// several reports. Each of those reports gets its own path from
+// convertDestinationFor instead.
 func resolveConvertDestination(
 	cmd *cobra.Command,
 	cfg *config.Config,
@@ -576,7 +631,7 @@ func buildConversionOptions(
 // destination, but that branch was unreachable: a run with neither --output nor
 // a configured output_file returns early for stdout, so the switch never hit its
 // default. Callers wanting a derived per-input path build it themselves, as
-// deriveAuditOutputPath does.
+// derivePerInputOutputPath does.
 func determineOutputPath(outputFile string, cfg *config.Config) string {
 	switch {
 	case outputFile != "":

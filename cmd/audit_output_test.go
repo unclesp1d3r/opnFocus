@@ -33,8 +33,8 @@ func TestEmitAuditResult_MultiFileAutoNaming(t *testing.T) {
 	result2 := auditResult{inputFile: "tmp/config2.xml"}
 
 	// Multi-file auto-naming derives unique per-input paths
-	path1 := deriveAuditOutputPath(result1.inputFile, ".md")
-	path2 := deriveAuditOutputPath(result2.inputFile, ".md")
+	path1 := derivePerInputOutputPath(result1.inputFile, auditOutputSuffix, ".md")
+	path2 := derivePerInputOutputPath(result2.inputFile, auditOutputSuffix, ".md")
 
 	assert.Equal(t, "tmp_config1-audit.md", path1)
 	assert.Equal(t, "tmp_config2-audit.md", path2)
@@ -76,10 +76,10 @@ func TestEmitAuditResult_MultiFileConfigOutputFileIgnored(t *testing.T) {
 	pathB := determineOutputPath("", cfgWithOutput)
 	assert.Equal(t, pathA, pathB, "raw config OutputFile causes collision")
 
-	// With the fix, deriveAuditOutputPath produces unique paths and nil config
+	// With the fix, derivePerInputOutputPath produces unique paths and nil config
 	// is passed to determineOutputPath, preventing the config path from being used.
-	derivedA := deriveAuditOutputPath("tmp/config1.xml", ".md")
-	derivedB := deriveAuditOutputPath("tmp/config2.xml", ".md")
+	derivedA := derivePerInputOutputPath("tmp/config1.xml", auditOutputSuffix, ".md")
+	derivedB := derivePerInputOutputPath("tmp/config2.xml", auditOutputSuffix, ".md")
 
 	resolvedA := determineOutputPath(derivedA, nil)
 	resolvedB := determineOutputPath(derivedB, nil)
@@ -118,7 +118,7 @@ func TestDeriveAuditOutputPath(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			// Do NOT use t.Parallel() — cmd package uses package-level flag globals.
 			// See GOTCHAS §1.1.
-			got := deriveAuditOutputPath(tt.inputFile, tt.fileExt)
+			got := derivePerInputOutputPath(tt.inputFile, auditOutputSuffix, tt.fileExt)
 			assert.Equal(t, tt.want, got)
 		})
 	}
@@ -130,8 +130,8 @@ func TestDeriveAuditOutputPath(t *testing.T) {
 func TestDeriveAuditOutputPath_BasenameCollision(t *testing.T) {
 	// Do NOT use t.Parallel() — cmd package uses package-level flag globals.
 	// See GOTCHAS §1.1.
-	pathA := deriveAuditOutputPath("site-a/config.xml", ".md")
-	pathB := deriveAuditOutputPath("site-b/config.xml", ".md")
+	pathA := derivePerInputOutputPath("site-a/config.xml", auditOutputSuffix, ".md")
+	pathB := derivePerInputOutputPath("site-b/config.xml", auditOutputSuffix, ".md")
 
 	assert.Equal(t, "site-a_config-audit.md", pathA, "site-a dir prefix preserved")
 	assert.Equal(t, "site-b_config-audit.md", pathB, "site-b dir prefix preserved")
@@ -148,8 +148,8 @@ func TestDeriveAuditOutputPath_BasenameCollision(t *testing.T) {
 func TestDeriveAuditOutputPath_SameParentBasenameCollision(t *testing.T) {
 	// Do NOT use t.Parallel() — cmd package uses package-level flag globals.
 	// See GOTCHAS §1.1.
-	pathA := deriveAuditOutputPath("prod/site-a/config.xml", ".md")
-	pathB := deriveAuditOutputPath("dr/site-a/config.xml", ".md")
+	pathA := derivePerInputOutputPath("prod/site-a/config.xml", auditOutputSuffix, ".md")
+	pathB := derivePerInputOutputPath("dr/site-a/config.xml", auditOutputSuffix, ".md")
 
 	assert.Equal(t, "prod_site-a_config-audit.md", pathA)
 	assert.Equal(t, "dr_site-a_config-audit.md", pathB)
@@ -157,8 +157,8 @@ func TestDeriveAuditOutputPath_SameParentBasenameCollision(t *testing.T) {
 		"inputs with same basename AND same parent basename under different trees must produce distinct output paths")
 
 	// Deeper nesting: verify three-level disambiguation
-	pathC := deriveAuditOutputPath("us-east/prod/fw/config.xml", ".md")
-	pathD := deriveAuditOutputPath("eu-west/prod/fw/config.xml", ".md")
+	pathC := derivePerInputOutputPath("us-east/prod/fw/config.xml", auditOutputSuffix, ".md")
+	pathD := derivePerInputOutputPath("eu-west/prod/fw/config.xml", auditOutputSuffix, ".md")
 
 	assert.Equal(t, "us-east_prod_fw_config-audit.md", pathC)
 	assert.Equal(t, "eu-west_prod_fw_config-audit.md", pathD)
@@ -179,16 +179,16 @@ func TestDeriveAuditOutputPath_AbsoluteVsRelativeCollision(t *testing.T) {
 		t.Skip("Unix-style absolute path tests not applicable on Windows")
 	}
 
-	absPath := deriveAuditOutputPath("/tmp/site-a/config.xml", ".md")
-	relPath := deriveAuditOutputPath("tmp/site-a/config.xml", ".md")
+	absPath := derivePerInputOutputPath("/tmp/site-a/config.xml", auditOutputSuffix, ".md")
+	relPath := derivePerInputOutputPath("tmp/site-a/config.xml", auditOutputSuffix, ".md")
 
 	assert.Equal(t, "~a_tmp_site-a_config-audit.md", absPath)
 	assert.Equal(t, "tmp_site-a_config-audit.md", relPath)
 	assert.NotEqual(t, absPath, relPath,
 		"absolute and relative inputs with identical segments must produce distinct output paths")
 
-	deepAbsPath := deriveAuditOutputPath("/tmp/site-a/edge/config.xml", ".md")
-	deepRelPath := deriveAuditOutputPath("tmp/site-a/edge/config.xml", ".md")
+	deepAbsPath := derivePerInputOutputPath("/tmp/site-a/edge/config.xml", auditOutputSuffix, ".md")
+	deepRelPath := derivePerInputOutputPath("tmp/site-a/edge/config.xml", auditOutputSuffix, ".md")
 
 	assert.Equal(t, "~a_tmp_site-a_edge_config-audit.md", deepAbsPath)
 	assert.Equal(t, "tmp_site-a_edge_config-audit.md", deepRelPath)
@@ -204,8 +204,8 @@ func TestDeriveAuditOutputPath_SeparatorPlacementCollision(t *testing.T) {
 	// Do NOT use t.Parallel() — cmd package uses package-level flag globals.
 	// See GOTCHAS §1.1.
 	// Two-level collision: dash in first segment vs dash in second segment.
-	pathA := deriveAuditOutputPath("a-b/c/config.xml", ".md")
-	pathB := deriveAuditOutputPath("a/b-c/config.xml", ".md")
+	pathA := derivePerInputOutputPath("a-b/c/config.xml", auditOutputSuffix, ".md")
+	pathB := derivePerInputOutputPath("a/b-c/config.xml", auditOutputSuffix, ".md")
 
 	assert.Equal(t, "a-b_c_config-audit.md", pathA)
 	assert.Equal(t, "a_b-c_config-audit.md", pathB)
@@ -213,9 +213,9 @@ func TestDeriveAuditOutputPath_SeparatorPlacementCollision(t *testing.T) {
 		"paths differing only in dash vs separator placement must produce distinct output filenames")
 
 	// Deeper nesting: three segments with varied dash placement.
-	pathC := deriveAuditOutputPath("x-y/z/w/config.xml", ".md")
-	pathD := deriveAuditOutputPath("x/y-z/w/config.xml", ".md")
-	pathE := deriveAuditOutputPath("x/y/z-w/config.xml", ".md")
+	pathC := derivePerInputOutputPath("x-y/z/w/config.xml", auditOutputSuffix, ".md")
+	pathD := derivePerInputOutputPath("x/y-z/w/config.xml", auditOutputSuffix, ".md")
+	pathE := derivePerInputOutputPath("x/y/z-w/config.xml", auditOutputSuffix, ".md")
 
 	assert.Equal(t, "x-y_z_w_config-audit.md", pathC)
 	assert.Equal(t, "x_y-z_w_config-audit.md", pathD)
@@ -239,8 +239,8 @@ func TestDeriveAuditOutputPath_UnderscoreCollision(t *testing.T) {
 	// Do NOT use t.Parallel() — cmd package uses package-level flag globals.
 	// See GOTCHAS §1.1.
 	// Two-level collision: underscore in first segment vs second segment.
-	pathA := deriveAuditOutputPath("a_b/c/config.xml", ".md")
-	pathB := deriveAuditOutputPath("a/b_c/config.xml", ".md")
+	pathA := derivePerInputOutputPath("a_b/c/config.xml", auditOutputSuffix, ".md")
+	pathB := derivePerInputOutputPath("a/b_c/config.xml", auditOutputSuffix, ".md")
 
 	assert.Equal(t, "a~ub_c_config-audit.md", pathA)
 	assert.Equal(t, "a_b~uc_config-audit.md", pathB)
@@ -248,9 +248,9 @@ func TestDeriveAuditOutputPath_UnderscoreCollision(t *testing.T) {
 		"paths differing only in underscore vs separator placement must produce distinct output filenames")
 
 	// Deeper nesting: three segments with varied underscore placement.
-	pathC := deriveAuditOutputPath("x_y/z/w/config.xml", ".md")
-	pathD := deriveAuditOutputPath("x/y_z/w/config.xml", ".md")
-	pathE := deriveAuditOutputPath("x/y/z_w/config.xml", ".md")
+	pathC := derivePerInputOutputPath("x_y/z/w/config.xml", auditOutputSuffix, ".md")
+	pathD := derivePerInputOutputPath("x/y_z/w/config.xml", auditOutputSuffix, ".md")
+	pathE := derivePerInputOutputPath("x/y/z_w/config.xml", auditOutputSuffix, ".md")
 
 	assert.Equal(t, "x~uy_z_w_config-audit.md", pathC)
 	assert.Equal(t, "x_y~uz_w_config-audit.md", pathD)
@@ -263,8 +263,8 @@ func TestDeriveAuditOutputPath_UnderscoreCollision(t *testing.T) {
 		"deeper nesting: underscore in first vs third segment must differ")
 
 	// Mixed: underscore in filename stem with directory underscores.
-	pathF := deriveAuditOutputPath("a_b/my_config.xml", ".md")
-	pathG := deriveAuditOutputPath("a/b_my_config.xml", ".md")
+	pathF := derivePerInputOutputPath("a_b/my_config.xml", auditOutputSuffix, ".md")
+	pathG := derivePerInputOutputPath("a/b_my_config.xml", auditOutputSuffix, ".md")
 
 	assert.Equal(t, "a~ub_my~uconfig-audit.md", pathF)
 	assert.Equal(t, "a_b~umy~uconfig-audit.md", pathG)
@@ -283,8 +283,8 @@ func TestDeriveAuditOutputPath_BoundaryUnderscoreCollision(t *testing.T) {
 	// Do NOT use t.Parallel() — cmd package uses package-level flag globals.
 	// See GOTCHAS §1.1.
 	// Trailing underscore in first segment vs leading underscore in second segment.
-	pathA := deriveAuditOutputPath("a_/b/config.xml", ".md")
-	pathB := deriveAuditOutputPath("a/_b/config.xml", ".md")
+	pathA := derivePerInputOutputPath("a_/b/config.xml", auditOutputSuffix, ".md")
+	pathB := derivePerInputOutputPath("a/_b/config.xml", auditOutputSuffix, ".md")
 
 	assert.Equal(t, "a~u_b_config-audit.md", pathA)
 	assert.Equal(t, "a_~ub_config-audit.md", pathB)
@@ -292,9 +292,9 @@ func TestDeriveAuditOutputPath_BoundaryUnderscoreCollision(t *testing.T) {
 		"trailing underscore in segment vs leading underscore in next segment must produce distinct filenames")
 
 	// Deeper nesting with multiple boundary underscores.
-	pathC := deriveAuditOutputPath("x_/y_/z/config.xml", ".md")
-	pathD := deriveAuditOutputPath("x/_y/z_/config.xml", ".md")
-	pathE := deriveAuditOutputPath("x/_y/_z/config.xml", ".md")
+	pathC := derivePerInputOutputPath("x_/y_/z/config.xml", auditOutputSuffix, ".md")
+	pathD := derivePerInputOutputPath("x/_y/z_/config.xml", auditOutputSuffix, ".md")
+	pathE := derivePerInputOutputPath("x/_y/_z/config.xml", auditOutputSuffix, ".md")
 
 	assert.Equal(t, "x~u_y~u_z_config-audit.md", pathC)
 	assert.Equal(t, "x_~uy_z~u_config-audit.md", pathD)
@@ -307,8 +307,8 @@ func TestDeriveAuditOutputPath_BoundaryUnderscoreCollision(t *testing.T) {
 		"deeper nesting: all-trailing vs all-leading must differ")
 
 	// Combined: trailing underscore meets leading underscore at same boundary.
-	pathF := deriveAuditOutputPath("a_/_b/config.xml", ".md")
-	pathG := deriveAuditOutputPath("a__b/config.xml", ".md")
+	pathF := derivePerInputOutputPath("a_/_b/config.xml", auditOutputSuffix, ".md")
+	pathG := derivePerInputOutputPath("a__b/config.xml", auditOutputSuffix, ".md")
 
 	assert.Equal(t, "a~u_~ub_config-audit.md", pathF)
 	assert.Equal(t, "a~u~ub_config-audit.md", pathG)
