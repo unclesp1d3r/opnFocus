@@ -33,6 +33,17 @@ func TestReportOutputIsLF(t *testing.T) {
 		// BuildAuditSection returns "" without this, which would make its
 		// entry below vacuous rather than a real assertion.
 		ComplianceResults: &common.ComplianceResults{Mode: "blue"},
+		// The tunables blocks in writer.go are guarded by len(filteredSysctl) > 0,
+		// so without a tunable the streaming paths skip them entirely and a raw
+		// md.String() there would go unnoticed. FilterSystemTunables drops
+		// anything outside securitySysctlPrefixes when includeTunables is false,
+		// so this has to be a security-prefixed name to survive.
+		Sysctl: []common.SysctlItem{
+			{Tunable: "net.inet.tcp.blackhole", Value: "2", Description: "TCP stealth drop"},
+		},
+		// Same reason: writeIDSSection returns early unless IDS is enabled, so
+		// BuildIDSSection yields "" and its exit goes unexercised without this.
+		IDS: &common.IDSConfig{Enabled: true, IPSMode: true, Interfaces: []string{"lan"}},
 	}
 
 	b := NewMarkdownBuilder()
@@ -47,20 +58,27 @@ func TestReportOutputIsLF(t *testing.T) {
 		t.Fatalf("BuildComprehensiveReport: %v", err)
 	}
 
-	var streamed bytes.Buffer
-	if err := b.WriteStandardReport(&streamed, device); err != nil {
+	var streamedStandard bytes.Buffer
+	if err := b.WriteStandardReport(&streamedStandard, device); err != nil {
 		t.Fatalf("WriteStandardReport: %v", err)
+	}
+
+	var streamedComprehensive bytes.Buffer
+	if err := b.WriteComprehensiveReport(&streamedComprehensive, device); err != nil {
+		t.Fatalf("WriteComprehensiveReport: %v", err)
 	}
 
 	outputs := map[string]string{
 		"BuildStandardReport":      standard,
 		"BuildComprehensiveReport": comprehensive,
-		"WriteStandardReport":      streamed.String(),
+		"WriteStandardReport":      streamedStandard.String(),
+		"WriteComprehensiveReport": streamedComprehensive.String(),
 		"BuildSystemSection":       b.BuildSystemSection(device),
 		"BuildNetworkSection":      b.BuildNetworkSection(device),
 		"BuildSecuritySection":     b.BuildSecuritySection(device),
 		"BuildServicesSection":     b.BuildServicesSection(device),
 		"BuildAuditSection":        b.BuildAuditSection(device),
+		"BuildIDSSection":          b.BuildIDSSection(device),
 	}
 
 	for name, out := range outputs {
