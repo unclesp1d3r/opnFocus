@@ -1,6 +1,6 @@
 # sanitize
 
-The `sanitize` command redacts sensitive information from an OPNsense or pfSense configuration file while preserving its structure and relationships. The output is a valid XML file with passwords, keys, IP addresses, `system/authserver` LDAP values, and other secrets replaced by consistent pseudonymized values -- so network topology and rule logic remain visible without exposing real credentials or addresses. Both OPNsense password fields (`<password>`) and pfSense bcrypt hashes (`<bcrypt-hash>`) are detected and redacted.
+The `sanitize` command redacts sensitive information from an OPNsense or pfSense configuration file while preserving its structure. The output is an XML file with passwords, keys, IP addresses, `system/authserver` LDAP values, and other secrets replaced by consistent replacements, so rule logic stays readable without exposing real credentials or addresses. How much topology survives depends on the mode: moderate keeps private addresses, aggressive replaces them with markers and produces a document for reading rather than a loadable configuration. Both OPNsense password fields (`<password>`) and pfSense bcrypt hashes (`<bcrypt-hash>`) are detected and redacted.
 
 **When to use it:**
 
@@ -49,7 +49,7 @@ Adds network identity redaction on top of minimal. Use this for sharing with int
 
 Everything in minimal, plus:
 
-- Public IP addresses (mapped to consistent pseudonyms)
+- Public IP addresses (replaced with `[REDACTED-PUBLIC-IP-N]` markers)
 - MAC addresses
 - Email addresses
 
@@ -72,7 +72,21 @@ Everything in moderate, plus:
 
 ### Referential Integrity
 
-Across all modes, the sanitizer maintains referential integrity -- the same original value always maps to the same replacement value throughout the entire file. If `192.168.1.1` becomes `10.0.0.1`, every occurrence of `192.168.1.1` in the config is replaced with `10.0.0.1`. This means firewall rules, routing tables, and DHCP scopes remain internally consistent and logically readable.
+Across all modes, the sanitizer maintains referential integrity -- the same original value always maps to the same replacement value throughout the entire file. If `192.168.1.1` becomes `[REDACTED-PRIVATE-IP-1]`, every occurrence of `192.168.1.1` in the config is replaced with the same marker. This means firewall rules, routing tables, and DHCP scopes remain internally consistent.
+
+Replacements come in two shapes, and the difference matters when reading a sanitized file:
+
+| Value       | Replacement                   | Mistakable for a real value |
+| ----------- | ----------------------------- | --------------------------- |
+| Private IP  | `[REDACTED-PRIVATE-IP-1]`     | No                          |
+| Public IP   | `[REDACTED-PUBLIC-IP-1]`      | No                          |
+| MAC address | `XX:XX:XX:XX:XX:01`           | No, `X` is not a hex digit  |
+| Hostname    | `host-001.example.com`        | **Yes**                     |
+| Username    | `user-001`                    | **Yes**                     |
+| Domain      | `example.com`, `example2.com` | **Yes**                     |
+| Email       | `user1@example.com`           | **Yes**                     |
+
+Treat any hostname, username, domain or email in a sanitized file as redacted rather than real. Use the mapping file if you need to recover the original.
 
 ## Mapping File
 
@@ -91,9 +105,9 @@ The mapping file is organized by category:
   "mode": "aggressive",
   "mappings": {
     "ip_addresses": {
-      "203.0.113.50": "198.51.100.1",
-      "203.0.113.51": "198.51.100.2",
-      "192.168.1.1": "10.0.0.1"
+      "192.168.1.1": "[REDACTED-PRIVATE-IP-1]",
+      "192.168.1.100": "[REDACTED-PRIVATE-IP-2]",
+      "203.0.113.50": "[REDACTED-PUBLIC-IP-1]"
     },
     "hostnames": {
       "fw01.example.com": "host-001.example.com"
@@ -137,7 +151,7 @@ opnDossier offers two ways to hide sensitive data:
 |               | `sanitize` command                                    | `convert --redact`                                          |
 | ------------- | ----------------------------------------------------- | ----------------------------------------------------------- |
 | **Output**    | Valid OPNsense XML                                    | Markdown, JSON, YAML, etc.                                  |
-| **Scope**     | Full config file with consistent pseudonyms           | Report fields replaced with `[REDACTED]`                    |
+| **Scope**     | Full config file with consistent replacements         | Report fields replaced with `[REDACTED]`                    |
 | **Traceable** | Yes, via mapping file (manual lookup)                 | No                                                          |
 | **Use case**  | Sharing a config file that others can load or analyze | Sharing a report where values do not need to be traced back |
 
