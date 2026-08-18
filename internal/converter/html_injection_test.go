@@ -103,8 +103,10 @@ func newInjectionTestDevice(payload string) *common.CommonDevice {
 			AlertSaveLogs:     payload,
 			Detect:            common.IDSDetect{Profile: payload},
 		},
-		// VLAN and static route tables are reached from builder_vpn.go, a third
-		// render path again, and their tag and timestamp columns went in raw.
+		// The VLAN and static route tables are built in builder_network.go and
+		// emitted from the comprehensive report only, so they are a render path
+		// the standard report never touches. Their tag and timestamp columns
+		// went in raw.
 		VLANs: []common.VLAN{{
 			VLANIf:      payload,
 			PhysicalIf:  payload,
@@ -198,9 +200,27 @@ func TestReportMarkdownEscapesConfigValues(t *testing.T) {
 
 	device := newInjectionTestDevice(payload)
 
-	// Both variants. Several tables, the VLAN and static route ones among them,
-	// are only emitted by the comprehensive report, so a standard-only check
-	// leaves their columns unguarded.
+	// Each table gets its own tail marker. A shared payload cannot prove a
+	// specific cell survived: an unescaped pipe truncates the cell at the pipe,
+	// and everything before it, including the leading marker, still renders. Any
+	// one of the dozens of non-table fields would then satisfy a check for text
+	// common to all of them. The tail sits after the first pipe, so it is present
+	// only if that cell was contained rather than cut.
+	tails := map[string]func(string){
+		"IFACE":  func(v string) { device.Interfaces[0].Description = v },
+		"FWRULE": func(v string) { device.FirewallRules[0].Description = v },
+		"VLAN":   func(v string) { device.VLANs[0].Description = v },
+		"ROUTE":  func(v string) { device.Routing.StaticRoutes[0].Description = v },
+		"NATOUT": func(v string) { device.NAT.OutboundRules[0].Description = v },
+		"NATIN":  func(v string) { device.NAT.InboundRules[0].Description = v },
+		"IDS":    func(v string) { device.IDS.Verbosity = v },
+	}
+	for tag, set := range tails {
+		set(injectionMarker + `<b>*emph*|` + tag + `-SURVIVED|[link](x)`)
+	}
+
+	// Both variants. The VLAN, static route and NAT tables are emitted by the
+	// comprehensive report only, so a standard-only check leaves them unguarded.
 	for _, comprehensive := range []bool{false, true} {
 		opts := DefaultOptions().WithFormat(FormatMarkdown)
 		opts.Comprehensive = comprehensive
@@ -231,9 +251,15 @@ func TestReportMarkdownEscapesConfigValues(t *testing.T) {
 			"comprehensive=%v: brackets were parsed as a link", comprehensive)
 
 		// Containment is only half of it. A value can also be silently
-		// truncated, which is what an unescaped pipe does to a table cell, so
-		// require the whole payload to survive.
-		assert.Contains(t, rendered, "pipe",
-			"comprehensive=%v: payload was truncated rather than escaped", comprehensive)
+		// truncated, which is what an unescaped pipe does to a table cell.
+		for tag := range tails {
+			if !comprehensive && (tag == "VLAN" || tag == "ROUTE" || tag == "NATOUT" || tag == "NATIN") {
+				continue // these tables are comprehensive-only
+			}
+
+			assert.Containsf(t, rendered, tag+"-SURVIVED",
+				"comprehensive=%v: the %s cell was truncated at its pipe rather than escaped",
+				comprehensive, tag)
+		}
 	}
 }
