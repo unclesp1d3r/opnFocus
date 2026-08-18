@@ -23,9 +23,15 @@ import "strings"
 // time and which now has an LF input to convert rather than being a no-op on
 // Windows.
 func NormalizeToLF(s string) string {
-	if !strings.ContainsRune(s, '\r') {
+	if strings.IndexByte(s, '\r') < 0 {
 		return s
 	}
 
-	return strings.NewReplacer("\r\n", "\n", "\r", "\n").Replace(s)
+	return lfReplacer.Replace(s)
 }
+
+// lfReplacer is package level because NormalizeToLF runs once per rendered
+// report and per section. Constructing it per call cost 6 extra allocations
+// every time, which on section-sized output was 3x the cost of the replacement
+// itself. strings.Replacer is safe for concurrent use.
+var lfReplacer = strings.NewReplacer("\r\n", "\n", "\r", "\n")
