@@ -653,8 +653,18 @@ func TestConfirmOverwrite(t *testing.T) {
 	existingFile := filepath.Join(tmpDir, "existing.md")
 	require.NoError(t, os.WriteFile(existingFile, []byte("existing content"), 0o600))
 
-	// os.Stdin in the test binary is not a terminal, which is the same shape as
-	// a piped or CI invocation.
+	// confirmOverwrite branches on term.IsTerminal, so the input has to be a
+	// file that definitely is not one. os.Stdin is not a terminal under CI or a
+	// piped run, but it is when go test is run from an interactive shell, and
+	// there the no-terminal case below would print a prompt and block on
+	// ReadString instead of failing.
+	devNull, err := os.Open(os.DevNull)
+	require.NoError(t, err)
+
+	t.Cleanup(func() {
+		require.NoError(t, devNull.Close())
+	})
+
 	tests := []struct {
 		name    string
 		path    string
@@ -673,7 +683,7 @@ func TestConfirmOverwrite(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := confirmOverwrite(os.Stdin, io.Discard, tt.path, tt.force)
+			err := confirmOverwrite(devNull, io.Discard, tt.path, tt.force)
 
 			if tt.wantErr != nil {
 				require.ErrorIs(t, err, tt.wantErr)
