@@ -37,17 +37,17 @@ func BuildOutboundNATTableSet(rules []common.NATRule) *markdown.TableSet {
 		})
 	} else {
 		for i, rule := range rules {
-			source := formatters.EscapeTableContent(rule.Source.Address)
+			source := rule.Source.Address
 			if source == "" {
 				source = destinationAny
 			}
 
-			dest := formatters.EscapeTableContent(rule.Destination.Address)
+			dest := rule.Destination.Address
 			if dest == "" {
 				dest = destinationAny
 			}
 
-			protocol := formatters.EscapeTableContent(rule.Protocol)
+			protocol := rule.Protocol
 			if protocol == "" {
 				protocol = destinationAny
 			}

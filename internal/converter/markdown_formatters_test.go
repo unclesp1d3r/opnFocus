@@ -376,23 +376,9 @@ func generateLargeBenchmarkData(b *testing.B) *common.CommonDevice {
 }
 
 // TestPerformanceBaselines validates that all operations meet the established performance baselines.
-//
-// The budgets below are calibrated for an uninstrumented build. The race
-// detector intercepts every memory access, so under -race the measured times
-// carry an overhead that varies with how much of the suite is running
-// alongside: NetworkSectionGeneration measures ~130us against its 200us budget
-// when run alone and clears 280us when `just test-race` runs the whole tree in
-// parallel, on main as well as here. That made the budget assert on machine
-// load rather than on the code under test, so it is skipped there rather than
-// loosened — a budget widened until it cannot fire keeps the report without the
-// signal.
 func TestPerformanceBaselines(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping performance baseline tests in short mode")
-	}
-
-	if raceDetectorEnabled {
-		t.Skip("Performance budgets are calibrated for an uninstrumented build; -race timings are not comparable")
 	}
 
 	// Load test data
