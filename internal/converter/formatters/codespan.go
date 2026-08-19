@@ -2,6 +2,18 @@ package formatters
 
 import "strings"
 
+// codeSpanChars are the characters that make wrapping non-trivial: a backtick
+// changes the fence width and a line break has to be collapsed. A pipe is not
+// listed because [CodeSpanCell] escapes pipes after the fence is built, on the
+// wrapped result rather than on the raw value.
+const codeSpanChars = "`\r\n"
+
+// newlineCollapser flattens a value onto one line. A raw newline would end the
+// table row or list item holding the span.
+//
+//nolint:gochecknoglobals // Immutable replacer, avoids per-call allocation
+var newlineCollapser = strings.NewReplacer("\r\n", " ", "\n", " ", "\r", " ")
+
 // CodeSpan wraps value in a markdown code span sized to its contents, and is the
 // only safe way to render a configuration value inside backticks.
 //
@@ -18,7 +30,22 @@ import "strings"
 // the span. Newlines are collapsed because a code span cannot span lines and a
 // raw newline would break the enclosing table row or list item.
 func CodeSpan(value string) string {
-	value = strings.NewReplacer("\r\n", " ", "\n", " ", "\r", " ").Replace(value)
+	// A fence with nothing between its halves is an unclosed opening delimiter,
+	// not an empty span: it renders as two literal backtick characters. An empty
+	// value therefore yields nothing at all.
+	if value == "" {
+		return ""
+	}
+
+	// Same reasoning as stringEscape's guard: this runs once per config-derived
+	// field, the replacer allocates whether or not it matches, and nearly every
+	// real value is a name or an address containing none of these. Wrapping is
+	// exactly equivalent to the general path when none are present.
+	if !strings.ContainsAny(value, codeSpanChars) {
+		return "`" + value + "`"
+	}
+
+	value = newlineCollapser.Replace(value)
 
 	longest, current := 0, 0
 

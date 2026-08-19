@@ -276,11 +276,36 @@ RELATED:
 
 		// Write mapping file if requested
 		if sanitizeMappingFile != "" {
+			// Re-check the output/mapping collision now that the output exists on
+			// disk. The preflight in validateSanitizePaths can only compare these
+			// two lexically, because neither file exists when it runs; that misses a
+			// symlink or a case-only difference on a case-insensitive filesystem,
+			// either of which would let the mapping write land on the sanitized
+			// configuration. With the output written, os.SameFile resolves both.
+			if actualOutputFile != "" {
+				same, err := pathsResolveToSameFile(actualOutputFile, sanitizeMappingFile)
+				if err != nil {
+					return err
+				}
+
+				if same {
+					return fmt.Errorf(
+						"%w: --mapping %s resolves to the sanitized output %s; the mapping file is written second and would replace it. Write them to different paths",
+						ErrSanitizePathCollision,
+						sanitizeMappingFile,
+						actualOutputFile,
+					)
+				}
+			}
+
 			mappingPath, err := determineSanitizeOutputPath(sanitizeMappingFile, sanitizeForce)
 			if err != nil {
 				if errors.Is(err, ErrOperationCancelled) {
-					ctxLogger.Info("Mapping file creation cancelled by user")
-					// Still consider the main operation successful
+					// The configuration is already written; only the mapping is
+					// missing. Warn rather than Info so the partial result is visible
+					// without --verbose.
+					ctxLogger.Warn("Mapping file creation cancelled by user; sanitized configuration was still written")
+
 					return nil
 				}
 				return err

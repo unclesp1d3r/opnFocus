@@ -89,11 +89,11 @@ func writeSystemHardwareOffloading(md *markdown.Markdown, sys common.System) {
 
 func writeSystemPowerManagement(md *markdown.Markdown, sys common.System) {
 	md.H3("Power Management").
-		PlainTextf("%s: %s", markdown.Bold("Powerd AC Mode"), formatters.GetPowerModeDescriptionCompact(sys.PowerdACMode)).
+		PlainTextf("%s: %s", markdown.Bold("Powerd AC Mode"), formatters.EscapeMarkdownValue(formatters.GetPowerModeDescriptionCompact(sys.PowerdACMode))).
 		LF().
-		PlainTextf("%s: %s", markdown.Bold("Powerd Battery Mode"), formatters.GetPowerModeDescriptionCompact(sys.PowerdBatteryMode)).
+		PlainTextf("%s: %s", markdown.Bold("Powerd Battery Mode"), formatters.EscapeMarkdownValue(formatters.GetPowerModeDescriptionCompact(sys.PowerdBatteryMode))).
 		LF().
-		PlainTextf("%s: %s", markdown.Bold("Powerd Normal Mode"), formatters.GetPowerModeDescriptionCompact(sys.PowerdNormalMode)).
+		PlainTextf("%s: %s", markdown.Bold("Powerd Normal Mode"), formatters.EscapeMarkdownValue(formatters.GetPowerModeDescriptionCompact(sys.PowerdNormalMode))).
 		LF()
 }
 

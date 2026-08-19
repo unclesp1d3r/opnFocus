@@ -558,3 +558,54 @@ func TestSanitizeTightensExistingArtifactPermissions(t *testing.T) {
 		}
 	}
 }
+
+// TestSanitizeCommand_MappingCollisionViaSymlinkIsRefused pins the hole that the
+// up-front collision check cannot see.
+//
+// validateSanitizePaths compares --output and --mapping before either exists, so
+// all it has is a lexical path comparison. A dangling symlink from the mapping
+// path to the output path defeats that: the two spellings differ, os.Stat finds
+// neither, and the preflight passes. The run then wrote the sanitized
+// configuration to --output and, moments later, overwrote it with the mapping
+// JSON — exiting 0 while reporting success for a file it had just destroyed.
+//
+// No attacker is required; a symlink left over from a previous run is enough.
+func TestSanitizeCommand_MappingCollisionViaSymlinkIsRefused(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	input := filepath.Join(tmpDir, "config.xml")
+	writeSanitizeFixture(t, input)
+
+	output := filepath.Join(tmpDir, "sanitized.xml")
+	mapping := filepath.Join(tmpDir, "mapping.json")
+
+	// Dangling on purpose: neither file exists yet, which is the normal state
+	// when the preflight runs.
+	if err := os.Symlink(output, mapping); err != nil {
+		t.Skipf("symlinks unavailable on this platform: %v", err)
+	}
+
+	err := runSanitize(t, input, "-o", output, "--mapping", mapping, "--force")
+	if err == nil {
+		t.Fatal("expected a mapping path resolving to the output to be refused, got nil error")
+	}
+
+	if !errors.Is(err, ErrSanitizePathCollision) {
+		t.Fatalf("expected ErrSanitizePathCollision, got %v", err)
+	}
+
+	// The sanitized configuration must survive: refusing late is only useful if
+	// the artifact already written is still the sanitized XML.
+	written, readErr := os.ReadFile(output)
+	if readErr != nil {
+		t.Fatalf("failed to read output after the refused run: %v", readErr)
+	}
+
+	if bytes.Contains(written, []byte(`"mappings"`)) {
+		t.Error("output file holds the mapping JSON; the sanitized configuration was destroyed")
+	}
+
+	if !bytes.Contains(written, []byte("<opnsense>")) {
+		t.Errorf("output file is not the sanitized configuration; got %q", string(written))
+	}
+}

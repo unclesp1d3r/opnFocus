@@ -237,8 +237,8 @@ func BuildFirewallRulesTableSet(rules []common.FirewallRule) *markdown.TableSet 
 		rows = append(rows, []string{
 			strconv.Itoa(i + 1),
 			interfaceLinks,
-			string(rule.Type),
-			string(rule.IPProtocol),
+			formatters.EscapeTableContent(string(rule.Type)),
+			formatters.EscapeTableContent(string(rule.IPProtocol)),
 			formatters.EscapeTableContent(rule.Protocol),
 			formatters.EscapeTableContent(source),
 			formatters.EscapeTableContent(dest),

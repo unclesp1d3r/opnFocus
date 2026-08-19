@@ -200,6 +200,14 @@ func RenderMarkdownToHTML(md string) (string, error) {
 // responsible for keeping config-derived values inert. Anything added there
 // which writes a configuration value must escape it or wrap it in a code span;
 // passthrough is on here and will not catch the mistake.
+//
+// (ValidateMarkdown shares this renderer but currently has no production caller;
+// wiring one up does not change the reasoning above.)
+//
+// WithUnsafe also switches off goldmark's IsDangerousURL filter, which is what
+// would otherwise drop a javascript:, vbscript:, or file: link destination. So
+// this renderer has no URL-scheme backstop either: bracket escaping in the diff
+// formatter is load-bearing, not belt-and-braces.
 var richGoldmarkRenderer = goldmark.New(
 	goldmark.WithExtensions(extension.GFM, extension.DefinitionList, emoji.Emoji, extension.Footnote),
 	goldmark.WithParserOptions(

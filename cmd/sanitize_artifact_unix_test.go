@@ -65,7 +65,6 @@ func TestWriteSanitizeArtifactSurvivesWriteFailure(t *testing.T) {
 		t.Fatal("expected the write to fail against the file size limit, got nil")
 	}
 
-	//nolint:gosec // path is built by the test
 	got, err := os.ReadFile(dest)
 	if err != nil {
 		t.Fatalf("destination was removed by the failed write: %v", err)

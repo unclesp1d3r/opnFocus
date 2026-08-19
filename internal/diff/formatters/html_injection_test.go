@@ -108,7 +108,10 @@ func TestCodeSpanContainsBackticks(t *testing.T) {
 		{name: "trailing backtick", input: "a`", want: "`` a` ``"},
 		{name: "newline collapses", input: "a\nb", want: "`a b`"},
 		{name: "crlf collapses", input: "a\r\nb", want: "`a b`"},
-		{name: "empty", input: "", want: "``"},
+		// A fence with nothing between its halves is an unclosed opening
+		// delimiter, so it renders as two literal backticks rather than as
+		// empty code. An empty value yields nothing instead.
+		{name: "empty", input: "", want: ""},
 	}
 
 	for _, tt := range tests {

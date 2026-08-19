@@ -15,9 +15,11 @@ const escapeMarkdownChars = "\\*_`[]<>|\r\n"
 // stringEscape applies the markdown escape rules to a single string. Every
 // exported escaper here shares it so the strategy stays in one place.
 //
-// The ContainsAny guard is a measured optimization: strings.Replacer allocates
-// on every call even when it replaces nothing, and this now runs once per
-// config-derived field. Most values contain none of these characters.
+// The ContainsAny guard avoids a known allocation rather than a measured one:
+// the mixed-length "\r\n" key forces strings.NewReplacer onto its generic
+// implementation, whose Replace allocates a buffer unconditionally, even when
+// nothing matches. This now runs once per config-derived field, and most values
+// contain none of these characters.
 func stringEscape(s string) string {
 	if !strings.ContainsAny(s, escapeMarkdownChars) {
 		return strings.TrimSpace(s)
