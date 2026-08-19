@@ -280,7 +280,8 @@ func TestE2EMultipleConfigFiles(t *testing.T) {
 	inputs := make([]string, 0, len(testFiles))
 
 	for _, testFile := range testFiles {
-		content, err := os.ReadFile(testFile) //nolint:gosec // repository fixture
+		//nolint:gosec // repository fixture
+		content, err := os.ReadFile(testFile)
 		if err != nil {
 			t.Fatalf("failed to read fixture %s: %v", testFile, err)
 		}

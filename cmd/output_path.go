@@ -66,7 +66,11 @@ func confirmOverwrite(in *os.File, out io.Writer, path string, force bool) error
 		return fmt.Errorf("%w: %s; pass --force to overwrite", ErrOutputExists, path)
 	}
 
-	fmt.Fprintf(out, "File '%s' already exists. Overwrite? (y/N): ", path)
+	// Reading stdin after a failed prompt would block on an operator who never
+	// saw the question.
+	if _, err := fmt.Fprintf(out, "File '%s' already exists. Overwrite? (y/N): ", path); err != nil {
+		return fmt.Errorf("failed to write overwrite prompt: %w", err)
+	}
 
 	response, err := bufio.NewReader(in).ReadString('\n')
 	if err != nil {

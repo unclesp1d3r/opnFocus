@@ -379,8 +379,9 @@ func resolveConvertDestination(
 	if multiFile {
 		if cfg != nil && cfg.OutputFile != "" {
 			logger.Info(
-				"Configured output_file ignored for multi-file convert; output goes to stdout",
-				"configured_output", cfg.OutputFile,
+				"Configured output_file ignored for multi-file convert; each report is written to its own auto-named file",
+				"configured_output",
+				cfg.OutputFile,
 			)
 		}
 
