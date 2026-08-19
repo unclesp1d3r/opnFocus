@@ -3,9 +3,11 @@ package cmd
 
 import (
 	"bufio"
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
@@ -37,6 +39,10 @@ const (
 var (
 	// ErrInvalidSanitizeMode is returned when an invalid sanitization mode is specified.
 	ErrInvalidSanitizeMode = errors.New("invalid sanitize mode")
+
+	// ErrSanitizePathCollision is returned when the input file, --output, and
+	// --mapping paths do not all refer to distinct files.
+	ErrSanitizePathCollision = errors.New("sanitize path collision")
 )
 
 // opndossier sanitize config.xml --mode aggressive --output sanitized.xml --mapping map.json --force.
@@ -113,8 +119,9 @@ var sanitizeCmd = &cobra.Command{ //nolint:gochecknoglobals // Cobra command
 	Long: `The 'sanitize' command redacts sensitive information from OPNsense configuration
 files, making them safe to share for troubleshooting, documentation, or public
 reporting without exposing credentials, IP addresses, or other sensitive data.
-Unlike --redact on other commands (which only affects the rendered output),
-sanitize rewrites the source config.xml itself.
+Unlike --redact on other commands (which only affects the rendered report),
+sanitize produces a redacted copy of the config.xml itself. The input file is
+never modified.
 
 SANITIZATION MODES:
   Choose the mode with --mode/-m based on your sharing context:
@@ -196,6 +203,11 @@ RELATED:
 			}
 		}
 
+		// Must run before anything is opened for writing.
+		if err := validateSanitizePaths(cleanPath, sanitizeOutputFile, sanitizeMappingFile); err != nil {
+			return err
+		}
+
 		// Open input file
 		file, err := os.Open(cleanPath)
 		if err != nil {
@@ -211,12 +223,11 @@ RELATED:
 		ctxLogger.Debug("Creating sanitizer", "mode", sanitizeMode)
 		s := sanitizer.NewSanitizer(sanitizer.Mode(sanitizeMode))
 
-		// Determine output destination
-		var outputWriter *os.File
+		// Settle overwrite protection before any work happens, so declining the
+		// prompt costs nothing.
 		actualOutputFile := ""
 
 		if sanitizeOutputFile != "" {
-			// Handle overwrite protection
 			actualOutputFile, err = determineSanitizeOutputPath(sanitizeOutputFile, sanitizeForce)
 			if err != nil {
 				if errors.Is(err, ErrOperationCancelled) {
@@ -226,18 +237,7 @@ RELATED:
 				return err
 			}
 
-			outputWriter, err = os.Create(actualOutputFile)
-			if err != nil {
-				return fmt.Errorf("failed to create output file %s: %w", actualOutputFile, err)
-			}
-			defer func() {
-				if cerr := outputWriter.Close(); cerr != nil {
-					ctxLogger.Warn("failed to close output file", "error", cerr)
-				}
-			}()
 			ctxLogger = ctxLogger.WithFields("output_file", actualOutputFile)
-		} else {
-			outputWriter = os.Stdout
 		}
 
 		// Perform sanitization
@@ -250,15 +250,20 @@ RELATED:
 		default:
 		}
 
-		if err := s.SanitizeXML(file, outputWriter); err != nil {
+		// Buffered so a sanitizer failure cannot leave a truncated file where the
+		// previous contents were. SanitizeXML already holds the whole document in
+		// memory, so this costs nothing.
+		var sanitized bytes.Buffer
+		if err := s.SanitizeXML(file, &sanitized); err != nil {
 			return fmt.Errorf("failed to sanitize configuration: %w", err)
 		}
 
-		// Sync output file if writing to disk
 		if actualOutputFile != "" {
-			if err := outputWriter.Sync(); err != nil {
-				return fmt.Errorf("failed to sync output file: %w", err)
+			if err := writeSanitizeArtifact(actualOutputFile, sanitized.Bytes()); err != nil {
+				return fmt.Errorf("failed to write output file %s: %w", actualOutputFile, err)
 			}
+		} else if _, err := cmd.OutOrStdout().Write(sanitized.Bytes()); err != nil {
+			return fmt.Errorf("failed to write sanitized output: %w", err)
 		}
 
 		// Log statistics
@@ -271,11 +276,36 @@ RELATED:
 
 		// Write mapping file if requested
 		if sanitizeMappingFile != "" {
+			// Re-check the output/mapping collision now that the output exists on
+			// disk. The preflight in validateSanitizePaths can only compare these
+			// two lexically, because neither file exists when it runs; that misses a
+			// symlink or a case-only difference on a case-insensitive filesystem,
+			// either of which would let the mapping write land on the sanitized
+			// configuration. With the output written, os.SameFile resolves both.
+			if actualOutputFile != "" {
+				same, err := pathsResolveToSameFile(actualOutputFile, sanitizeMappingFile)
+				if err != nil {
+					return err
+				}
+
+				if same {
+					return fmt.Errorf(
+						"%w: --mapping %s resolves to the sanitized output %s; the mapping file is written second and would replace it. Write them to different paths",
+						ErrSanitizePathCollision,
+						sanitizeMappingFile,
+						actualOutputFile,
+					)
+				}
+			}
+
 			mappingPath, err := determineSanitizeOutputPath(sanitizeMappingFile, sanitizeForce)
 			if err != nil {
 				if errors.Is(err, ErrOperationCancelled) {
-					ctxLogger.Info("Mapping file creation cancelled by user")
-					// Still consider the main operation successful
+					// The configuration is already written; only the mapping is
+					// missing. Warn rather than Info so the partial result is visible
+					// without --verbose.
+					ctxLogger.Warn("Mapping file creation cancelled by user; sanitized configuration was still written")
+
 					return nil
 				}
 				return err
@@ -286,22 +316,8 @@ RELATED:
 				return fmt.Errorf("failed to generate mapping JSON: %w", err)
 			}
 
-			mappingWriter, err := os.Create(mappingPath)
-			if err != nil {
-				return fmt.Errorf("failed to create mapping file %s: %w", mappingPath, err)
-			}
-			defer func() {
-				if cerr := mappingWriter.Close(); cerr != nil {
-					ctxLogger.Warn("failed to close mapping file", "error", cerr)
-				}
-			}()
-
-			if _, err := mappingWriter.Write(mappingJSON); err != nil {
-				return fmt.Errorf("failed to write mapping file: %w", err)
-			}
-
-			if err := mappingWriter.Sync(); err != nil {
-				return fmt.Errorf("failed to sync mapping file: %w", err)
+			if err := writeSanitizeArtifact(mappingPath, mappingJSON); err != nil {
+				return fmt.Errorf("failed to write mapping file %s: %w", mappingPath, err)
 			}
 
 			ctxLogger.Debug("Mapping file written", "mapping_file", mappingPath)
@@ -318,6 +334,210 @@ RELATED:
 
 		return nil
 	},
+}
+
+// validateSanitizePaths rejects a run in which the input file, --output, and
+// --mapping do not all refer to distinct files.
+//
+// os.Create truncates on open, so an --output aimed at the input empties the
+// configuration before the sanitizer reads a byte of it: the run then sanitizes
+// an empty document and exits 0 reporting "0 fields redacted". Neither --force
+// nor the overwrite prompt gates this, because both read as consent to replace
+// the output, not the input.
+//
+// inputPath is expected to be absolute; the others are as supplied and may be
+// empty.
+func validateSanitizePaths(inputPath, outputPath, mappingPath string) error {
+	checks := []struct {
+		a, b    string
+		message string
+	}{
+		{
+			a: inputPath,
+			b: outputPath,
+			message: fmt.Sprintf(
+				"--output %s refers to the input file; sanitize never rewrites its input in place, and writing there would truncate the configuration before it is read. Write to a different path",
+				outputPath,
+			),
+		},
+		{
+			a: inputPath,
+			b: mappingPath,
+			message: fmt.Sprintf(
+				"--mapping %s refers to the input file; the mapping file would overwrite the configuration being sanitized. Write to a different path",
+				mappingPath,
+			),
+		},
+		{
+			a: outputPath,
+			b: mappingPath,
+			message: fmt.Sprintf(
+				"--output and --mapping both refer to %s; the mapping file is written second and would replace the sanitized configuration. Write them to different paths",
+				mappingPath,
+			),
+		},
+	}
+
+	for _, check := range checks {
+		if check.a == "" || check.b == "" {
+			continue
+		}
+
+		same, err := pathsResolveToSameFile(check.a, check.b)
+		if err != nil {
+			return err
+		}
+
+		if same {
+			return fmt.Errorf("%w: %s", ErrSanitizePathCollision, check.message)
+		}
+	}
+
+	return nil
+}
+
+// pathsResolveToSameFile reports whether two paths refer to the same file.
+//
+// The absolute-path comparison is the only signal available when neither file
+// exists yet, which is normal for a pair of output paths. When both exist,
+// os.SameFile also catches symlinks, hard links, and case-only differences on
+// case-insensitive filesystems, since os.Stat resolves the path first.
+func pathsResolveToSameFile(pathA, pathB string) (bool, error) {
+	absA, err := filepath.Abs(filepath.Clean(pathA))
+	if err != nil {
+		return false, fmt.Errorf("failed to resolve absolute path for %s: %w", pathA, err)
+	}
+
+	absB, err := filepath.Abs(filepath.Clean(pathB))
+	if err != nil {
+		return false, fmt.Errorf("failed to resolve absolute path for %s: %w", pathB, err)
+	}
+
+	if absA == absB {
+		return true, nil
+	}
+
+	infoA, err := os.Stat(absA)
+	if err != nil {
+		if errors.Is(err, fs.ErrNotExist) {
+			return false, nil
+		}
+
+		return false, fmt.Errorf("failed to inspect %s: %w", pathA, err)
+	}
+
+	infoB, err := os.Stat(absB)
+	if err != nil {
+		if errors.Is(err, fs.ErrNotExist) {
+			return false, nil
+		}
+
+		return false, fmt.Errorf("failed to inspect %s: %w", pathB, err)
+	}
+
+	return os.SameFile(infoA, infoB), nil
+}
+
+// sanitizeArtifactPermissions matches export.DefaultFilePermissions. os.Create
+// would give 0644, which is wrong for the --mapping file: it is the reverse
+// lookup table, holding every original hostname, address, username, and email
+// in cleartext beside its pseudonym.
+const sanitizeArtifactPermissions = 0o600
+
+// writeSanitizeArtifact writes content to path with owner-only permissions,
+// replacing the destination only once the bytes are safely on disk.
+//
+// The write goes to a temporary file in the same directory and is renamed into
+// place at the end. Opening the destination directly with O_TRUNC would destroy
+// an existing artifact before the first byte is written, so a disk-full or sync
+// failure would return an error having already lost the previous result. The
+// rename is the last step and is atomic on a single filesystem, which is why the
+// temporary file has to be a sibling rather than in the system temp directory.
+//
+// Chmod is applied to the temporary file before the rename. os.CreateTemp makes
+// files 0600, but that is its behavior rather than a documented guarantee, and
+// setting the mode explicitly keeps this correct if it ever changes.
+//
+// Close failures are returned rather than logged, since a failed close can mean
+// the bytes never reached the filesystem.
+func writeSanitizeArtifact(path string, content []byte) error {
+	// Path is the operator's own --output or --mapping value, already checked by
+	// validateSanitizePaths for collisions with the input and with each other,
+	// and by determineSanitizeOutputPath for the overwrite gate.
+
+	// A destination that is not a regular file gets written through rather than
+	// replaced. Renaming onto a device node or a FIFO substitutes a regular file
+	// for it, which is not what -o /dev/null or -o /dev/stdout asks for, and
+	// CreateTemp in the destination's directory is not permitted in /dev anyway.
+	// The truncation guarantee the temporary file provides is meaningless for
+	// these targets, since there is no previous content to lose.
+	if info, err := os.Stat(path); err == nil && !info.Mode().IsRegular() {
+		return writeSanitizeArtifactDirect(path, content)
+	}
+
+	dir := filepath.Dir(path)
+
+	tmp, err := os.CreateTemp(dir, filepath.Base(path)+".tmp_*")
+	if err != nil {
+		return fmt.Errorf("create temporary file: %w", err)
+	}
+
+	tmpPath := tmp.Name()
+
+	// Removes the temporary file on every failure path below. After a successful
+	// rename the path no longer exists, so the Remove is a no-op.
+	defer func() {
+		_ = tmp.Close()
+		_ = os.Remove(tmpPath)
+	}()
+
+	if _, err := tmp.Write(content); err != nil {
+		return fmt.Errorf("write: %w", err)
+	}
+
+	if err := tmp.Sync(); err != nil {
+		return fmt.Errorf("sync: %w", err)
+	}
+
+	if err := tmp.Close(); err != nil {
+		return fmt.Errorf("close: %w", err)
+	}
+
+	if err := os.Chmod(tmpPath, sanitizeArtifactPermissions); err != nil {
+		return fmt.Errorf("set permissions: %w", err)
+	}
+
+	if err := os.Rename(tmpPath, path); err != nil {
+		return fmt.Errorf("replace destination: %w", err)
+	}
+
+	return nil
+}
+
+// writeSanitizeArtifactDirect writes to a destination that is not a regular
+// file, such as /dev/null, /dev/stdout, or a FIFO.
+//
+// No temporary file, no rename, and no Chmod: the node already exists, its
+// permissions belong to whoever created it, and replacing it is exactly the
+// behavior this avoids. O_TRUNC is safe here because a character device or a
+// pipe has no previous content that truncation could destroy.
+func writeSanitizeArtifactDirect(path string, content []byte) error {
+	file, err := os.OpenFile(path, os.O_WRONLY, sanitizeArtifactPermissions) // #nosec G304
+	if err != nil {
+		return fmt.Errorf("open: %w", err)
+	}
+
+	if _, err := file.Write(content); err != nil {
+		_ = file.Close()
+
+		return fmt.Errorf("write: %w", err)
+	}
+
+	if err := file.Close(); err != nil {
+		return fmt.Errorf("close: %w", err)
+	}
+
+	return nil
 }
 
 // determineSanitizeOutputPath determines whether the provided outputPath may be used.

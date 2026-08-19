@@ -56,13 +56,16 @@ func FormatInterfacesAsLinks(interfaces []string) string {
 		if i > 0 {
 			b.WriteString(", ")
 		}
+		// The name comes from config.xml, and both halves of a markdown link are
+		// breakable: a "]" ends the label early and a ")" ends the destination,
+		// after which the rest of the name is parsed as markup. The label is
+		// escaped and the destination is reduced to an anchor slug, which can
+		// contain neither character. SanitizeID leaves ordinary names such as
+		// "wan" untouched, so existing links still resolve.
 		b.WriteByte('[')
-		b.WriteString(iface)
+		b.WriteString(EscapeMarkdownValue(iface))
 		b.WriteString("](#")
-		// strings.ToLower returns the original string unchanged when it
-		// has no uppercase runes, so already-lowercase interface names
-		// pay no allocation here.
-		b.WriteString(strings.ToLower(iface))
+		b.WriteString(SanitizeID(iface))
 		b.WriteString("-interface)")
 	}
 	return b.String()

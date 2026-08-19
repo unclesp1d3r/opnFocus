@@ -1,7 +1,7 @@
 # OPNsense Configuration Summary
 ## System Information
-- **Hostname**: edge-case-test!@#$%^&*()
-- **Domain**: domain*with*asterisks
+- **Hostname**: edge-case-test!@#$%^&\*()
+- **Domain**: domain\*with\*asterisks
 - **Platform**: OPNsense
 - **Generated On**: 2026-01-02T15:04:05Z
 - **Parsed By**: opnDossier vtest
@@ -17,13 +17,13 @@
 - [System Tunables](#system-tunables)
 ## System Configuration
 ### Basic Information
-**Hostname**: edge-case-test!@#$%^&*()
+**Hostname**: edge-case-test!@#$%^&\*()
   
-**Domain**: domain*with*asterisks
+**Domain**: domain\*with\*asterisks
   
 **Timezone**: GMT+12:45
   
-**Language**: invalid_locale
+**Language**: invalid\_locale
   
 ### System Settings
 **DNS Allow Override**: ✗
@@ -82,10 +82,10 @@
 ### Interfaces
 | Name | Description | IP Address | CIDR | Enabled |
 |---------|---------|---------|---------|---------|
-| `` | `` | `` |  | ✗ |
+|  |  |  |  | ✗ |
 | `invalid-interface` | `Interface with \| pipes \| and   newlines` | `999.999.999.999` | /999 | ✗ |
-| `interface*with*chars` | `Interface with \*asterisks\* and \_underscores\_` | `192.168.1.100` | /24 | ✓ |
-| `interface`with`backticks` | `Interface with \`code\` and \\backslashes\\` | `192.168.2.100` | /24 | ✓ |
+| `interface*with*chars` | `Interface with *asterisks* and _underscores_` | `192.168.1.100` | /24 | ✓ |
+| ``interface`with`backticks`` | ``Interface with `code` and \backslashes\`` | `192.168.2.100` | /24 | ✓ |
 
 ### Unnamed Interface
 **Enabled**: ✗
@@ -145,9 +145,9 @@
 | # | Interface | Action | IP Ver | Proto | Source | Destination | Target | Source Port | Dest Port | Enabled | Description |
 |---------|---------|---------|---------|---------|---------|---------|---------|---------|---------|---------|---------|
 | 1 |  |  |  |  | any | any |  |  |  | ✓ |  |
-| 2 |  | unknown | invalid | unknown | invalid-network | another|invalid|network |  |  |  | ✓ | Rule with \| pipes \| and   newlines 	 tabs |
-| 3 | [wan](#wan-interface) | pass | inet | tcp | source[with]brackets | dest<with>angles |  |  |  | ✓ | Rule with \*bold\* and \_italic\_ text |
-| 4 | [lan](#lan-interface) | block | inet | udp | source\with\backslashes | dest`with`backticks |  |  |  | ✓ | Rule with \`code\` and \\backslash\\ characters |
+| 2 |  | unknown | invalid | unknown | invalid-network | another\|invalid\|network |  |  |  | ✓ | Rule with \| pipes \| and   newlines 	 tabs |
+| 3 | [wan](#wan-interface) | pass | inet | tcp | source\[with\]brackets | dest\<with\>angles |  |  |  | ✓ | Rule with \*bold\* and \_italic\_ text |
+| 4 | [lan](#lan-interface) | block | inet | udp | source\\with\\backslashes | dest\`with\`backticks |  |  |  | ✓ | Rule with \`code\` and \\backslash\\ characters |
 
 ## Service Configuration
 ### DHCP Server

@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/EvilBit-Labs/opnDossier/internal/constants"
+	"github.com/EvilBit-Labs/opnDossier/internal/converter/formatters"
 	common "github.com/EvilBit-Labs/opnDossier/pkg/model"
 	"github.com/nao1215/markdown"
 )
@@ -91,10 +92,10 @@ func writeAuditSecurityAndInventory(md *markdown.Markdown, cc *common.Compliance
 		}
 		for _, f := range securityFindings {
 			findingsTable.Rows = append(findingsTable.Rows, []string{
-				EscapePipeForMarkdown(f.Severity),
-				EscapePipeForMarkdown(f.Component),
-				EscapePipeForMarkdown(f.Title),
-				EscapePipeForMarkdown(f.Recommendation),
+				formatters.EscapeTableContent(f.Severity),
+				formatters.EscapeTableContent(f.Component),
+				formatters.EscapeTableContent(f.Title),
+				formatters.EscapeTableContent(f.Recommendation),
 			})
 		}
 		md.Table(findingsTable)
@@ -108,9 +109,9 @@ func writeAuditSecurityAndInventory(md *markdown.Markdown, cc *common.Compliance
 		}
 		for _, f := range inventoryFindings {
 			notesTable.Rows = append(notesTable.Rows, []string{
-				EscapePipeForMarkdown(f.Component),
-				EscapePipeForMarkdown(f.Title),
-				EscapePipeForMarkdown(f.Description),
+				formatters.EscapeTableContent(f.Component),
+				formatters.EscapeTableContent(f.Title),
+				formatters.EscapeTableContent(f.Description),
 			})
 		}
 		md.Table(notesTable)
@@ -187,8 +188,8 @@ func writeAuditMetadata(md *markdown.Markdown, cc *common.ComplianceResults) {
 	}
 	for _, key := range slices.Sorted(maps.Keys(cc.Metadata)) {
 		metadataTable.Rows = append(metadataTable.Rows, []string{
-			EscapePipeForMarkdown(key),
-			EscapePipeForMarkdown(fmt.Sprintf("%v", cc.Metadata[key])),
+			formatters.EscapeTableContent(key),
+			formatters.EscapeTableContent(cc.Metadata[key]),
 		})
 	}
 	md.Table(metadataTable)
@@ -259,10 +260,10 @@ func (b *MarkdownBuilder) writePluginControlsTable(
 		}
 
 		controlTable.Rows = append(controlTable.Rows, []string{
-			EscapePipeForMarkdown(ctrl.ID),
-			EscapePipeForMarkdown(TruncateString(ctrl.Title, MaxDescriptionLength)),
-			EscapePipeForMarkdown(ctrl.Severity),
-			EscapePipeForMarkdown(ctrl.Category),
+			formatters.EscapeTableContent(ctrl.ID),
+			formatters.EscapeTableContent(TruncateString(ctrl.Title, MaxDescriptionLength)),
+			formatters.EscapeTableContent(ctrl.Severity),
+			formatters.EscapeTableContent(ctrl.Category),
 			status,
 		})
 	}
@@ -305,10 +306,10 @@ func (b *MarkdownBuilder) writePluginFindingsTable(
 		}
 
 		pluginTable.Rows = append(pluginTable.Rows, []string{
-			EscapePipeForMarkdown(controlID),
-			EscapePipeForMarkdown(f.Severity),
-			EscapePipeForMarkdown(f.Title),
-			EscapePipeForMarkdown(TruncateString(f.Description, MaxDescriptionLength)),
+			formatters.EscapeTableContent(controlID),
+			formatters.EscapeTableContent(f.Severity),
+			formatters.EscapeTableContent(f.Title),
+			formatters.EscapeTableContent(TruncateString(f.Description, MaxDescriptionLength)),
 		})
 	}
 

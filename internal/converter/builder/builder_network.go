@@ -2,7 +2,6 @@ package builder
 
 import (
 	"bytes"
-	"fmt"
 	"strings"
 
 	"github.com/EvilBit-Labs/opnDossier/internal/converter/formatters"
@@ -54,13 +53,13 @@ func BuildInterfaceTableSet(interfaces []common.Interface) *markdown.TableSet {
 
 		cidr := ""
 		if iface.Subnet != "" {
-			cidr = "/" + iface.Subnet
+			cidr = "/" + formatters.EscapeTableContent(iface.Subnet)
 		}
 
 		rows = append(rows, []string{
-			fmt.Sprintf("`%s`", iface.Name),
-			fmt.Sprintf("`%s`", formatters.EscapeTableContent(description)),
-			fmt.Sprintf("`%s`", iface.IPAddress),
+			formatters.CodeSpanCell(iface.Name),
+			formatters.CodeSpanCell(description),
+			formatters.CodeSpanCell(iface.IPAddress),
 			cidr,
 			formatters.FormatBool(iface.Enabled),
 		})
@@ -76,26 +75,27 @@ func BuildInterfaceTableSet(interfaces []common.Interface) *markdown.TableSet {
 func buildInterfaceDetails(md *markdown.Markdown, iface common.Interface) {
 	// Build a list of interface properties that are set
 	if iface.PhysicalIf != "" {
-		md.PlainTextf("%s: %s", markdown.Bold("Physical Interface"), iface.PhysicalIf).LF()
+		md.PlainTextf("%s: %s", markdown.Bold("Physical Interface"), formatters.EscapeMarkdownValue(iface.PhysicalIf)).
+			LF()
 	}
 	md.PlainTextf("%s: %s", markdown.Bold(labelEnabled), formatters.FormatBool(iface.Enabled)).LF()
 	if iface.IPAddress != "" {
-		md.PlainTextf("%s: %s", markdown.Bold("IPv4 Address"), iface.IPAddress).LF()
+		md.PlainTextf("%s: %s", markdown.Bold("IPv4 Address"), formatters.EscapeMarkdownValue(iface.IPAddress)).LF()
 	}
 	if iface.Subnet != "" {
-		md.PlainTextf("%s: %s", markdown.Bold("IPv4 Subnet"), iface.Subnet).LF()
+		md.PlainTextf("%s: %s", markdown.Bold("IPv4 Subnet"), formatters.EscapeMarkdownValue(iface.Subnet)).LF()
 	}
 	if iface.IPv6Address != "" {
-		md.PlainTextf("%s: %s", markdown.Bold("IPv6 Address"), iface.IPv6Address).LF()
+		md.PlainTextf("%s: %s", markdown.Bold("IPv6 Address"), formatters.EscapeMarkdownValue(iface.IPv6Address)).LF()
 	}
 	if iface.SubnetV6 != "" {
-		md.PlainTextf("%s: %s", markdown.Bold("IPv6 Subnet"), iface.SubnetV6).LF()
+		md.PlainTextf("%s: %s", markdown.Bold("IPv6 Subnet"), formatters.EscapeMarkdownValue(iface.SubnetV6)).LF()
 	}
 	if iface.Gateway != "" {
-		md.PlainTextf("%s: %s", markdown.Bold("Gateway"), iface.Gateway).LF()
+		md.PlainTextf("%s: %s", markdown.Bold("Gateway"), formatters.EscapeMarkdownValue(iface.Gateway)).LF()
 	}
 	if iface.MTU != "" {
-		md.PlainTextf("%s: %s", markdown.Bold("MTU"), iface.MTU).LF()
+		md.PlainTextf("%s: %s", markdown.Bold("MTU"), formatters.EscapeMarkdownValue(iface.MTU)).LF()
 	}
 	md.PlainTextf("%s: %s", markdown.Bold("Block Private Networks"), formatters.FormatBool(iface.BlockPrivate)).LF()
 	md.PlainTextf("%s: %s", markdown.Bold("Block Bogon Networks"), formatters.FormatBool(iface.BlockBogons))
@@ -128,10 +128,10 @@ func BuildVLANTableSet(vlans []common.VLAN) *markdown.TableSet {
 			rows = append(rows, []string{
 				formatters.EscapeTableContent(vlan.VLANIf),
 				formatters.EscapeTableContent(vlan.PhysicalIf),
-				vlan.Tag,
+				formatters.EscapeTableContent(vlan.Tag),
 				formatters.EscapeTableContent(vlan.Description),
-				vlan.Created,
-				vlan.Updated,
+				formatters.EscapeTableContent(vlan.Created),
+				formatters.EscapeTableContent(vlan.Updated),
 			})
 		}
 	}
@@ -179,8 +179,8 @@ func BuildStaticRoutesTableSet(routes []common.StaticRoute) *markdown.TableSet {
 				formatters.EscapeTableContent(route.Gateway),
 				formatters.EscapeTableContent(route.Description),
 				status,
-				route.Created,
-				route.Updated,
+				formatters.EscapeTableContent(route.Created),
+				formatters.EscapeTableContent(route.Updated),
 			})
 		}
 	}
