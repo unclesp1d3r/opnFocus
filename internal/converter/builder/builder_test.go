@@ -1131,7 +1131,10 @@ func TestBuildAuditSection_WithMetadata(t *testing.T) {
 
 	expectedContent := []string{
 		"## Audit Metadata",
-		"scan_time",
+		// Metadata keys are plugin-supplied and now go through the same table
+		// escaper as every other config-derived cell, so the underscore arrives
+		// escaped.
+		"scan\\_time",
 		"version",
 		"2024-01-15",
 		"1.0",

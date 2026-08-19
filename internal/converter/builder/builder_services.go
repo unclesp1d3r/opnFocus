@@ -80,18 +80,22 @@ func (b *MarkdownBuilder) writeServicesSection(md *markdown.Markdown, data *comm
 
 	md.H3("SNMP")
 	if data.SNMP.SysLocation != "" {
-		md.PlainTextf("%s: %s", markdown.Bold("System Location"), data.SNMP.SysLocation).LF()
+		md.PlainTextf("%s: %s", markdown.Bold("System Location"), formatters.EscapeMarkdownValue(data.SNMP.SysLocation)).
+			LF()
 	}
 	if data.SNMP.SysContact != "" {
-		md.PlainTextf("%s: %s", markdown.Bold("System Contact"), data.SNMP.SysContact).LF()
+		md.PlainTextf("%s: %s", markdown.Bold("System Contact"), formatters.EscapeMarkdownValue(data.SNMP.SysContact)).
+			LF()
 	}
 	if data.SNMP.ROCommunity != "" {
-		md.PlainTextf("%s: %s", markdown.Bold("Read-Only Community"), data.SNMP.ROCommunity).LF()
+		md.PlainTextf("%s: %s", markdown.Bold("Read-Only Community"), formatters.EscapeMarkdownValue(data.SNMP.ROCommunity)).
+			LF()
 	}
 
 	md.H3("NTP")
 	if data.NTP.PreferredServer != "" {
-		md.PlainTextf("%s: %s", markdown.Bold("Preferred Server"), data.NTP.PreferredServer).LF()
+		md.PlainTextf("%s: %s", markdown.Bold("Preferred Server"), formatters.EscapeMarkdownValue(data.NTP.PreferredServer)).
+			LF()
 	}
 
 	if len(data.LoadBalancer.MonitorTypes) > 0 {

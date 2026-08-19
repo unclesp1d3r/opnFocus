@@ -2,7 +2,6 @@ package builder
 
 import (
 	"bytes"
-	"fmt"
 	"strconv"
 
 	"github.com/EvilBit-Labs/opnDossier/internal/converter/formatters"
@@ -22,7 +21,7 @@ func (b *MarkdownBuilder) writeSecuritySection(md *markdown.Markdown, data *comm
 		if mode == "" {
 			mode = data.NAT.OutboundMode
 		}
-		md.PlainTextf("%s: %s", markdown.Bold("NAT Mode"), mode).LF().
+		md.PlainTextf("%s: %s", markdown.Bold("NAT Mode"), formatters.EscapeMarkdownValue(string(mode))).LF().
 			PlainTextf("%s: %s", markdown.Bold("NAT Reflection"), formatters.FormatBool(natSummary.ReflectionDisabled)).
 			LF().
 			PlainTextf(
@@ -91,11 +90,17 @@ func (b *MarkdownBuilder) writeIDSSection(md *markdown.Markdown, data *common.Co
 	}
 
 	if ids.Detect.Profile != "" {
-		configRows = append(configRows, []string{"**Detection Profile**", ids.Detect.Profile})
+		configRows = append(
+			configRows,
+			[]string{"**Detection Profile**", formatters.EscapeTableContent(ids.Detect.Profile)},
+		)
 	}
 
 	if ids.MPMAlgo != "" {
-		configRows = append(configRows, []string{"**Pattern Matching Algorithm**", ids.MPMAlgo})
+		configRows = append(
+			configRows,
+			[]string{"**Pattern Matching Algorithm**", formatters.EscapeTableContent(ids.MPMAlgo)},
+		)
 	}
 
 	configRows = append(
@@ -104,7 +109,10 @@ func (b *MarkdownBuilder) writeIDSSection(md *markdown.Markdown, data *common.Co
 	)
 
 	if ids.DefaultPacketSize != "" {
-		configRows = append(configRows, []string{"**Default Packet Size**", ids.DefaultPacketSize})
+		configRows = append(
+			configRows,
+			[]string{"**Default Packet Size**", formatters.EscapeTableContent(ids.DefaultPacketSize)},
+		)
 	}
 
 	md.H4("Configuration Summary").
@@ -118,7 +126,7 @@ func (b *MarkdownBuilder) writeIDSSection(md *markdown.Markdown, data *common.Co
 		md.H4("Monitored Interfaces")
 		interfaceItems := make([]string, 0, len(ids.Interfaces))
 		for _, iface := range ids.Interfaces {
-			interfaceItems = append(interfaceItems, fmt.Sprintf("`%s`", iface))
+			interfaceItems = append(interfaceItems, formatters.CodeSpan(iface))
 		}
 		md.BulletList(interfaceItems...)
 	}
@@ -128,7 +136,7 @@ func (b *MarkdownBuilder) writeIDSSection(md *markdown.Markdown, data *common.Co
 		md.H4("Home Networks")
 		netItems := make([]string, 0, len(ids.HomeNetworks))
 		for _, net := range ids.HomeNetworks {
-			netItems = append(netItems, fmt.Sprintf("`%s`", net))
+			netItems = append(netItems, formatters.CodeSpan(net))
 		}
 		md.BulletList(netItems...)
 	}
@@ -140,19 +148,19 @@ func (b *MarkdownBuilder) writeIDSSection(md *markdown.Markdown, data *common.Co
 	}
 
 	if ids.LogPayload != "" {
-		logRows = append(logRows, []string{"**Payload Logging**", ids.LogPayload})
+		logRows = append(logRows, []string{"**Payload Logging**", formatters.EscapeTableContent(ids.LogPayload)})
 	}
 
 	if ids.Verbosity != "" {
-		logRows = append(logRows, []string{"**Verbosity**", ids.Verbosity})
+		logRows = append(logRows, []string{"**Verbosity**", formatters.EscapeTableContent(ids.Verbosity)})
 	}
 
 	if ids.AlertLogrotate != "" {
-		logRows = append(logRows, []string{"**Log Rotation**", ids.AlertLogrotate})
+		logRows = append(logRows, []string{"**Log Rotation**", formatters.EscapeTableContent(ids.AlertLogrotate)})
 	}
 
 	if ids.AlertSaveLogs != "" {
-		logRows = append(logRows, []string{"**Log Retention**", ids.AlertSaveLogs})
+		logRows = append(logRows, []string{"**Log Retention**", formatters.EscapeTableContent(ids.AlertSaveLogs)})
 	}
 
 	md.H4("Logging Configuration").
@@ -229,12 +237,12 @@ func BuildFirewallRulesTableSet(rules []common.FirewallRule) *markdown.TableSet 
 		rows = append(rows, []string{
 			strconv.Itoa(i + 1),
 			interfaceLinks,
-			string(rule.Type),
-			string(rule.IPProtocol),
-			rule.Protocol,
-			source,
-			dest,
-			rule.Target,
+			formatters.EscapeTableContent(string(rule.Type)),
+			formatters.EscapeTableContent(string(rule.IPProtocol)),
+			formatters.EscapeTableContent(rule.Protocol),
+			formatters.EscapeTableContent(source),
+			formatters.EscapeTableContent(dest),
+			formatters.EscapeTableContent(rule.Target),
 			formatters.EscapeTableContent(rule.Source.Port),
 			formatters.EscapeTableContent(rule.Destination.Port),
 			formatters.FormatBoolInverted(rule.Disabled),

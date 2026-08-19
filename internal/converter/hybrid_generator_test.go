@@ -543,14 +543,20 @@ func TestHybridGenerator_Generate_RedactMarkdownFormats(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		name   string
-		format Format
-		redact bool
+		name       string
+		format     Format
+		redact     bool
+		wantMarker string
 	}{
-		{name: "markdown redacted", format: FormatMarkdown, redact: true},
+		// wantMarker differs by format because config-derived values are
+		// markdown-escaped on their way into the report. The redaction marker
+		// replaces such a value, so it carries the same escaping: raw markdown
+		// shows the backslashes, while HTML and text render "[REDACTED]"
+		// because a backslash-escaped bracket is a literal bracket.
+		{name: "markdown redacted", format: FormatMarkdown, redact: true, wantMarker: `\[REDACTED\]`},
 		{name: "markdown unredacted", format: FormatMarkdown, redact: false},
-		{name: "text redacted", format: FormatText, redact: true},
-		{name: "html redacted", format: FormatHTML, redact: true},
+		{name: "text redacted", format: FormatText, redact: true, wantMarker: "[REDACTED]"},
+		{name: "html redacted", format: FormatHTML, redact: true, wantMarker: "[REDACTED]"},
 	}
 
 	for _, tt := range tests {
@@ -571,7 +577,7 @@ func TestHybridGenerator_Generate_RedactMarkdownFormats(t *testing.T) {
 					"redacted output must not contain SNMP community string")
 				assert.NotContains(t, output, "ha-secret",
 					"redacted output must not contain HA password")
-				assert.Contains(t, output, "[REDACTED]",
+				assert.Contains(t, output, tt.wantMarker,
 					"redacted output must contain enrichment-layer redaction marker")
 			} else {
 				assert.Contains(t, output, "secret-community",
@@ -591,14 +597,20 @@ func TestHybridGenerator_GenerateToWriter_RedactMarkdownFormats(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		name   string
-		format Format
-		redact bool
+		name       string
+		format     Format
+		redact     bool
+		wantMarker string
 	}{
-		{name: "markdown redacted", format: FormatMarkdown, redact: true},
+		// wantMarker differs by format because config-derived values are
+		// markdown-escaped on their way into the report. The redaction marker
+		// replaces such a value, so it carries the same escaping: raw markdown
+		// shows the backslashes, while HTML and text render "[REDACTED]"
+		// because a backslash-escaped bracket is a literal bracket.
+		{name: "markdown redacted", format: FormatMarkdown, redact: true, wantMarker: `\[REDACTED\]`},
 		{name: "markdown unredacted", format: FormatMarkdown, redact: false},
-		{name: "text redacted", format: FormatText, redact: true},
-		{name: "html redacted", format: FormatHTML, redact: true},
+		{name: "text redacted", format: FormatText, redact: true, wantMarker: "[REDACTED]"},
+		{name: "html redacted", format: FormatHTML, redact: true, wantMarker: "[REDACTED]"},
 	}
 
 	for _, tt := range tests {
@@ -621,7 +633,7 @@ func TestHybridGenerator_GenerateToWriter_RedactMarkdownFormats(t *testing.T) {
 					"redacted output must not contain SNMP community string")
 				assert.NotContains(t, output, "ha-secret",
 					"redacted output must not contain HA password")
-				assert.Contains(t, output, "[REDACTED]",
+				assert.Contains(t, output, tt.wantMarker,
 					"redacted output must contain enrichment-layer redaction marker")
 			} else {
 				assert.Contains(t, output, "secret-community",

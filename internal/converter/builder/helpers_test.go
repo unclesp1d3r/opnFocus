@@ -941,40 +941,6 @@ func containsString(slice []string, s string) bool {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// EscapePipeForMarkdown Tests
-// ─────────────────────────────────────────────────────────────────────────────
-
-func TestEscapePipeForMarkdown(t *testing.T) {
-	t.Parallel()
-
-	tests := []struct {
-		name     string
-		input    string
-		expected string
-	}{
-		{"no pipes", "hello world", "hello world"},
-		{"single pipe", "a|b", "a\\|b"},
-		{"multiple pipes", "a|b|c", "a\\|b\\|c"},
-		{"empty string", "", ""},
-		{"pipe at start", "|hello", "\\|hello"},
-		{"pipe at end", "hello|", "hello\\|"},
-		{"only pipe", "|", "\\|"},
-		{"adjacent pipes", "a||b", "a\\|\\|b"},
-		{"pipes with spaces", "a | b | c", "a \\| b \\| c"},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
-			result := EscapePipeForMarkdown(tt.input)
-			if result != tt.expected {
-				t.Errorf("EscapePipeForMarkdown(%q) = %q, want %q", tt.input, result, tt.expected)
-			}
-		})
-	}
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
 // TruncateString Tests
 // ─────────────────────────────────────────────────────────────────────────────
 

@@ -23,9 +23,9 @@
   
 **Optimization**: aggressive
   
-**Timezone**: America/New_York
+**Timezone**: America/New\_York
   
-**Language**: en_US
+**Language**: en\_US
   
 ### Web GUI Configuration
 **Protocol**: https
@@ -215,7 +215,7 @@
   
 **System Contact**: security-team@company.com
   
-**Read-Only Community**: public_readonly_v3
+**Read-Only Community**: public\_readonly\_v3
   
 ### NTP
 **Preferred Server**: time.nist.gov

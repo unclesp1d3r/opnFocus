@@ -1,7 +1,6 @@
 package builder
 
 import (
-	"fmt"
 	"strconv"
 
 	"github.com/EvilBit-Labs/opnDossier/internal/converter/formatters"
@@ -55,7 +54,7 @@ func BuildOutboundNATTableSet(rules []common.NATRule) *markdown.TableSet {
 
 			target := rule.Target
 			if target != "" {
-				target = fmt.Sprintf("`%s`", target)
+				target = formatters.CodeSpanCell(target)
 			}
 
 			status := "**Active**"
@@ -69,10 +68,10 @@ func BuildOutboundNATTableSet(rules []common.NATRule) *markdown.TableSet {
 				strconv.Itoa(i + 1),
 				"⬆️ Outbound",
 				interfaceLinks,
-				source,
-				dest,
+				formatters.EscapeTableContent(source),
+				formatters.EscapeTableContent(dest),
 				target,
-				protocol,
+				formatters.EscapeTableContent(protocol),
 				formatters.EscapeTableContent(rule.Description),
 				status,
 			})
@@ -125,7 +124,7 @@ func BuildInboundNATTableSet(rules []common.InboundNATRule) *markdown.TableSet {
 
 			targetIP := rule.InternalIP
 			if targetIP != "" {
-				targetIP = fmt.Sprintf("`%s`", targetIP)
+				targetIP = formatters.CodeSpanCell(targetIP)
 			}
 
 			status := "**Active**"
@@ -139,10 +138,10 @@ func BuildInboundNATTableSet(rules []common.InboundNATRule) *markdown.TableSet {
 				strconv.Itoa(i + 1),
 				"⬇️ Inbound",
 				interfaceLinks,
-				rule.ExternalPort,
+				formatters.EscapeTableContent(rule.ExternalPort),
 				targetIP,
-				rule.InternalPort,
-				protocol,
+				formatters.EscapeTableContent(rule.InternalPort),
+				formatters.EscapeTableContent(protocol),
 				formatters.EscapeTableContent(rule.Description),
 				strconv.Itoa(rule.Priority),
 				status,
