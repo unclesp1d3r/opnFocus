@@ -86,9 +86,12 @@ func TestWriteSanitizeArtifactReplacesExistingFile(t *testing.T) {
 	// the original is only unlinked by the final rename, once the new content is
 	// already on disk.
 	//
-	// TestWriteSanitizeArtifactSurvivesWriteFailure exercises the failure itself
-	// under RLIMIT_FSIZE. This is the cheaper structural check that runs
-	// alongside it.
+	// This is the guarantee's stand-in, and deliberately the only check for it.
+	// An earlier test forced a real mid-write failure by lowering RLIMIT_FSIZE,
+	// but that limit is process-wide: the testing framework writes testlog.txt
+	// throughout a run, and any write landing inside the window failed the whole
+	// binary with "file too large" while every test passed. Do not reintroduce a
+	// process-wide resource limit in a shared test binary.
 	//
 	// POSIX only. os.SameFile compares the volume and file index on Windows, and
 	// a path-based Stat there does not populate them, so it reports true for
