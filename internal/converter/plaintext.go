@@ -42,15 +42,19 @@ var (
 const placeholderFmt = "OPNDOSSIER_PH_%d"
 
 // StripMarkdownFormatting converts markdown to plain text using a
-// goldmark -> HTML -> html2text pipeline. The goldmark renderer (shared
-// with HTML output) handles all markdown parsing, while html2text
-// provides proper HTML-to-text conversion using Go's net/html parser.
+// goldmark -> HTML -> html2text pipeline. goldmarkRenderer handles all markdown
+// parsing, while html2text provides proper HTML-to-text conversion using Go's
+// net/html parser.
+//
+// goldmarkRenderer is dedicated to this pipeline and is not the renderer behind
+// RenderMarkdownToHTML; see its declaration in html.go for why it alone keeps
+// raw-HTML passthrough enabled.
 //
 // Tables and alerts are extracted from the HTML before html2text processing
 // (using placeholders) because html2text doesn't handle table layout or
 // preserve the tab-separated formatting we need.
 func StripMarkdownFormatting(markdown string) (string, error) {
-	// Stage 1: Render markdown to HTML via goldmark (shared renderer from html.go)
+	// Stage 1: Render markdown to the intermediate HTML html2text consumes.
 	var buf strings.Builder
 	if err := goldmarkRenderer.Convert([]byte(markdown), &buf); err != nil {
 		return "", fmt.Errorf("failed to convert markdown to plain text: %w", err)
