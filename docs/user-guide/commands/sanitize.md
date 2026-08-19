@@ -80,7 +80,7 @@ Replacements come in two shapes, and the difference matters when reading a sanit
 | ----------- | ----------------------------- | --------------------------- |
 | Private IP  | `[REDACTED-PRIVATE-IP-1]`     | No                          |
 | Public IP   | `[REDACTED-PUBLIC-IP-1]`      | No                          |
-| MAC address | `XX:XX:XX:XX:XX:01`           | No, `X` is not a hex digit  |
+| MAC address | `XX:XX:XX:XX:XX:01`           | Partly, it keeps MAC shape  |
 | Hostname    | `host-001.example.com`        | **Yes**                     |
 | Username    | `user-001`                    | **Yes**                     |
 | Domain      | `example.com`, `example2.com` | **Yes**                     |
@@ -90,7 +90,7 @@ Treat any hostname, username, domain or email in a sanitized file as redacted ra
 
 ## Mapping File
 
-The `--mapping` flag saves a JSON file that records every substitution the sanitizer made. This serves as a lookup table so you can trace a redacted value back to its original -- for example, when a colleague asks "what is `198.51.100.1` in the sanitized config?" you can look it up in the mapping file.
+The `--mapping` flag saves a JSON file that records every substitution the sanitizer made. This serves as a lookup table so you can trace a redacted value back to its original -- for example, when a colleague asks "what is `[REDACTED-PUBLIC-IP-1]` in the sanitized config?" you can look up the marker in the mapping file.
 
 ```bash
 opndossier sanitize config.xml -o sanitized.xml --mapping mappings.json
@@ -148,12 +148,12 @@ There is no built-in command to reverse a sanitization using the mapping file --
 
 opnDossier offers two ways to hide sensitive data:
 
-|               | `sanitize` command                                    | `convert --redact`                                          |
-| ------------- | ----------------------------------------------------- | ----------------------------------------------------------- |
-| **Output**    | Valid OPNsense XML                                    | Markdown, JSON, YAML, etc.                                  |
-| **Scope**     | Full config file with consistent replacements         | Report fields replaced with `[REDACTED]`                    |
-| **Traceable** | Yes, via mapping file (manual lookup)                 | No                                                          |
-| **Use case**  | Sharing a config file that others can load or analyze | Sharing a report where values do not need to be traced back |
+|               | `sanitize` command                                                               | `convert --redact`                                          |
+| ------------- | -------------------------------------------------------------------------------- | ----------------------------------------------------------- |
+| **Output**    | Valid OPNsense XML                                                               | Markdown, JSON, YAML, etc.                                  |
+| **Scope**     | Full config file with consistent replacements                                    | Report fields replaced with `[REDACTED]`                    |
+| **Traceable** | Yes, via mapping file (manual lookup)                                            | No                                                          |
+| **Use case**  | Sharing a config file for inspection, and for topology analysis in moderate mode | Sharing a report where values do not need to be traced back |
 
 ## Examples
 
