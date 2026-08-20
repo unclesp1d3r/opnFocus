@@ -74,19 +74,21 @@ Everything in moderate, plus:
 
 Across all modes, the sanitizer maintains referential integrity -- the same original value always maps to the same replacement value throughout the entire file. If aggressive mode maps `192.168.1.1` to `[REDACTED-PRIVATE-IP-1]`, every occurrence of `192.168.1.1` in the config is replaced with that same marker. This means firewall rules, routing tables, and DHCP scopes remain internally consistent.
 
-Replacements come in two shapes, and the difference matters when reading a sanitized file:
+Which values are replaced depends on the mode, and the replacements take three shapes. Both matter when reading a sanitized file:
 
-| Value       | Replacement                   | Mistakable for a real value |
-| ----------- | ----------------------------- | --------------------------- |
-| Private IP  | `[REDACTED-PRIVATE-IP-1]`     | No                          |
-| Public IP   | `[REDACTED-PUBLIC-IP-1]`      | No                          |
-| MAC address | `XX:XX:XX:XX:XX:01`           | Partly, it keeps MAC shape  |
-| Hostname    | `host-001.example.com`        | **Yes**                     |
-| Username    | `user-001`                    | **Yes**                     |
-| Domain      | `example.com`, `example2.com` | **Yes**                     |
-| Email       | `user1@example.com`           | **Yes**                     |
+| Value       | Replaced in          | Replacement                   | Mistakable for a real value |
+| ----------- | -------------------- | ----------------------------- | --------------------------- |
+| Private IP  | aggressive           | `[REDACTED-PRIVATE-IP-1]`     | No                          |
+| Public IP   | aggressive, moderate | `[REDACTED-PUBLIC-IP-1]`      | No                          |
+| MAC address | aggressive, moderate | `XX:XX:XX:XX:XX:01`           | Partly, it keeps MAC shape  |
+| Hostname    | aggressive           | `host-001.example.com`        | **Yes**                     |
+| Username    | aggressive           | `user-001`                    | **Yes**                     |
+| Domain      | aggressive           | `example.com`, `example2.com` | **Yes**                     |
+| Email       | aggressive, moderate | `user1@example.com`           | **Yes**                     |
 
-Treat any hostname, username, domain or email in a sanitized file as redacted rather than real. Use the mapping file if you need to recover the original.
+Minimal mode redacts none of these; it covers credentials and authserver values only, so every value above survives unchanged.
+
+The three shapes are markers (`[REDACTED-...]`), which cannot be mistaken for real values; a MAC-shaped placeholder, which keeps its shape but uses a non-hex `X`; and readable stand-ins for hostnames, usernames, domains and emails. Treat any of those last four in a sanitized file as redacted rather than real. Use the mapping file if you need to recover the original.
 
 ## Mapping File
 
