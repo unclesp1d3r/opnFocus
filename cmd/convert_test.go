@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"bytes"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -641,60 +642,58 @@ func TestDetermineOutputPath(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			path, err := determineOutputPath(tt.inputFile, tt.outputFile, tt.fileExt, tt.cfg, tt.force)
-
-			if tt.expectError {
-				assert.Error(t, err)
-			} else {
-				require.NoError(t, err)
-				assert.Equal(t, tt.expectPath, path)
-			}
+			assert.Equal(t, tt.expectPath, determineOutputPath(tt.outputFile, tt.cfg))
 		})
 	}
 }
 
-func TestDetermineOutputPath_OverwriteProtection(t *testing.T) {
-	// Create a temporary file for testing
+func TestConfirmOverwrite(t *testing.T) {
+	// Do NOT use t.Parallel() - the cmd package binds flags to globals.
 	tmpDir := t.TempDir()
 	existingFile := filepath.Join(tmpDir, "existing.md")
+	require.NoError(t, os.WriteFile(existingFile, []byte("existing content"), 0o600))
 
-	// Create the file
-	err := os.WriteFile(existingFile, []byte("existing content"), 0o600)
+	// confirmOverwrite branches on term.IsTerminal, so the input has to be a
+	// file that definitely is not one. os.Stdin is not a terminal under CI or a
+	// piped run, but it is when go test is run from an interactive shell, and
+	// there the no-terminal case below would print a prompt and block on
+	// ReadString instead of failing.
+	devNull, err := os.Open(os.DevNull)
 	require.NoError(t, err)
 
+	t.Cleanup(func() {
+		require.NoError(t, devNull.Close())
+	})
+
 	tests := []struct {
-		name        string
-		outputFile  string
-		force       bool
-		expectError bool
-		expectPath  string
+		name    string
+		path    string
+		force   bool
+		wantErr error
 	}{
+		{name: "existing file with force proceeds", path: existingFile, force: true},
+		{name: "missing file proceeds", path: filepath.Join(tmpDir, "new.md")},
+		{name: "stdout destination proceeds", path: ""},
 		{
-			name:        "file exists with force - should overwrite",
-			outputFile:  existingFile,
-			force:       true,
-			expectError: false,
-			expectPath:  existingFile,
-		},
-		{
-			name:        "file does not exist - should work",
-			outputFile:  filepath.Join(tmpDir, "new_file.md"),
-			force:       false,
-			expectError: false,
-			expectPath:  filepath.Join(tmpDir, "new_file.md"),
+			name:    "existing file without force and no terminal",
+			path:    existingFile,
+			wantErr: ErrOutputExists,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			path, err := determineOutputPath("config.xml", tt.outputFile, ".md", nil, tt.force)
+			err := confirmOverwrite(devNull, io.Discard, tt.path, tt.force)
 
-			if tt.expectError {
-				assert.Error(t, err)
-			} else {
-				require.NoError(t, err)
-				assert.Equal(t, tt.expectPath, path)
+			if tt.wantErr != nil {
+				require.ErrorIs(t, err, tt.wantErr)
+				assert.Contains(t, err.Error(), "--force",
+					"error should tell the operator how to proceed")
+
+				return
 			}
+
+			require.NoError(t, err)
 		})
 	}
 }
@@ -703,15 +702,14 @@ func TestDetermineOutputPath_NoDirectoryCreation(t *testing.T) {
 	// Test that the function doesn't create directories automatically
 	nonexistentDir := filepath.Join("nonexistent", "path", "output.md")
 
-	path, err := determineOutputPath("config.xml", nonexistentDir, ".md", nil, false)
+	path := determineOutputPath(nonexistentDir, nil)
 
 	// Should not create directories, just return the path
-	require.NoError(t, err)
 	assert.Equal(t, nonexistentDir, path)
 
 	// Verify the directory doesn't exist
 	dir := filepath.Dir(nonexistentDir)
-	_, err = os.Stat(dir)
+	_, err := os.Stat(dir)
 	assert.True(t, os.IsNotExist(err), "Directory should not be created")
 }
 
