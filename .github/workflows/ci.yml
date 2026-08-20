@@ -98,8 +98,11 @@ jobs:
   # runner: TestPerformanceBaselines asserts sub-millisecond latencies, and
   # race instrumentation made those fail every run under load while passing
   # every run without it. Those assertions now skip under -race and the
-  # cancellation bounds scale with it, so the detector runs the full suite
-  # here. Concurrency-sensitive tests are NOT skipped; -short is deliberately
+  # cancellation bounds scale with it, so the detector runs the suite here.
+  # Tests that build and run the binary as a subprocess also skip: the child
+  # is compiled without -race, so the detector cannot observe it, and the
+  # cold cross-flavor build alone overruns their 30-second budgets.
+  # Concurrency-sensitive tests are NOT skipped; -short is deliberately
   # not used, since it would drop the stress tests this job exists to cover.
   # ─────────────────────────────────────────────────────────────────────────
   race:

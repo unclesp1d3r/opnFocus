@@ -49,6 +49,7 @@ Race instrumentation multiplies execution cost, so a latency assertion calibrate
 
 - **Rule:** never add a wall-clock upper bound to a test without deciding what it does under `-race`.
 - **Pattern:** `internal/testing/racedetect.Enabled` is a build-tagged constant. Skip the assertion when the test is a latency baseline (`TestPerformanceBaselines`), or scale the bound when the bound is a coarse guard rather than a measurement (`cancelAbortBudget` in `internal/converter`, which only needs to tell "aborted" apart from "generated the whole document").
+- **Subprocess builds:** a test that shells out to `go build` gets no benefit from a `-race` run (the child is not instrumented) and pays for it twice: the build cache holds only race-flavored artifacts, so the child compiles cold, and a deadline calibrated against a warm cache kills it. `build_test.go` skips under `racedetect.Enabled` for exactly this reason.
 - **Do not** reach for `-short` to dodge this. It also skips the stress and thread-safety tests, which are the ones most worth running under the detector.
 
 ## 2. Plugin Architecture
