@@ -120,7 +120,7 @@ func (b *MarkdownBuilder) BuildServicesSection(data *common.CommonDevice) string
 	var buf bytes.Buffer
 	md := markdown.NewMarkdown(&buf)
 	b.writeServicesSection(md, data)
-	return md.String()
+	return renderMarkdown(md)
 }
 
 // WriteDHCPSummaryTable writes a DHCP scope summary table and returns md for chaining.

@@ -289,7 +289,7 @@ func (b *MarkdownBuilder) BuildStandardReport(data *common.CommonDevice) (string
 		b.WriteSysctlTable(md.H2("System Tunables"), filteredSysctl)
 	}
 
-	return md.String(), nil
+	return renderMarkdown(md), nil
 }
 
 // BuildComprehensiveReport builds a comprehensive markdown report.
@@ -332,5 +332,5 @@ func (b *MarkdownBuilder) BuildComprehensiveReport(data *common.CommonDevice) (s
 		b.WriteSysctlTable(md.H2("System Tunables"), filteredSysctl)
 	}
 
-	return md.String(), nil
+	return renderMarkdown(md), nil
 }
