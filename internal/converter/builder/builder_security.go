@@ -65,7 +65,7 @@ func (b *MarkdownBuilder) BuildSecuritySection(data *common.CommonDevice) string
 	var buf bytes.Buffer
 	md := markdown.NewMarkdown(&buf)
 	b.writeSecuritySection(md, data)
-	return md.String()
+	return renderMarkdown(md)
 }
 
 // writeIDSSection writes the IDS/Suricata configuration section to the markdown instance.
@@ -192,7 +192,7 @@ func (b *MarkdownBuilder) BuildIDSSection(data *common.CommonDevice) string {
 	var buf bytes.Buffer
 	md := markdown.NewMarkdown(&buf)
 	b.writeIDSSection(md, data)
-	return md.String()
+	return renderMarkdown(md)
 }
 
 // WriteFirewallRulesTable writes a firewall rules table and returns md for chaining.

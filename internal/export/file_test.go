@@ -99,7 +99,7 @@ func TestFileExporter_Export(t *testing.T) {
 		{
 			name:    "invalid path",
 			content: "test content",
-			path:    "/nonexistent/path/test_output.md",
+			path:    filepath.Join(t.TempDir(), "nonexistent", "test_output.md"),
 			wantErr: true,
 		},
 		{
@@ -177,7 +177,7 @@ func TestFileExporter_ExportErrorTypes(t *testing.T) {
 		{
 			name:       "nonexistent directory error",
 			content:    "test content",
-			path:       "/nonexistent/directory/test.md",
+			path:       filepath.Join(t.TempDir(), "nonexistent", "test.md"),
 			expectedOp: "validate_path",
 			checkError: func(t *testing.T, err error) {
 				t.Helper()
@@ -260,7 +260,7 @@ func TestFileExporter_PathValidation(t *testing.T) {
 		},
 		{
 			name:        "nonexistent directory",
-			path:        "/nonexistent/dir/test.md",
+			path:        filepath.Join(t.TempDir(), "nonexistent", "test.md"),
 			expectError: true,
 			errorCheck: func(t *testing.T, err error) {
 				t.Helper()
@@ -352,7 +352,8 @@ func TestFileExporter_ExportErrorUnwrap(t *testing.T) {
 	e := NewFileExporter(nil)
 
 	// Test with a path that will cause an underlying error
-	err := e.Export(context.Background(), "test content", "/nonexistent/dir/test.md")
+	err := e.Export(context.Background(), "test content",
+		filepath.Join(t.TempDir(), "nonexistent", "test.md"))
 
 	var exportErr *Error
 	require.ErrorAs(t, err, &exportErr)
