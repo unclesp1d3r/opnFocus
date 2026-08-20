@@ -4,6 +4,7 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"os"
 	"path/filepath"
 	"strings"
 
@@ -59,7 +60,7 @@ func emitAuditResult(
 	// outputFile argument to determineOutputPath, giving it CLI-flag precedence.
 	perInputOutputFile := outputFile
 	if multiFile && outputFile == "" {
-		perInputOutputFile = deriveAuditOutputPath(result.inputFile, fileExt)
+		perInputOutputFile = derivePerInputOutputPath(result.inputFile, auditOutputSuffix, fileExt)
 	}
 
 	// Determine output path with smart naming and overwrite protection.
@@ -70,11 +71,13 @@ func emitAuditResult(
 		emitConfig = nil
 	}
 
-	actualOutputFile, err := determineOutputPath(result.inputFile, perInputOutputFile, fileExt, emitConfig, force)
-	if err != nil {
-		ctxLogger.Error("Failed to determine output path", "error", err)
+	actualOutputFile := determineOutputPath(perInputOutputFile, emitConfig)
 
-		return fmt.Errorf("failed to determine output path for %s: %w", result.inputFile, err)
+	// Emission is already serialized on the parent goroutine, so prompting here
+	// is safe. confirmOverwrite also declines cleanly when stdin is not a
+	// terminal instead of failing on an unexplained EOF.
+	if err := confirmOverwrite(os.Stdin, cmd.ErrOrStderr(), actualOutputFile, force); err != nil {
+		return err
 	}
 
 	// Export to file when requested.
@@ -115,17 +118,27 @@ func emitAuditReportToStdout(ctx context.Context, cmd *cobra.Command, output str
 	return nil
 }
 
-// deriveAuditOutputPath computes a unique output filename for a multi-file audit
-// run based on the input file's path and the desired format extension.
+// auditOutputSuffix marks a derived filename as an audit report, keeping it
+// distinct from a convert of the same input in the same directory.
+const auditOutputSuffix = "-audit"
+
+// derivePerInputOutputPath computes a unique output filename for one input of a
+// multi-file run, based on the input file's path and the format extension. Both
+// audit and convert use it, so every report lands in its own file rather than
+// overwriting a shared destination or interleaving on stdout.
 // Directory separators are losslessly encoded using tilde-based escaping: tildes
 // in path segments become "~~" and underscores become "~u", freeing the literal
 // underscore character to serve as an unambiguous segment separator. This avoids
 // the boundary ambiguity of the simpler double-underscore scheme, where a segment
 // ending with "_" followed by the separator is indistinguishable from the separator
 // followed by a segment starting with "_" (e.g., "a_/b" and "a/_b" both producing
-// "a___b"). Bare filenames without directory components produce simple names like
-// "config-audit.md".
-func deriveAuditOutputPath(inputFile, fileExt string) string {
+// "a___b"). Bare filenames without directory components produce simple names
+// like "config-audit.md".
+//
+// suffix distinguishes the producing command, so an audit and a convert of the
+// same input do not collide. audit passes auditOutputSuffix; convert passes an
+// empty string, matching the naming its help text documents.
+func derivePerInputOutputPath(inputFile, suffix, fileExt string) string {
 	base := filepath.Base(inputFile)
 	ext := filepath.Ext(base)
 	stem := strings.TrimSuffix(base, ext)
@@ -165,12 +178,12 @@ func deriveAuditOutputPath(inputFile, fileExt string) string {
 		escapedStem := escapePathSegment(stem)
 		prefix := strings.Join(segments, "_")
 
-		return prefix + "_" + escapedStem + "-audit" + fileExt
+		return prefix + "_" + escapedStem + suffix + fileExt
 	}
 
 	escapedStem := escapePathSegment(stem)
 
-	return escapedStem + "-audit" + fileExt
+	return escapedStem + suffix + fileExt
 }
 
 // escapePathSegment encodes a single path segment for use in a flattened filename.

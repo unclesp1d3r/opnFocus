@@ -175,10 +175,11 @@ var auditCmd = &cobra.Command{
 
 		// Reject --output with multiple input files to prevent output clobbering.
 		// Each file produces a separate report auto-named as <input>-audit.<ext>.
-		if outputFile != "" && len(args) > 1 {
-			return errors.New(
-				"--output cannot be used with multiple input files; omit --output to auto-name each report as <input>-audit.<ext>",
-			)
+		if err := validateMultiFileOutput(
+			outputFile, len(args),
+			"omit --output to auto-name each report as <input>-audit.<ext>",
+		); err != nil {
+			return err
 		}
 
 		// Validate format/wrap flag combinations (shared output flags only,
