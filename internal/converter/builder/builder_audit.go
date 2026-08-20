@@ -37,10 +37,7 @@ func (b *MarkdownBuilder) BuildAuditSection(data *common.CommonDevice) string {
 	writeAuditSummary(md, cc)
 	writeAuditMetadata(md, cc)
 
-	//nolint:errcheck,gosec // Build writes to bytes.Buffer which cannot fail
-	md.Build()
-
-	return buf.String()
+	return renderMarkdown(md)
 }
 
 // writeAuditPluginSections emits the per-plugin H3 blocks under "Compliance
