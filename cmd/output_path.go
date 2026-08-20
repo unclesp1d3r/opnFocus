@@ -29,9 +29,9 @@ var (
 //
 // Inputs are processed concurrently, so a shared destination means every worker
 // writes the same path. On POSIX the atomic renames succeed in turn and the last
-// writer wins, so N inputs produce one report and the command exits 0. On
-// Windows the second rename fails against the open handle and surfaces as a
-// permission error against a temporary filename.
+// writer wins, so N inputs produce one report and the command exits 0. Rename
+// semantics differ on Windows and the failure there has not been characterized;
+// either way one destination cannot hold several reports.
 //
 // remedy is appended so each command can name its own way out.
 func validateMultiFileOutput(outputFile string, inputCount int, remedy string) error {

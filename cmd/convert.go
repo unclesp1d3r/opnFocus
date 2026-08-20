@@ -160,8 +160,9 @@ OUTPUT DESTINATION:
   destination cannot hold several reports. Multi-file runs instead write each
   report to its own file, auto-named after the input
   (config.xml -> config.md, config.json, ...), the same way audit does.
-  Use --force to overwrite existing files without prompting. When stdout is
-  not a terminal the prompt cannot be answered, so --force is required there.
+  Use --force to overwrite existing files without prompting. The prompt is
+  answered on stdin, so when stdin is not a terminal it cannot be answered and
+  --force is required instead.
 
 RELATED:
   audit      - Convert plus compliance checks (STIG/SANS/firewall)
@@ -256,14 +257,12 @@ func runConvert(cmd *cobra.Command, args []string) error {
 
 	multiFile := len(args) > 1
 
+	// A decline is returned rather than swallowed, so the command exits
+	// non-zero. Reporting success for a run that wrote nothing leaves a caller
+	// such as `convert config.xml && publish` unable to tell the two apart, and
+	// audit already treats a decline as an error.
 	destination, err := resolveConvertDestination(cmd, cmdConfig, cmdLogger, multiFile)
 	if err != nil {
-		if errors.Is(err, ErrOperationCancelled) {
-			cmdLogger.Info("Operation cancelled by user")
-
-			return nil
-		}
-
 		return err
 	}
 
@@ -306,15 +305,13 @@ func runConvert(cmd *cobra.Command, args []string) error {
 			continue
 		}
 
+		// Every error here is collected, a decline included. A run that wrote
+		// fewer reports than it was given inputs must not exit 0; that is the
+		// same silent-incompleteness this branch set out to fix, reached a
+		// different way.
 		perInput, err := convertDestinationFor(cmd, cmdLogger, args[i], destination, multiFile, fileExt)
 		if err != nil {
-			if errors.Is(err, ErrOperationCancelled) {
-				cmdLogger.Info("Skipping file, operation cancelled by user", "input_file", args[i])
-
-				continue
-			}
-
-			allErrors = append(allErrors, err)
+			allErrors = append(allErrors, fmt.Errorf("%s: %w", args[i], err))
 
 			continue
 		}
@@ -337,9 +334,10 @@ func runConvert(cmd *cobra.Command, args []string) error {
 // doctypes, and two YAML documents without separators parse as one mapping in
 // which the later keys silently replace the earlier ones.
 //
-// Overwrite protection runs here rather than up front because the paths are not
-// known until the format extension is resolved. Emission is already serialized
-// on the parent goroutine, so prompting is safe, matching cmd/audit_output.go.
+// Overwrite protection runs here, in the serialized emission loop, rather than
+// up front, matching cmd/audit_output.go. Prompting is safe here because
+// emission runs on the parent goroutine; calling it from a worker would race
+// the other workers for stdin.
 func convertDestinationFor(
 	cmd *cobra.Command,
 	ctxLogger *logging.Logger,
