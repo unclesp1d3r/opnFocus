@@ -143,9 +143,10 @@ REFERENTIAL INTEGRITY:
   The sanitizer keeps consistent mappings inside a single run:
     - The same original value is always replaced with the same redacted value,
       so two fields referring to one host still match after sanitizing.
-    - IP addresses and generic secrets are replaced with markers rather than
-      plausible substitutes, so they cannot be mistaken for real values
-      (e.g. 192.168.1.1 becomes [REDACTED-PRIVATE-IP-1]). A redacted MAC keeps
+    - Where the mode redacts an IP address or a generic secret, the value is
+      replaced with a marker rather than a plausible substitute, so it cannot
+      be mistaken for a real one (in aggressive mode 192.168.1.1 becomes
+      [REDACTED-PRIVATE-IP-1]). A redacted MAC keeps
       MAC shape (XX:XX:XX:XX:XX:01); the X is not a hex digit, but it still
       reads as a MAC at a glance.
     - Hostnames, usernames, domains and email addresses are still replaced with

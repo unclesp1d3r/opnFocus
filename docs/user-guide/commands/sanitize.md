@@ -72,7 +72,7 @@ Everything in moderate, plus:
 
 ### Referential Integrity
 
-Across all modes, the sanitizer maintains referential integrity -- the same original value always maps to the same replacement value throughout the entire file. If `192.168.1.1` becomes `[REDACTED-PRIVATE-IP-1]`, every occurrence of `192.168.1.1` in the config is replaced with the same marker. This means firewall rules, routing tables, and DHCP scopes remain internally consistent.
+Across all modes, the sanitizer maintains referential integrity -- the same original value always maps to the same replacement value throughout the entire file. If aggressive mode maps `192.168.1.1` to `[REDACTED-PRIVATE-IP-1]`, every occurrence of `192.168.1.1` in the config is replaced with that same marker. This means firewall rules, routing tables, and DHCP scopes remain internally consistent.
 
 Replacements come in two shapes, and the difference matters when reading a sanitized file:
 
