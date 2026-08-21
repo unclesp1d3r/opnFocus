@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	builderPkg "github.com/EvilBit-Labs/opnDossier/internal/converter/builder"
+	"github.com/EvilBit-Labs/opnDossier/internal/testing/racedetect"
 	common "github.com/EvilBit-Labs/opnDossier/pkg/model"
 )
 
@@ -379,6 +380,14 @@ func generateLargeBenchmarkData(b *testing.B) *common.CommonDevice {
 func TestPerformanceBaselines(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping performance baseline tests in short mode")
+	}
+
+	// These are latency baselines, so running them under race instrumentation
+	// measures the instrumentation. Empirically the sub-millisecond thresholds
+	// below fail every run under -race on a loaded machine while passing every
+	// run without it, which is what kept the race detector out of CI.
+	if racedetect.Enabled {
+		t.Skip("Skipping performance baseline tests under -race: instrumentation dominates the measurement")
 	}
 
 	// Load test data
