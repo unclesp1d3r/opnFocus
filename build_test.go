@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/EvilBit-Labs/opnDossier/internal/testing/racedetect"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
@@ -123,13 +124,30 @@ func (s *BuildTestSuite) TestBinaryConvert() {
 	s.Require().NoError(err, "convert should succeed, output: %s", output)
 }
 
+// skipIfRaceBuild skips the tests in this file under -race. They build the
+// binary with a plain `go build`, so the child process carries no race
+// instrumentation and the detector cannot observe anything it executes. All a
+// -race run adds is a cold build: the cache holds only race-flavored
+// artifacts, and the fresh compile alone overruns the 30-second budget on a
+// shared runner. The regular test jobs still run these on every push.
+func skipIfRaceBuild(t *testing.T) {
+	t.Helper()
+
+	if racedetect.Enabled {
+		t.Skip("Skipping subprocess build tests under -race: the child binary is not instrumented")
+	}
+}
+
 // TestBuildTestSuite runs the build test suite.
 func TestBuildTestSuite(t *testing.T) {
+	skipIfRaceBuild(t)
 	suite.Run(t, new(BuildTestSuite))
 }
 
 // TestBinaryHelp_Standalone verifies the binary builds and shows help.
 func TestBinaryHelp_Standalone(t *testing.T) {
+	skipIfRaceBuild(t)
+
 	if testing.Short() {
 		t.Skip("Skipping build test in short mode")
 	}
@@ -169,6 +187,8 @@ func TestBinaryHelp_Standalone(t *testing.T) {
 
 // TestBinaryConvert_Standalone verifies the binary can convert a config file.
 func TestBinaryConvert_Standalone(t *testing.T) {
+	skipIfRaceBuild(t)
+
 	if testing.Short() {
 		t.Skip("Skipping build conversion test in short mode")
 	}

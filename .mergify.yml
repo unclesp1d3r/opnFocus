@@ -41,6 +41,7 @@ queue_rules:
       - "check-success = Test (windows-latest, stable)"
       - check-success = Integration Tests
       - check-success = Coverage
+      - check-success = Race Detector
 
   # ─────────────────────────────────────────────────────────────────────────
   # 4. default — manually enqueued by maintainers, full CI
@@ -56,6 +57,7 @@ queue_rules:
       - "check-success = Test (windows-latest, stable)"
       - check-success = Integration Tests
       - check-success = Coverage
+      - check-success = Race Detector
 
 pull_request_rules:
   # ─────────────────────────────────────────────────────────────────────────
@@ -131,6 +133,7 @@ merge_protections:
       - "check-success = Test (windows-latest, stable)"
       - check-success = Integration Tests
       - check-success = Coverage
+      - check-success = Race Detector
 
   # ─────────────────────────────────────────────────────────────────────────
   # 3. Lint-only for bots with workflow-only changes
