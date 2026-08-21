@@ -10,6 +10,7 @@ import (
 
 	"github.com/EvilBit-Labs/opnDossier/internal/converter/builder"
 	"github.com/EvilBit-Labs/opnDossier/internal/logging"
+	"github.com/EvilBit-Labs/opnDossier/internal/testing/racedetect"
 	common "github.com/EvilBit-Labs/opnDossier/pkg/model"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -779,7 +780,7 @@ func TestHybridGenerator_Generate_RespectsCanceledContext(t *testing.T) {
 
 			require.ErrorIs(t, err, context.Canceled,
 				"pre-canceled ctx must surface as context.Canceled")
-			assert.Less(t, dur, 50*time.Millisecond,
+			assert.Less(t, dur, cancelAbortBudget,
 				"cancellation must abort promptly, got %v", dur)
 		})
 	}
@@ -810,8 +811,24 @@ func TestHybridGenerator_GenerateToWriter_RespectsCanceledContext(t *testing.T) 
 
 			require.ErrorIs(t, err, context.Canceled,
 				"pre-canceled ctx must surface as context.Canceled")
-			assert.Less(t, dur, 50*time.Millisecond,
+			assert.Less(t, dur, cancelAbortBudget,
 				"cancellation must abort promptly, got %v", dur)
 		})
 	}
 }
+
+// cancelAbortBudget bounds how long Generate may take on a pre-canceled
+// context. The correctness assertion in these tests is the context.Canceled
+// error; this bound is the secondary guard that catches a regression where ctx
+// is dropped and the generator runs the whole document to completion.
+//
+// Race instrumentation multiplies the cost of the work being bounded, so the
+// budget is widened under -race. It stays far below the time a full 10,000
+// element generation takes, which is what the bound exists to distinguish.
+var cancelAbortBudget = func() time.Duration {
+	if racedetect.Enabled {
+		return 2 * time.Second
+	}
+
+	return 50 * time.Millisecond
+}()
