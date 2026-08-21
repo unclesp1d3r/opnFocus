@@ -76,19 +76,18 @@ Across all modes, the sanitizer maintains referential integrity -- the same orig
 
 Which values are replaced depends on the mode, and the replacements take three shapes. Both matter when reading a sanitized file:
 
-| Value       | Replaced in          | Replacement                   | Mistakable for a real value |
-| ----------- | -------------------- | ----------------------------- | --------------------------- |
-| Private IP  | aggressive           | `[REDACTED-PRIVATE-IP-1]`     | No                          |
-| Public IP   | aggressive, moderate | `[REDACTED-PUBLIC-IP-1]`      | No                          |
-| MAC address | aggressive, moderate | `XX:XX:XX:XX:XX:01`           | Partly, it keeps MAC shape  |
-| Hostname    | aggressive           | `host-001.example.com`        | **Yes**                     |
-| Username    | aggressive           | `user-001`                    | **Yes**                     |
-| Domain      | aggressive           | `example.com`, `example2.com` | **Yes**                     |
-| Email       | aggressive, moderate | `user1@example.com`           | **Yes**                     |
+| Value              | Replaced in          | Replacement               | Mistakable for a real value |
+| ------------------ | -------------------- | ------------------------- | --------------------------- |
+| Private IP         | aggressive           | `[REDACTED-PRIVATE-IP-1]` | No                          |
+| Public IP          | aggressive, moderate | `[REDACTED-PUBLIC-IP-1]`  | No                          |
+| MAC address        | aggressive, moderate | `XX:XX:XX:XX:XX:01`       | Partly, it keeps MAC shape  |
+| Hostname or domain | aggressive           | `host-001.example.com`    | **Yes**                     |
+| Username           | aggressive           | `user-001`                | **Yes**                     |
+| Email              | aggressive, moderate | `user1@example.com`       | **Yes**                     |
 
 Minimal mode redacts none of these; it covers credentials and authserver values only, so every value above survives unchanged.
 
-The three shapes are markers (`[REDACTED-...]`), which cannot be mistaken for real values; a MAC-shaped placeholder, which keeps its shape but uses a non-hex `X`; and readable stand-ins for hostnames, usernames, domains and emails. Treat any of those last four in a sanitized file as redacted rather than real. Use the mapping file if you need to recover the original.
+The three shapes are markers (`[REDACTED-...]`), which cannot be mistaken for real values; a MAC-shaped placeholder, which keeps its shape but uses a non-hex `X`; and readable stand-ins for hostnames, usernames and emails. Treat any of those three in a sanitized file as redacted rather than real. Use the mapping file if you need to recover the original.
 
 ## Mapping File
 
@@ -117,14 +116,11 @@ The mapping file is organized by category:
     "usernames": {
       "jdoe": "user-001"
     },
-    "domains": {
-      "example.com": "domain-001.example.com"
-    },
     "mac_addresses": {
-      "aa:bb:cc:dd:ee:ff": "00:00:5e:00:53:01"
+      "aa:bb:cc:dd:ee:ff": "XX:XX:XX:XX:XX:01"
     },
     "emails": {
-      "admin@example.com": "user-001@example.com"
+      "admin@example.com": "user1@example.com"
     },
     "authserver": {
       "name": {
