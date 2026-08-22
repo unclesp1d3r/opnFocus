@@ -194,6 +194,7 @@ This document provides a comprehensive task checklist for implementing the opnDo
   - **User Story**: US-003 (Configuration processing)
   - **Action**: Create `internal/processor/` package with configuration processing
   - **Acceptance**: Processor can transform XML data into structured format
+  - **Status**: Obsolete. `internal/processor/` was removed in the issue #764 cleanup — it had sat outside the binary's dependency closure since the finding-type unification. Configuration processing lives in `pkg/parser/*` (XML to `CommonDevice`) and `internal/converter/` (enrichment and export).
 
 ---
 
