@@ -2,6 +2,8 @@ package sanitizer
 
 import (
 	"encoding/json"
+	"fmt"
+	"net"
 	"strings"
 	"testing"
 )
@@ -12,7 +14,7 @@ const (
 	expectedPublicIP2                = "[REDACTED-PUBLIC-IP-2]"
 	expectedMappedMAC1               = "XX:XX:XX:XX:XX:01"
 	expectedMappedMAC2               = "XX:XX:XX:XX:XX:02"
-	expectedPrivateIP1               = "10.0.0.1"
+	expectedPrivateIP1               = "[REDACTED-PRIVATE-IP-1]"
 	expectedAuthServerName1          = "authserver-001"
 	expectedAuthServerHost1          = "ldap-001.example.invalid"
 	expectedAuthServerPort1          = "55001"
@@ -88,38 +90,86 @@ func TestMapPublicIP(t *testing.T) {
 func TestMapPrivateIP(t *testing.T) {
 	m := NewMapper()
 
-	// Without structure preservation
-	result1 := m.MapPrivateIP("192.168.1.100", false)
+	result1 := m.MapPrivateIP("192.168.1.100")
 	if result1 != expectedPrivateIP1 {
-		t.Errorf("MapPrivateIP without structure = %q, want %q", result1, expectedPrivateIP1)
+		t.Errorf("MapPrivateIP = %q, want %q", result1, expectedPrivateIP1)
 	}
 
-	// Same IP should return same mapping
-	result2 := m.MapPrivateIP("192.168.1.100", false)
+	// Referential integrity: the same address maps to the same replacement.
+	result2 := m.MapPrivateIP("192.168.1.100")
 	if result2 != result1 {
 		t.Errorf("MapPrivateIP second call = %q, want %q", result2, result1)
 	}
 
-	// Different IP without structure
-	result3 := m.MapPrivateIP("10.0.0.50", false)
-	if result3 != "10.0.0.2" {
-		t.Errorf("MapPrivateIP different IP = %q, want %q", result3, "10.0.0.2")
+	// A different address gets a distinct replacement.
+	result3 := m.MapPrivateIP("10.0.0.50")
+	if result3 != "[REDACTED-PRIVATE-IP-2]" {
+		t.Errorf("MapPrivateIP different IP = %q, want %q", result3, "[REDACTED-PRIVATE-IP-2]")
 	}
 }
 
-func TestMapPrivateIP_PreserveStructure(t *testing.T) {
+// TestMapPrivateIP_ReplacementIsNeverAnAddress is the regression test for the
+// two defects in the previous 10.0.0.N scheme.
+//
+// It numbered replacements into 10.0.0.0/24, so past 255 distinct inputs it
+// emitted invalid octets, and because the replacement space overlapped the
+// RFC1918 input space a replacement could be a real address from the same
+// file. A marker cannot do either.
+func TestMapPrivateIP_ReplacementIsNeverAnAddress(t *testing.T) {
 	m := NewMapper()
 
-	// With structure preservation
-	result := m.MapPrivateIP("192.168.1.100", true)
-	if result != "192.168.X.1" {
-		t.Errorf("MapPrivateIP with structure = %q, want %q", result, "192.168.X.1")
+	// Well past the 255 boundary that used to produce "10.0.0.256".
+	const count = 300
+
+	seen := make(map[string]struct{}, count)
+	inputs := make(map[string]struct{}, count)
+
+	for i := range count {
+		original := fmt.Sprintf("172.16.%d.%d", i/250, i%250+1)
+		inputs[original] = struct{}{}
+
+		replacement := m.MapPrivateIP(original)
+
+		if net.ParseIP(replacement) != nil {
+			t.Fatalf("replacement %q for %q parses as an IP address; a real address can be "+
+				"mistaken for genuine data or collide with another host in the same file",
+				replacement, original)
+		}
+
+		if _, collides := inputs[replacement]; collides {
+			t.Fatalf("replacement %q for %q is an address that appears in the input",
+				replacement, original)
+		}
+
+		if _, dup := seen[replacement]; dup {
+			t.Fatalf("replacement %q issued twice", replacement)
+		}
+
+		seen[replacement] = struct{}{}
 	}
 
-	// Different network should preserve its structure
-	result2 := m.MapPrivateIP("172.16.5.20", true)
-	if result2 != "172.16.X.2" {
-		t.Errorf("MapPrivateIP different network = %q, want %q", result2, "172.16.X.2")
+	if len(seen) != count {
+		t.Errorf("got %d distinct replacements, want %d", len(seen), count)
+	}
+}
+
+// TestMapPrivateIP_NoSelfMapping pins the specific ordering that previously
+// produced a replacement identical to a real address in the same document:
+// 10.0.0.5 mapped to "10.0.0.1" while the genuine 10.0.0.1 was still present.
+func TestMapPrivateIP_NoSelfMapping(t *testing.T) {
+	m := NewMapper()
+
+	first := m.MapPrivateIP("10.0.0.5")
+	second := m.MapPrivateIP("10.0.0.1")
+
+	for original, replacement := range map[string]string{"10.0.0.5": first, "10.0.0.1": second} {
+		if replacement == original {
+			t.Errorf("%q maps to itself, which is not a redaction", original)
+		}
+
+		if replacement == "10.0.0.1" || replacement == "10.0.0.5" {
+			t.Errorf("%q maps to %q, an address present in the input", original, replacement)
+		}
 	}
 }
 
@@ -327,7 +377,7 @@ func TestGenerateReport(t *testing.T) {
 
 	// Add various mappings
 	m.MapPublicIP("8.8.8.8")
-	m.MapPrivateIP("192.168.1.1", false)
+	m.MapPrivateIP("192.168.1.1")
 	m.MapHostname("firewall.example.com")
 	m.MapUsername("admin")
 	m.MapDomain("mycompany.com")
@@ -420,13 +470,15 @@ func TestToJSON(t *testing.T) {
 	}
 }
 
-func TestMapPrivateIP_ShortIP_ReturnsDefaultPattern(t *testing.T) {
+func TestMapPrivateIP_MalformedInput(t *testing.T) {
 	m := NewMapper()
 
-	// IP with fewer than 2 octets should fall back to default pattern
-	result := m.MapPrivateIP("127", true)
+	// The mapper does not parse its input, so a malformed value is still
+	// replaced rather than passed through. That matters: the value reached the
+	// mapper because a rule matched it, and echoing it would leak it.
+	result := m.MapPrivateIP("127")
 	if result != expectedPrivateIP1 {
-		t.Errorf("MapPrivateIP short IP = %q, want %q", result, expectedPrivateIP1)
+		t.Errorf("MapPrivateIP malformed input = %q, want %q", result, expectedPrivateIP1)
 	}
 }
 

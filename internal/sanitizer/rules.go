@@ -422,7 +422,7 @@ func builtinRules() []Rule {
 			Modes:         aggressiveOnly,
 			ValueDetector: isPrivateIPv4,
 			Redactor: func(m *Mapper, _, value string) string {
-				return m.MapPrivateIP(value, false)
+				return m.MapPrivateIP(value)
 			},
 		},
 		{
@@ -529,7 +529,7 @@ func builtinRules() []Rule {
 				if IsPublicIP(value) {
 					return m.MapPublicIP(value)
 				}
-				return m.MapPrivateIP(value, false)
+				return m.MapPrivateIP(value)
 			},
 		},
 		{

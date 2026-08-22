@@ -105,8 +105,9 @@ func TestSanitizeXML_PrivateIP_Aggressive(t *testing.T) {
 	if strings.Contains(result, "192.168.1.1") {
 		t.Error("Private IP was not redacted in aggressive mode")
 	}
-	// Should be mapped to 10.0.0.x format
-	if !strings.Contains(result, "10.0.0.") {
+	// The replacement is a marker, not a substitute address, so it can never be
+	// mistaken for real data or collide with another host in the same file.
+	if !strings.Contains(result, "[REDACTED-PRIVATE-IP-") {
 		t.Errorf("Private IP mapping not found in output: %s", result)
 	}
 }

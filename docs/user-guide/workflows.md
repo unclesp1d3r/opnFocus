@@ -108,7 +108,7 @@ For audit mode details, see [audit command](commands/audit.md).
 
 3. Verify the sanitized output does not contain sensitive data before distributing it.
 
-**Expected result:** A sanitized XML file with sensitive values replaced by consistent pseudonyms. The optional mapping file provides a lookup table for internal reference.
+**Expected result:** A sanitized XML file with sensitive values replaced consistently: addresses become markers, names become readable stand-ins. The optional mapping file provides a lookup table for internal reference.
 
 ---
 
