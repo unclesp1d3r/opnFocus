@@ -1,46 +1,34 @@
-# opnDossier v1.7.0 — Real blue/red audit analysis, rule shadowing, and unused-alias detection
+# opnDossier v1.7.1 — Data-loss and output-integrity fixes
 
-v1.7.0 turns the `audit` command's blue and red modes into real analysis over a shared detection engine, adds firewall rule shadowing and unused-alias detection, and closes a cleartext NetBird enrollment-token leak in `sanitize`. It is a drop-in upgrade from v1.6.0 — no breaking changes; the public Go API gains additive fields only.
+v1.7.1 is a patch release. It fixes two ways the tool could silently destroy or discard a user's data, closes an HTML injection path through untrusted config values, and makes generated Markdown byte-identical across platforms. It is a drop-in upgrade from v1.7.0 — no config changes, no CLI changes, and no public Go API changes.
 
-## Highlights
+## Fixed
 
-**Blue and red audit modes now perform real analysis.** Both modes are built on one shared detection engine (`ScanObservations`) so they read as two lenses over the same set of facts. Blue mode appends real hygiene findings (insecure SNMP, weak TLS floor, any-to-any rules, disabled logging), de-duplicates them against fired compliance-plugin findings, derives the compliance-frameworks list from the plugins actually executed instead of a hardcoded `["STIG","NIST","SANS"]`, and builds configuration summary tables from real counts. Red mode's five `add*` methods were placeholder stubs emitting fabricated metadata — a red run against a WAN-exposed-SSH config reported nothing. They now emit reachability-filtered exposure findings: WAN-reachable management services (WebGUI, SSH, SNMP) correlated against WAN pass rules by port, WAN-reachable inbound NAT port-forwards, and WAN-reachable hygiene observations reframed as attack surfaces. The "experimental / not implemented" red-mode warning is gone. (#694, #695)
+**`sanitize` could destroy the config it was reading.** `opnDossier sanitize config.xml -o config.xml --force` opened the input for reading and then truncated the same path with `os.Create`, emptying the configuration before the sanitizer ever read it — and exited 0 reporting "0 fields redacted". `--mapping` had the same failure mode, and `--output` pointed at `--mapping` silently replaced the sanitized config with the mapping JSON. This contradicted `sanitize --help`, which states the input is never modified in place. Runs where the input, `--output`, and `--mapping` do not all resolve to distinct files are now rejected before anything is opened for writing; detection compares cleaned absolute paths and then `os.SameFile`, so symlinks, hard links, relative aliases, and case variants are all caught. The document is sanitized into a buffer and the destination is created only after that succeeds. Both artifacts are now written `0600` — the `--mapping` file holds every original hostname, address, username, and email in cleartext beside its pseudonym, and previously got `0666` masked by umask. ([#749](https://github.com/EvilBit-Labs/opnDossier/pull/749))
 
-The engine also consolidated four divergent WAN-detection sites into one canonical reachability helper. The two narrower exact-match checks silently missed multi-WAN interfaces such as `wan2`, so this is a correctness fix as much as a refactor — it now also covers interface-scoped floating rules, IPv6 WAN interfaces, and inbound NAT rules gated on a matching enabled pass rule.
+**Config values rendered as live markup in HTML reports.** A hostname of `<img src=x onerror=alert(1)>` was emitted unescaped into `convert --format html` output, and the same path existed in `audit --format html` and `diff --format html`. Config values are now escaped. ([#749](https://github.com/EvilBit-Labs/opnDossier/pull/749))
 
-```bash
-# Red lens with adversarial tone (opt-in, red mode only)
-opndossier audit config.xml --mode red --audit-blackhat
-```
+**Multi-file `convert` runs discarded all but one report.** `opnDossier convert a.xml b.xml -o out.md --force` produced a single file and exited 0 — every worker resolved the same `--output` path and wrote it concurrently, so on POSIX the last writer won and the other reports vanished; on Windows the second rename failed against the open handle. `convert` now derives a unique per-input output path, the same way `audit` already did, and does not fall back to stdout for multi-file runs. That fallback is not viable for the structured formats: two JSON documents produce `}{` and fail to parse, two HTML documents give two doctypes, and two YAML documents parse as one mapping where the second config's keys silently replace the first. ([#750](https://github.com/EvilBit-Labs/opnDossier/pull/750))
 
-Red `ExploitNotes` carry impact and context only — never weaponized or step-by-step guidance. That is enforced by a denylist run over the actual generated notes plus a golden-file gate, not by authoring discipline.
+**Aggressive-mode sanitize produced invalid addresses and collided with real ones.** `MapPrivateIP` numbered its replacements into `10.0.0.0/24` with `fmt.Sprintf("10.0.0.%d", counter)`. Past 255 distinct private addresses that produced invalid octets — a config with 300 of them yielded 45 addresses from `10.0.0.256` upward, and the sanitized file no longer passed `opnDossier validate`. The replacement space also overlapped the input space, which is RFC1918 by definition, so a pseudonym could be indistinguishable from a real address elsewhere in the same file. Private IPs are now replaced with markers instead of synthesized addresses. ([#752](https://github.com/EvilBit-Labs/opnDossier/pull/752))
 
-**Firewall rule shadowing detection.** A new `shadowedRules` analysis reports any rule — or a subset of its traffic — that never takes effect because an earlier higher-precedence rule already covers it, classified by operator impact (security / troubleshooting / hygiene). It is backed by a set-relation containment engine over address, port, protocol, and IP family, and a pf precedence resolver that groups rules by `(interface, direction)`, evaluates floating rules device-wide-first, and resolves quick (first-match) against non-quick (last-match) semantics. Firewall aliases are resolved so the overlap analysis is accurate; an unresolvable or dynamic alias surfaces a distinct signal rather than collapsing into "no overlap". (#696)
-
-This lands the additive `NamedObjects` registry on `CommonDevice` with cycle-guarded, depth-capped, memoized resolution. OPNsense's opaque alias blob is retyped to a structured `AliasList`, and pfSense gains a net-new `<aliases>` schema type; both populate `NamedObjects` while preserving resolved inline values.
-
-**Unused named-object (alias) detection.** Aliases that are defined but never referenced by any policy are now surfaced in `audit` output and in the JSON/YAML export as `Analysis.UnusedObjects`. It is modeled as graph reachability from policy roots — nodes are aliases, edges are member-to-object references, roots are every live alias reference on a policy surface — so nested and transitive cases fall out of the traversal. Typed `ObjectRef` fields were added to every alias-capable surface (firewall redirect target; NAT match endpoints, translation targets and ports; static-route network; pfSense OpenVPN local/remote networks) and populated by both vendor converters. Disabled rules deliberately count as references — a staged alias is not a dead one — and the remediation copy hedges rather than instructing deletion. (#710)
-
-**NetBird `setupKey` enrollment tokens are now redacted.** `opnDossier sanitize` was leaking the os-netbird `<setupKey>` enrollment token in cleartext — the same class of bug as the SNMPv3 `<enckey>` leak closed in v1.6.0, caused by the bare `key` field pattern being exact-match only. All sanitize modes now redact it, and the token often persists in configs even when NetBird is disabled or after the plugin is removed. (#728)
+**Generated Markdown is now LF on every platform.** `github.com/nao1215/markdown` emits the host's line ending, so every report generated on a Windows checkout contained CRLF — despite `internal/export` documenting that exports use LF for deterministic cross-platform builds. The same configuration produced byte-different reports depending on where it ran. CRLF on disk is still available via `OPNDOSSIER_PLATFORM_LINE_ENDINGS=1`. ([#754](https://github.com/EvilBit-Labs/opnDossier/pull/754))
 
 ## Also in this release
 
-- **Sanitizer hardening:** aggressive-mode redaction now dispatches per whitespace token at the CharData leaf, so IPs and hostnames embedded in multi-value alias members are redacted — previously only single-value fields were. (#696)
-- **Custom web-configurator port** is exposed through the unified model as `common.WebGUI.Port`, populated from both vendor schemas, so red analysis reads the real port instead of assuming 443/80. (#695)
-- **`deadRules` is deprecated** in favor of `shadowedRules`. It is now derived from the shadow core as its unreachable-plus-duplicate subset with byte-identical output, and carries a `RuleIndex` correlation key and a definite next-major removal criterion. (#696)
-- **Architecture decision records:** ADR-0002 (named-object reference layer), ADR-0003 (FortiGate-first parser), ADR-0004 (`deadRules` compatibility view), and ADR-0005 (pf precedence resolution). `CONCEPTS.md` seeded with the audit-analysis domain vocabulary. (#694, #695, #696)
-- **CI:** the benchmark workflow was removed and benchmarks kept as on-demand local `just bench*` recipes. Shared-runner CPU contention made wall-clock results non-deterministic, the workflow's package list had gone stale and was failing silently behind `continue-on-error`, and its startup budget enforced 100ms/op against a ~5µs/op actual. (#697)
-- **Documentation** on memoizing recursive graph resolution to prevent exponential output size, plus routine dependency and GitHub Actions bumps.
+- **Go toolchain** bumped to 1.26.6. ([#755](https://github.com/EvilBit-Labs/opnDossier/pull/755))
+- **The race detector now runs in CI**, and the wall-clock tests that previously made it unusable are skipped or scaled under `-race`. The Windows job also runs the full test suite now rather than the `ci-smoke` subset, which the LF fix unblocked. ([#753](https://github.com/EvilBit-Labs/opnDossier/pull/753), [#754](https://github.com/EvilBit-Labs/opnDossier/pull/754))
+- **Audit finding-type literals** consolidated into shared constants. ([#738](https://github.com/EvilBit-Labs/opnDossier/pull/738))
+- Two factually wrong code comments corrected, user-guide version examples swept, and routine dependency and GitHub Actions bumps. ([#756](https://github.com/EvilBit-Labs/opnDossier/pull/756), [#761](https://github.com/EvilBit-Labs/opnDossier/pull/761))
 
 ## Upgrade notes
 
-Drop-in upgrade from v1.6.0. No config changes and no breaking changes.
+Drop-in upgrade from v1.7.0. No breaking changes; the public Go API is unchanged (the API snapshot goldens are byte-identical to v1.7.0).
 
-- **Public Go API:** additive fields only — `NamedObjects` on `CommonDevice`, `ObjectRef` on `RuleEndpoint` and the other alias-capable surfaces, `WebGUI.Port`, and `Analysis.UnusedObjects`. All are `omitempty`, so alias-free devices serialize unchanged. The API snapshot goldens were regenerated for these fields.
-- **New CLI surface:** `--audit-blackhat`, an opt-in flag guarded to red mode.
-- **Audit output changes:** blue and red mode now emit real findings where they previously emitted stubs or fabricated metadata. Any tooling that asserted on the placeholder output will need updating.
-- **`deadRules` consumers** are unaffected today (output is byte-identical) but should migrate to `shadowedRules` before the next major.
+- **Sanitized output differs.** Aggressive mode now emits markers for private IPs where it previously emitted synthesized `10.0.0.x` addresses. Tooling that consumed the old pseudonyms will need updating.
+- **Multi-file `convert` writes one file per input** instead of one clobbered file. Scripts that passed several inputs with a single `-o` were previously losing data; they now produce a file per input.
+- **HTML reports escape config values.** Output that previously contained raw markup from the config is now escaped.
 
 ## Full changelog
 
-See [CHANGELOG.md](./CHANGELOG.md#170---2026-08-10) for the complete list.
+See [CHANGELOG.md](./CHANGELOG.md#171---2026-08-22) for the complete list.
