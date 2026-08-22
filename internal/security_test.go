@@ -1,9 +1,15 @@
+// Package internal holds repo-wide build-graph assertions and nothing else.
+//
+// It intentionally contains no non-test Go files, so `go build ./internal`
+// reports "no non-test Go files" -- that is expected, not a breakage. Use
+// `go vet ./internal`, `go test ./internal`, or a `./...` wildcard instead.
 package internal
 
 import (
 	"bytes"
 	"context"
 	"go/build"
+	"io/fs"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -140,6 +146,7 @@ const goListTimeout = 2 * time.Minute
 var unreachableInternalPackages = map[string]string{
 	modulePath + "/internal/testing/racedetect": "build-tagged test-only support; imported exclusively from _test.go files",
 	modulePath + "/internal":                    "test-only package: holds this file's repo-wide build-graph assertions and nothing else",
+	modulePath + "/internal/testing/modeltest":  "build-tagged (completeness) schema-coverage harness; run by `just completeness-check`, never linked into the binary",
 }
 
 // goListPackages runs `go list` with args and returns the package paths it
@@ -165,34 +172,96 @@ func goListPackages(t *testing.T, args ...string) []string {
 	return strings.Fields(string(out))
 }
 
-// binaryClosure returns the set of packages reachable from the main package,
-// unioned across the default build and the integration build tag. CI runs the
-// suite with `-tags=integration`, so a package reachable only under that tag is
-// live; the union keeps this guard from flagging it as dead.
+// binaryClosure returns the set of packages reachable from the main package as
+// the shipped binary is built: default build tags, no test files.
+//
+// It deliberately does not union in a tag-enabled variant. `go list -deps`
+// without `-test` never walks test-file imports, so a tag appearing only on
+// _test.go files -- which is every build tag in this repo today -- cannot
+// change the result. And a package reachable only under a non-default tag is
+// by definition not in the shipped binary, so flagging it is correct; the
+// allowlist is the escape hatch for the deliberate cases.
 func binaryClosure(t *testing.T) map[string]bool {
 	t.Helper()
 
 	closure := make(map[string]bool)
-
-	for _, args := range [][]string{
-		{"list", "-deps", modulePath},
-		{"list", "-deps", "-tags=integration", modulePath},
-	} {
-		for _, pkg := range goListPackages(t, args...) {
-			closure[pkg] = true
-		}
+	for _, pkg := range goListPackages(t, "list", "-deps", modulePath) {
+		closure[pkg] = true
 	}
 
 	return closure
+}
+
+// internalPackages returns the import path of every package under internal/,
+// discovered by walking the tree rather than by asking `go list ./internal/...`.
+//
+// This is load-bearing. `go list` silently omits a package whose files are all
+// excluded by build constraints -- no error, no listing -- so a tag-gated
+// package would be invisible to this guard on both ends: never flagged as an
+// orphan, and never required to carry an exemption reason.
+// internal/testing/modeltest (gated by `completeness`) is exactly that case.
+// Walking the filesystem sees every package regardless of tags.
+func internalPackages(t *testing.T) []string {
+	t.Helper()
+
+	// The test binary runs with its own package directory as the working
+	// directory, so "." is internal/ itself.
+	var pkgs []string
+
+	err := filepath.WalkDir(".", func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+
+		// WalkDir never follows symlinks, so a package reachable only through
+		// one would be invisible to this guard -- a silent hole in exactly the
+		// check this test exists to provide. Fail loudly instead.
+		if d.Type()&fs.ModeSymlink != 0 {
+			t.Fatalf("symlink under internal/ (%s): the reachability walk cannot see through it; "+
+				"replace it with a real directory or teach this guard how to resolve it", path)
+		}
+
+		if d.IsDir() {
+			// Mirror the go tool's own rules: it ignores directories whose
+			// names begin with "." or "_", and vendor trees.
+			name := d.Name()
+			if name != "." && (name == "testdata" || name == "vendor" ||
+				strings.HasPrefix(name, ".") || strings.HasPrefix(name, "_")) {
+				return fs.SkipDir
+			}
+
+			return nil
+		}
+
+		if filepath.Ext(path) != ".go" {
+			return nil
+		}
+
+		importPath := modulePath + "/internal"
+		if dir := filepath.Dir(path); dir != "." {
+			importPath += "/" + filepath.ToSlash(dir)
+		}
+
+		if !slices.Contains(pkgs, importPath) {
+			pkgs = append(pkgs, importPath)
+		}
+
+		return nil
+	})
+	if err != nil {
+		t.Fatalf("walking internal/ for packages: %v", err)
+	}
+
+	return pkgs
 }
 
 // TestAllInternalPackagesReachable verifies that every package under
 // `./internal/...` is either in the binary's transitive dependency closure or
 // explicitly exempted in unreachableInternalPackages.
 //
-// This is the recurrence guard for issue #764, where three packages sat outside
-// the closure for months -- documented as live, absorbing real maintenance, and
-// reaching no user. Nothing in the build catches that on its own: an unimported
+// This is the recurrence guard for issue #764, where four packages sat outside
+// the closure -- documented as live, absorbing real maintenance, and reaching
+// no user. Nothing in the build catches that on its own: an unimported
 // package still compiles, still passes its own tests, and still reports healthy
 // coverage.
 func TestAllInternalPackagesReachable(t *testing.T) {
@@ -209,7 +278,7 @@ func TestAllInternalPackagesReachable(t *testing.T) {
 
 	var orphans []string
 
-	for _, pkg := range goListPackages(t, "list", modulePath+"/internal/...") {
+	for _, pkg := range internalPackages(t) {
 		if reachable[pkg] {
 			continue
 		}

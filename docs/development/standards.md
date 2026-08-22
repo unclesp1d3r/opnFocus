@@ -416,10 +416,7 @@ opnDossier/
 │   ├── export/                       # File export functionality
 │   ├── logging/                      # Structured logging (charmbracelet/log)
 │   ├── plugins/                      # Compliance plugins (firewall/SANS/STIG)
-│   ├── processor/                    # Data processing and report generation
-│   ├── progress/                     # CLI progress indicators
-│   ├── validator/                    # Configuration validation
-│   └── walker.go                     # XML walker utilities
+│   └── validator/                    # Configuration validation
 ├── pkg/                              # Public API packages
 │   ├── model/                        # Platform-agnostic CommonDevice domain model
 │   ├── parser/                       # Factory + DeviceParser interface + shared xmlutil.go
@@ -670,7 +667,7 @@ Files in `pkg/parser/opnsense/` (package `opnsense`) **must** alias the schema i
 
 ### Report Serialization Redaction
 
-Export serialization redacts a copy of the device so sensitive fields never reach a rendered report. `EnrichForExport` in `internal/converter/enrichment.go` owns this. Currently redacted: `SNMP.ROCommunity`, `HighAvailability.Password`, `Certificate.PrivateKey`, `CertificateAuthority.PrivateKey`, `Users[].APIKeys[].Secret`, `VPN.WireGuard.Clients[].PSK`, and `AdvDHCP6KeyInfoStatementSecret`. **When adding a new sensitive field to `CommonDevice`, extend that function** — a field added without a redaction rule ships in cleartext in every JSON, YAML, and HTML export. Slices are cloned before mutation, and only entries with a non-empty sensitive value are rewritten, so the caller's device is never modified. SNMP service-detail redaction is separate and shared: see `RedactServiceDetails` in `internal/analysis/statistics_redact.go`.
+Export serialization redacts a copy of the device so sensitive fields never reach a rendered report. `redactSensitiveFields` in `internal/converter/enrichment.go` owns this; it runs from `prepareForExport(device, redact=true)` against an already-cloned copy, so the caller's device is never modified. (`EnrichForExport` only computes the enrichment — it performs no redaction.) Currently redacted: `SNMP.ROCommunity`, `HighAvailability.Password`, `Certificate.PrivateKey`, `CertificateAuthority.PrivateKey`, `Users[].APIKeys[].Secret`, `VPN.WireGuard.Clients[].PSK`, and `AdvDHCP6KeyInfoStatementSecret`. **When adding a new sensitive field to `CommonDevice`, extend `redactSensitiveFields`** — a field added without a redaction rule ships in cleartext in every JSON, YAML, and HTML export. Slices are cloned before mutation, and only entries with a non-empty sensitive value are rewritten, so the caller's device is never modified. SNMP service-detail redaction is separate and shared: see `RedactServiceDetails` in `internal/analysis/statistics_redact.go`.
 
 ### Sanitizer Field Pattern Maintenance
 
@@ -680,7 +677,7 @@ The `sanitize` command operates on raw XML element names via pattern matching in
 
 ### Schema-Level Secret Exclusion
 
-Secret fields in `pkg/schema/` structs must carry `json:"-" yaml:"-"` tags to prevent accidental serialization. This is defense-in-depth alongside `redactedCopyUnsafe()`. Do NOT map these fields to the common model — the sanitizer handles them at the XML level.
+Secret fields in `pkg/schema/` structs must carry `json:"-" yaml:"-"` tags to prevent accidental serialization. This is defense-in-depth alongside the export-path redaction in `redactSensitiveFields`. Do NOT map these fields to the common model — the sanitizer handles them at the XML level.
 
 ### File-Split Refactoring Pattern
 

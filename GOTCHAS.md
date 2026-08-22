@@ -332,7 +332,7 @@ When tagging a release after a squash-merge PR, always tag the resulting commit 
 
 - **Symptom:** Test passes even when redaction is broken — the raw multiline string never matches the encoded form.
 - **Fix:** Unmarshal JSON/YAML output back into a typed struct and assert on the parsed `PrivateKey` field values directly.
-- **Precedent:** `TestPrepareForExport_RedactsSensitiveFields_JSON` in `internal/converter/enrichment_test.go` — it asserts on the typed `exported.Certificates[0].PrivateKey` field rather than substring-matching the marshalled JSON, then separately confirms the output still parses.
+- **Precedent:** `TestPrepareForExport_RedactsSensitiveFields_JSON` in `internal/converter/enrichment_test.go` demonstrates the assertion *shape* — it checks the typed `exported.Certificates[0].PrivateKey` field rather than substring-matching the marshalled JSON, then separately confirms the output still parses. Note its fixture is a single-line placeholder, so it does not itself exercise the newline-escaping trap; when you add coverage for a genuinely multiline secret, use a real PEM block so the encoded form differs from the raw one.
 
 ## 14. Sanitizer Rule Engine
 

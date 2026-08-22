@@ -42,9 +42,9 @@ type ValidationConfig struct {
 // NOTE: Several top-level fields (Verbose, Debug, Quiet, Theme, Format) are
 // marked Deprecated and kept for backward compatibility with v1.x YAML config
 // files. They will be removed in v2.0. Migration guidance for end users lives
-// in docs/configuration.md ("Both flat and nested structures are supported");
-// migration guidance for
-// Go API consumers is in the per-field Deprecated comments below.
+// in docs/configuration.md ("Both flat and nested structures are supported").
+// Migration guidance for Go API consumers is in the per-field Deprecated
+// comments below.
 type Config struct {
 	// Flat fields (backward compatible; see deprecation notes per field)
 	InputFile  string `mapstructure:"input_file"`

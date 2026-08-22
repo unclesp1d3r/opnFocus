@@ -57,7 +57,7 @@ opnDossier is a tool for auditing and reporting on OPNsense configurations, with
 
   - **Data Flow**: `cfgparser` → `pkg/parser/opnsense` → `converter` → `export`
 
-- **Audit overlays**: `processor` → `audit` → `plugins`
+- **Audit overlays**: `converter` → `audit` → `plugins`
 
 ## Technology Stack
 
@@ -243,7 +243,6 @@ opndossier/
 ├── cmd/              # Command entry points (convert, display, validate, root)
 ├── internal/         # Private application logic
 │   ├── cfgparser/    # XML parsing and validation
-│   ├── processor/    # Data processing and analysis
 │   ├── converter/    # Data conversion utilities
 │   ├── display/      # Terminal display formatting
 │   ├── export/       # File export functionality
@@ -380,7 +379,7 @@ When AI agents contribute to this project, they **MUST**:
 08. **Validate all inputs** and handle edge cases
 09. **Document new functions and types** following Go conventions
 10. **Never commit secrets** or hardcoded credentials
-11. **Consult project documentation** - requirements.md, docs/development/architecture.md, and docs/development/standards.md for guidance
+11. **Consult project documentation** - docs/development/architecture.md and docs/development/standards.md for guidance
 12. When rendering reports, always prefer structured config data + audit overlays over flat summary tables
 13. Blue team output should favor clarity, grouping, and actionability. Red team output should favor target prioritization and pivot surface discovery
 14. Validate all generated markdown for formatting correctness using mdformat for formatting and markdownlint-cli2 for validation

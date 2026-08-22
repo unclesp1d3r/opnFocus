@@ -127,7 +127,6 @@ opndossier/
 │   ├── logging/        # Logging utilities
 │   ├── markdown/       # Markdown generation and validation
 │   ├── plugins/        # Compliance plugins (firewall, sans, stig)
-│   ├── processor/      # Data processing and report generation
 │   └── validator/      # Data validation
 ├── pkg/                 # Public API packages (importable by external Go projects)
 │   ├── model/          # Platform-agnostic CommonDevice domain model
