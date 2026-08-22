@@ -344,14 +344,14 @@ func TestRedact_IPAddrField(t *testing.T) {
 		value string
 		want  string
 	}{
-		{ModeAggressive, "ipaddr", "192.168.1.100", "10.0.0.1"},
+		{ModeAggressive, "ipaddr", "192.168.1.100", expectedRedactedPrivateIP1},
 		{ModeModerate, "ipaddr", "192.168.1.100", "192.168.1.100"},
 		{ModeMinimal, "ipaddr", "192.168.1.100", "192.168.1.100"},
-		{ModeAggressive, "ipaddrv6", "192.168.1.100", "10.0.0.1"},
+		{ModeAggressive, "ipaddrv6", "192.168.1.100", expectedRedactedPrivateIP1},
 		{ModeModerate, "ipaddrv6", "192.168.1.100", "192.168.1.100"},
 		{ModeMinimal, "ipaddrv6", "192.168.1.100", "192.168.1.100"},
 		{ModeAggressive, "ipaddrv6", "2001:db8::1", expectedRedactedPublicIP1},
-		{ModeAggressive, "ipaddrv6", "fd00::1", "10.0.0.1"},
+		{ModeAggressive, "ipaddrv6", "fd00::1", expectedRedactedPrivateIP1},
 	}
 
 	for _, tt := range tests {

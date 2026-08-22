@@ -349,7 +349,7 @@ When tagging a release after a squash-merge PR, always tag the resulting commit 
 
 ### 14.3 Deterministic Mapper in Tests
 
-A fresh `NewRuleEngine` creates a fresh `NewMapper()` — mappings are deterministic (e.g., first private IP maps to `10.0.0.1`, first hostname to `host-001.example.com`). Always assert exact expected values, not just inequality.
+A fresh `NewRuleEngine` creates a fresh `NewMapper()` — mappings are deterministic (e.g., first private IP maps to `[REDACTED-PRIVATE-IP-1]`, first hostname to `host-001.example.com`). Always assert exact expected values, not just inequality.
 
 ### 14.4 `SanitizeStruct` Skips Struct/Pointer-Valued Maps
 
