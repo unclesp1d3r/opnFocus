@@ -139,8 +139,7 @@ opndossier/
 │       └── pfsense/    # pfSense XML data model (copy-on-write from opnsense)
 ├── tools/               # Standalone development tools
 ├── testdata/            # Test data and fixtures
-├── docs/                # Documentation
-└── project_spec/        # Project specifications
+└── docs/                # Documentation
 ```
 
 ### Extensibility: Two Plugin Systems

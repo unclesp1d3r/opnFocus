@@ -255,13 +255,12 @@ opndossier/
 │   │   └── opnsense/ # OPNsense parser + schema→CommonDevice converter
 │   └── schema/
 │       └── opnsense/ # Canonical OPNsense XML data model structs
-├── project_spec/     # Requirements, tasks, user stories
 └── docs/             # Documentation
 ```
 
 ## Key Files & References
 
-- `AGENTS.md`, `docs/development/standards.md`, `docs/development/architecture.md`, `project_spec/requirements.md`
+- `AGENTS.md`, `docs/development/standards.md`, `docs/development/architecture.md`
 - `cmd/convert.go`, `pkg/parser/opnsense/converter.go`, `internal/cfgparser/xml.go`, `internal/converter/enrichment.go`
 
 ## Example Patterns
@@ -400,8 +399,7 @@ Before suggesting code completion or marking a task complete, AI agents **MUST**
 - [ ] Input validation implemented where needed (especially file paths and XML input)
 - [ ] Documentation updated for new features or changed behavior
 - [ ] Dependencies properly managed (`go mod tidy`, `go mod verify`)
-- [ ] Code follows established patterns and interfaces (parser/model/processor/audit/converter layering)
-- [ ] Requirements compliance verified against `project_spec/requirements.md`
+- [ ] Code follows established patterns and interfaces (parser/model/audit/converter layering)
 - [ ] Architecture patterns followed per `docs/development/architecture.md` and related docs
 - [ ] Development standards adhered to per `docs/development/standards.md`
 - [ ] Use `just` for all dev tasks
@@ -451,7 +449,6 @@ When encountering problems:
 
 AI agents **MUST** familiarize themselves with:
 
-- **[requirements.md](../project_spec/requirements.md)** - Complete functional and technical requirements
 - **[docs/development/architecture.md](../docs/development/architecture.md)** - System design, data flow, and component architecture
 - **[docs/development/standards.md](../docs/development/standards.md)** - Go-specific coding standards and project structure
 - **[AGENTS.md](../AGENTS.md)** - Complete AI agent development guidelines (single source of truth)

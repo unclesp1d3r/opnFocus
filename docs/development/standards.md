@@ -429,7 +429,6 @@ opnDossier/
 │       ├── opnsense/                 # Canonical OPNsense XML data model structs
 │       └── pfsense/                  # pfSense XML data model (copy-on-write from opnsense)
 ├── docs/                             # Documentation
-├── project_spec/                     # Project requirements
 ├── testdata/                         # Test data files
 └── justfile                          # Task runner
 ```
