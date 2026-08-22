@@ -5,6 +5,43 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.7.1] - 2026-08-22
+
+### Changed
+
+- Add intigenesis as a contributor for code ([#736](https://github.com/EvilBit-Labs/opnDossier/pull/736))
+
+- **release**: Add v1.7.0 changelog and release notes ([#737](https://github.com/EvilBit-Labs/opnDossier/pull/737))
+
+- **audit**: Consolidate finding type literals into shared constants ([#738](https://github.com/EvilBit-Labs/opnDossier/pull/738))
+
+- **action**: Sweep version references to v1.7.0 ([#751](https://github.com/EvilBit-Labs/opnDossier/pull/751))
+
+- **comments**: Correct two factually wrong code comments ([#756](https://github.com/EvilBit-Labs/opnDossier/pull/756))
+
+- **user-guide**: Sweep version examples to v1.7.0 ([#761](https://github.com/EvilBit-Labs/opnDossier/pull/761))
+
+- **sanitize**: Drop the RLIMIT_FSIZE test that flakes the cmd package ([#763](https://github.com/EvilBit-Labs/opnDossier/pull/763))
+
+- Run the race detector, and stop wall-clock tests from blocking it ([#753](https://github.com/EvilBit-Labs/opnDossier/pull/753))
+
+
+### Fixed
+
+- Escape config values in reports and stop sanitize destroying its input ([#749](https://github.com/EvilBit-Labs/opnDossier/pull/749))
+
+- **converter**: Normalize generated markdown to LF on all platforms ([#754](https://github.com/EvilBit-Labs/opnDossier/pull/754))
+
+- **convert**: Write one report per input for multi-file runs ([#750](https://github.com/EvilBit-Labs/opnDossier/pull/750))
+
+- **sanitizer**: Replace private IP pseudonyms with markers ([#752](https://github.com/EvilBit-Labs/opnDossier/pull/752))
+
+
+### Build
+
+- **deps**: Bump Go toolchain to 1.26.6 ([#755](https://github.com/EvilBit-Labs/opnDossier/pull/755))
+
+
 ## [1.7.0] - 2026-08-10
 
 ### Added
@@ -90,6 +127,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Modernize issue templates, add SUPPORT.md and FUNDING.yml ([#676](https://github.com/EvilBit-Labs/opnDossier/pull/676))
 
 - Bump Go toolchain to 1.26.5 for GO-2026-5856 ([#683](https://github.com/EvilBit-Labs/opnDossier/pull/683))
+
+- **release**: Prepare v1.6.0
+
 
 ### Fixed
 
