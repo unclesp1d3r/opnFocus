@@ -5,6 +5,7 @@
 - **Platform**: OPNsense 24.1.2
 - **Generated On**: 2026-01-02T15:04:05Z
 - **Parsed By**: opnDossier vtest
+
 ## Table of Contents
 - [System Configuration](#system-configuration)
 - [Interfaces](#interfaces)
@@ -15,6 +16,7 @@
 - [System Users](#system-users)
 - [Services & Daemons](#service-configuration)
 - [System Tunables](#system-tunables)
+
 ## System Configuration
 ### Basic Information
 **Hostname**: comprehensive-firewall
@@ -177,6 +179,7 @@
 **Inbound Rules**: 2
 > [!WARNING]  
 > NAT reflection is enabled, which may allow internal clients to access internal services via external IP addresses. Consider disabling if not needed.
+
 #### Outbound NAT (Source Translation)
 | # | Direction | Interface | Source | Destination | Target | Protocol | Description | Status |
 |---------|---------|---------|---------|---------|---------|---------|---------|---------|
@@ -190,6 +193,7 @@
 
 > [!WARNING]  
 > Inbound NAT rules (port forwarding) increase the attack surface by exposing internal services to external networks. Ensure these rules are necessary and properly secured.
+
 ### Firewall Rules
 | # | Interface | Action | IP Ver | Proto | Source | Destination | Target | Source Port | Dest Port | Enabled | Description |
 |---------|---------|---------|---------|---------|---------|---------|---------|---------|---------|---------|---------|

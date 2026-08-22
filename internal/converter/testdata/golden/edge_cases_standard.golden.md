@@ -5,6 +5,7 @@
 - **Platform**: OPNsense
 - **Generated On**: 2026-01-02T15:04:05Z
 - **Parsed By**: opnDossier vtest
+
 ## Table of Contents
 - [System Configuration](#system-configuration)
 - [Interfaces](#interfaces)
@@ -15,6 +16,7 @@
 - [System Users](#system-users)
 - [Services & Daemons](#service-configuration)
 - [System Tunables](#system-tunables)
+
 ## System Configuration
 ### Basic Information
 **Hostname**: edge-case-test!@#$%^&\*()

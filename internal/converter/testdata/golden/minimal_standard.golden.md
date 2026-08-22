@@ -5,6 +5,7 @@
 - **Platform**: OPNsense 23.1.1
 - **Generated On**: 2026-01-02T15:04:05Z
 - **Parsed By**: opnDossier vtest
+
 ## Table of Contents
 - [System Configuration](#system-configuration)
 - [Interfaces](#interfaces)
@@ -14,6 +15,7 @@
 - [DNS Resolver](#dns-resolver)
 - [System Users](#system-users)
 - [Services & Daemons](#service-configuration)
+
 ## System Configuration
 ### Basic Information
 **Hostname**: minimal-host
