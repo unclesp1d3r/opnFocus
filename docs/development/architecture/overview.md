@@ -169,7 +169,7 @@ For practical developer guidance on public package purity and the boundary verif
 ### 3. Analysis Infrastructure
 
 - **Package**: `internal/analysis/`
-- **Responsibility**: Shared analysis logic and canonical finding types for converter, processor, audit, and compliance packages
+- **Responsibility**: Shared analysis logic and canonical finding types for converter, audit, and compliance packages
 - **Key Types**: `Finding` struct, `Severity` type with validation helpers
 - **Shared Functions**:
   - `ComputeStatistics()` - Statistics computation for configuration items, services, and security features
@@ -393,7 +393,7 @@ graph TD
     D["pkg/parser/pfsense/ — pfSense parser + converter"]
     E["pkg/model/ — CommonDevice domain model"]
     F["internal/analysis/ — Canonical Finding + Severity types"]
-    G["Consumers: processor / converter / audit / diff / plugins"]
+    G["Consumers: converter / audit / diff / plugins"]
 
     A --> B
     C --> D
@@ -407,10 +407,10 @@ graph TD
 
 - **`pkg/schema/opnsense/`** — XML DTO layer. Carries `xml:""` tags and mirrors the OPNsense config.xml structure. This layer is untouched by downstream consumers.
 - **`pkg/parser/opnsense/`** — Contains `parser.go` and `converter.go`. Reads schema DTOs and emits `*common.CommonDevice` with conversion warnings. **Converts OPNsense XML string values to typed enum constants** (e.g., `"pass"` → `common.RuleTypePass`, `"automatic"` → `common.OutboundAutomatic`). This is the only package that imports `pkg/schema/opnsense/`.
-- **`pkg/schema/pfsense/`** — XML DTO layer for pfSense. Follows **copy-on-write pattern**: reuses OPNsense types where XML structures are identical (e.g., `Interface`, `Destination`, `Source`, `Outbound`), forks locally at divergence points (e.g., `InboundRule` uses `<target>` instead of `<internalip>`, `FilterRule` adds pfSense-specific fields like `ID`, `Tag`, `OS`, `AssociatedRuleID`, `IPsec` contains Phase1/Phase2 arrays with BoolFlag fields). Documented in `pkg/schema/pfsense/README.md`.
-- **`pkg/parser/pfsense/`** — Contains `parser.go`, `converter.go`, and subsystem converters (`converter_services.go`). Manages its own XML decoding via `parser.NewSecureXMLDecoder()` (pfSense parser doesn't use `internal/cfgparser.NewXMLParser()` because the shared `OPNsenseXMLDecoder` interface returns `*schema.OpnSenseDocument`). Converts pfSense-specific VPN subsystems (OpenVPN and IPsec with Phase1/Phase2 tunnels and mobile client) to `*common.CommonDevice`. Emits `*common.CommonDevice` with conversion warnings.
-- **`pkg/model/`** — Device-agnostic domain model. No XML tags. Defines typed string enums for firewall rules (`RuleType`, `Direction`, `IPProtocol`), NAT configurations (`OutboundMode`), and network elements (`LAGGProtocol`, `VIPMode`). All consumer code (processor, converter, audit, diff, compliance plugins) operates on `CommonDevice`. Includes `ConversionWarning` type for non-fatal issues and `ComplianceResults` type (with nested `ComplianceFinding`, `PluginComplianceResult`, `ComplianceControl`, `ComplianceResultSummary`, `CompliancePluginInfo`, `ComplianceAttackSurface`) for compliance audit data representation. VPN model includes `IPsecConfig` with `Phase1Tunnels`, `Phase2Tunnels`, and `MobileClient` fields for platform-agnostic IPsec representation. Adds `DeviceType.DisplayName()` method for dynamic report headers (e.g., "OPNsense" vs "pfSense").
-- **`internal/analysis/`** — Shared analysis logic and canonical finding types. Provides detection functions (`DetectDeadRules`, `DetectUnusedInterfaces`, `DetectSecurityIssues`, `DetectPerformanceIssues`, `DetectConsistency`), statistics computation (`ComputeStatistics`), analysis aggregation (`ComputeAnalysis`), and rule comparison (`RulesEquivalent`). **Uses typed constants for rule type comparisons** (e.g., `rule.Type == common.RuleTypeBlock`) instead of string literals. Used by both `internal/converter` and `internal/processor` to eliminate duplicated logic.
+- **`pkg/schema/pfsense/`** — XML DTO layer for pfSense. Follows **copy-on-write pattern**: reuses OPNsense types where XML structures are identical (e.g., `Interface`, `Destination`, `Source`, `Outbound`), forks locally at divergence points (e.g., `InboundRule` uses `<target>` instead of `<internalip>`, `FilterRule` adds pfSense-specific fields like `ID`, `Tag`, `OS`, `AssociatedRuleID`, `IPsec` contains Phase 1/Phase 2 arrays with BoolFlag fields). Documented in `pkg/schema/pfsense/README.md`.
+- **`pkg/parser/pfsense/`** — Contains `parser.go`, `converter.go`, and subsystem converters (`converter_services.go`). Manages its own XML decoding via `parser.NewSecureXMLDecoder()` (pfSense parser doesn't use `internal/cfgparser.NewXMLParser()` because the shared `OPNsenseXMLDecoder` interface returns `*schema.OpnSenseDocument`). Converts pfSense-specific VPN subsystems (OpenVPN and IPsec with Phase 1/Phase 2 tunnels and mobile client) to `*common.CommonDevice`. Emits `*common.CommonDevice` with conversion warnings.
+- **`pkg/model/`** — Device-agnostic domain model. No XML tags. Defines typed string enums for firewall rules (`RuleType`, `Direction`, `IPProtocol`), NAT configurations (`OutboundMode`), and network elements (`LAGGProtocol`, `VIPMode`). All consumer code (converter, audit, diff, compliance plugins) operates on `CommonDevice`. Includes `ConversionWarning` type for non-fatal issues and `ComplianceResults` type (with nested `ComplianceFinding`, `PluginComplianceResult`, `ComplianceControl`, `ComplianceResultSummary`, `CompliancePluginInfo`, `ComplianceAttackSurface`) for compliance audit data representation. VPN model includes `IPsecConfig` with `Phase1Tunnels`, `Phase2Tunnels`, and `MobileClient` fields for platform-agnostic IPsec representation. Adds `DeviceType.DisplayName()` method for dynamic report headers (e.g., "OPNsense" vs "pfSense").
+- **`internal/analysis/`** — Shared analysis logic and canonical finding types. Provides detection functions (`DetectDeadRules`, `DetectUnusedInterfaces`, `DetectSecurityIssues`, `DetectPerformanceIssues`, `DetectConsistency`), statistics computation (`ComputeStatistics`), analysis aggregation (`ComputeAnalysis`), and rule comparison (`RulesEquivalent`). **Uses typed constants for rule type comparisons** (e.g., `rule.Type == common.RuleTypeBlock`) instead of string literals. The detection and statistics functions above have a single production consumer, `internal/converter` (via `enrichment.go`), so that logic lives in one place. `internal/audit` and the compliance plugins depend on a different part of this package — the canonical `Finding`/`Severity` types, `ScanObservations`, and the reachability helpers — not on the detectors.
 - **`pkg/parser/factory.go`** — `Factory` and `DeviceParser` interface. Uses the `DeviceParserRegistry` for device type dispatch. Auto-detects the device type from the XML root element or uses the `--device-type` flag to bypass auto-detection. Returns 3 values: device model, warnings slice, and error.
 
 ### Schema Reuse Pattern
@@ -418,7 +418,7 @@ graph TD
 pfSense schema follows a **copy-on-write** approach to minimize duplication:
 
 - **Reuse OPNsense types** when XML structure is identical (e.g., `opnsense.Interface`, `opnsense.Source`, `opnsense.Destination`, `opnsense.Outbound`, `opnsense.SSHConfig`)
-- **Fork locally** when pfSense diverges (e.g., `InboundRule` for `<target>` vs `<internalip>`, `Group` for `[]string Priv` vs single privilege, `System` for `[]string DNSServers` vs single server, `FilterRule` for pfSense-specific fields, `IPsec` subsystem with Phase1/Phase2 arrays using `BoolFlag` for presence-based XML elements)
+- **Fork locally** when pfSense diverges (e.g., `InboundRule` for `<target>` vs `<internalip>`, `Group` for `[]string Priv` vs single privilege, `System` for `[]string DNSServers` vs single server, `FilterRule` for pfSense-specific fields, `IPsec` subsystem with Phase 1/Phase 2 arrays using `BoolFlag` for presence-based XML elements)
 - **Document differences** in `pkg/schema/pfsense/README.md` with complete structural reference covering 50+ top-level sections
 
 ### pfSense-Specific Types
@@ -430,7 +430,7 @@ Key pfSense types that differ from OPNsense:
 - **`Group`** — Group with `[]string Priv` array (per-group privileges) instead of OPNsense's single privilege model
 - **`System`** — System config with `[]string DNSServers` (repeating `<dnsserver>` elements) instead of single DNS server string
 - **`User`** — User account with `BcryptHash` field instead of OPNsense's `Password` field (SHA-based)
-- **`IPsec`** — IPsec VPN subsystem with Phase1/Phase2 tunnel arrays and mobile client configuration:
+- **`IPsec`** — IPsec VPN subsystem with Phase 1/Phase 2 tunnel arrays and mobile client configuration:
   - **`IPsecPhase1`** (27 fields) — IKE Phase 1 tunnel with IKE identity, crypto algorithms, timing (rekey/reauth/rand), NAT traversal, MOBIKE, DPD, certificate references, custom ports, split connection
   - **`IPsecPhase2`** (20 fields) — IPsec Phase 2 child SA with network identities (type/address/netbits), NAT local ID, encryption/hash algorithms with key lengths, PFS group, ping host for keep-alive
   - **`IPsecClient`** (13 fields) — Mobile client pool with user/group authentication sources, IPv4/IPv6 address pools, DNS/WINS servers, split DNS, login banner, password persistence
@@ -541,7 +541,7 @@ graph LR
 - **Processing Security**: Memory safety (Go runtime), type safety, error handling that prevents credential leakage
 - **Output Security**: Path validation, restrictive file permissions (0600 for sensitive data), content sanitization
 
-For secure coding principles, SNMP redaction patterns, and the canonical approach to safe error messages, see **[CONTRIBUTING.md](https://github.com/EvilBit-Labs/opnDossier/blob/main/CONTRIBUTING.md) Secure Coding Principles** section and `internal/processor/report.go`.
+For secure coding principles, SNMP redaction patterns, and the canonical approach to safe error messages, see **[CONTRIBUTING.md](https://github.com/EvilBit-Labs/opnDossier/blob/main/CONTRIBUTING.md) Secure Coding Principles** section, `internal/analysis/statistics_redact.go` (SNMP redaction), and `internal/converter/enrichment.go` (export-path field redaction).
 
 ### Air-Gap Security Benefits
 
