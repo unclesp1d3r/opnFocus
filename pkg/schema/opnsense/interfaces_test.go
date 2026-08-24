@@ -10,6 +10,27 @@ const testInterfaceDevice = "em0"
 // TestInterfaces_MarshalUnmarshal_Simple tests XML round-trip for Interfaces.
 //
 
+func TestBridges_UnmarshalBridgedElements(t *testing.T) {
+	t.Parallel()
+	const raw = `<bridges>
+  <bridged>
+    <bridgeif>bridge0</bridgeif>
+    <members>opt1,opt2</members>
+    <descr>LAN</descr>
+  </bridged>
+</bridges>`
+	var got Bridges
+	if err := xml.Unmarshal([]byte(raw), &got); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+	if len(got.Bridge) != 1 {
+		t.Fatalf("got %d bridges, want 1", len(got.Bridge))
+	}
+	if got.Bridge[0].Bridgeif != "bridge0" {
+		t.Fatalf("bridgeif = %q", got.Bridge[0].Bridgeif)
+	}
+}
+
 func TestInterfaces_MarshalUnmarshal_Simple(t *testing.T) {
 	t.Parallel()
 
