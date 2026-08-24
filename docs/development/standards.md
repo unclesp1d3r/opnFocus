@@ -677,7 +677,14 @@ The `sanitize` command operates on raw XML element names via pattern matching in
 
 ### Schema-Level Secret Exclusion
 
-Secret fields in `pkg/schema/` structs must carry `json:"-" yaml:"-"` tags to prevent accidental serialization. This is defense-in-depth alongside the export-path redaction in `redactSensitiveFields`. Do NOT map these fields to the common model — the sanitizer handles them at the XML level.
+Secret fields in `pkg/schema/` structs must carry `json:"-" yaml:"-"` tags so a stray marshal of a DTO cannot serialize them.
+
+Whether such a field may reach `CommonDevice` depends on whether the report needs it:
+
+- **Never mapped.** A secret the report has no use for — an IPsec pre-shared key, a raw password hash — stays in the schema layer only, and the sanitizer handles it at the XML level. `pkg/schema/pfsense.IPsecPhase1.PreSharedKey` is the reference case.
+- **Mapped and redacted.** A field the report must show in redacted form — `Certificate.PrivateKey`, `HighAvailability.Password`, `SNMP.ROCommunity` — is mapped, and `redactSensitiveFields` rewrites it before export. Mapping one of these without adding it there ships it in cleartext.
+
+The schema tags are defense-in-depth for both cases, not a substitute for the export-path redaction.
 
 ### File-Split Refactoring Pattern
 

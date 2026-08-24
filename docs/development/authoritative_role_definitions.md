@@ -2,6 +2,8 @@
 
 This document captures the single-sentence "official" purpose of each library used in the opnDossier project, compiled from `AGENTS.md` and the project specification documents that predated it.
 
+The `TASK-NNN` identifiers below are provenance from that removed specification and no longer resolve to a document. Each is kept with its original title so the entry still records when and why the dependency was adopted.
+
 ## Library Role Definitions
 
 ### Cobra

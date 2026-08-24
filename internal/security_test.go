@@ -8,6 +8,7 @@ package internal
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"go/build"
 	"io/fs"
 	"os"
@@ -103,23 +104,50 @@ func TestNoTelemetry(t *testing.T) {
 	}
 
 	ctx := build.Default
-	pkg, err := ctx.Import("github.com/EvilBit-Labs/opnDossier", "", build.FindOnly)
+	root, err := ctx.Import(modulePath, "", build.FindOnly)
 	if err != nil {
 		t.Skipf("Could not find package: %v", err)
 	}
 
-	// Check all imports for telemetry packages
-	allImports := make(map[string]bool)
-	for _, imp := range pkg.Imports {
-		allImports[imp] = true
-	}
+	// build.FindOnly locates the directory without reading source, so
+	// Package.Imports is always empty under it -- this loop used to iterate an
+	// empty set and could not fail regardless of what was imported. Walk with
+	// ImportDir(dir, 0), which actually parses, as TestNoNetworkDependencies does.
+	inspected := 0
 
-	for _, telemetry := range telemetryPackages {
-		for imp := range allImports {
-			if strings.Contains(strings.ToLower(imp), telemetry) {
-				t.Errorf("Telemetry package detected: %s", imp)
+	err = filepath.Walk(root.Dir, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+
+		if !info.IsDir() || strings.Contains(path, "/vendor/") {
+			return nil
+		}
+
+		pkg, err := ctx.ImportDir(path, 0)
+		if err != nil {
+			// A directory with no buildable Go files is expected; keep walking.
+			return nil //nolint:nilerr // Intentionally skip unparseable directories
+		}
+
+		inspected++
+
+		for _, imp := range append(pkg.Imports, pkg.TestImports...) {
+			for _, telemetry := range telemetryPackages {
+				if strings.Contains(strings.ToLower(imp), telemetry) {
+					t.Errorf("Telemetry package detected: %s in %s", imp, path)
+				}
 			}
 		}
+
+		return nil
+	})
+	if err != nil {
+		t.Fatalf("Failed to walk project: %v", err)
+	}
+
+	if inspected == 0 {
+		t.Fatal("inspected no packages: the walk is broken, so a clean result proves nothing")
 	}
 }
 
@@ -175,12 +203,17 @@ func goListPackages(t *testing.T, args ...string) []string {
 // binaryClosure returns the set of packages reachable from the main package as
 // the shipped binary is built: default build tags, no test files.
 //
-// It deliberately does not union in a tag-enabled variant. `go list -deps`
-// without `-test` never walks test-file imports, so a tag appearing only on
-// _test.go files -- which is every build tag in this repo today -- cannot
-// change the result. And a package reachable only under a non-default tag is
-// by definition not in the shipped binary, so flagging it is correct; the
-// allowlist is the escape hatch for the deliberate cases.
+// It deliberately does not union in a tag-enabled variant, for two separate
+// reasons. `go list -deps` without `-test` never walks test-file imports, so a
+// tag carried only by _test.go files cannot change the result either way. And
+// a package reachable only under a non-default tag -- internal/testing/modeltest
+// behind `completeness`, for example -- is by definition absent from the
+// shipped binary, so flagging it is the correct answer rather than a false
+// positive; the allowlist is the escape hatch for those deliberate cases.
+//
+// Non-test files here do carry build constraints (GOOS splits in
+// internal/audit, the race-detector shim, the completeness harness), so do not
+// assume tags are a test-only concern in this repository.
 func binaryClosure(t *testing.T) map[string]bool {
 	t.Helper()
 
@@ -210,7 +243,7 @@ func internalPackages(t *testing.T) []string {
 
 	err := filepath.WalkDir(".", func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
-			return err
+			return fmt.Errorf("walking %s: %w", path, err)
 		}
 
 		// WalkDir never follows symlinks, so a package reachable only through
@@ -267,27 +300,64 @@ func internalPackages(t *testing.T) []string {
 func TestAllInternalPackagesReachable(t *testing.T) {
 	t.Parallel()
 
-	if _, err := exec.LookPath("go"); err != nil {
-		t.Skipf("go toolchain not on PATH: %v", err)
-	}
-
 	reachable := binaryClosure(t)
 	if len(reachable) == 0 {
 		t.Fatal("dependency closure came back empty: the go list probe is broken, not the tree")
 	}
 
+	// A walk that returns nothing -- wrong working directory, a refactor that
+	// skips the root, a stray SkipDir -- would leave orphans empty and report
+	// PASS while checking nothing: the same silent-pass inversion this guard
+	// exists to catch, turned on the guard itself. Prove the walk found the
+	// tree before trusting its verdict.
+	discovered := internalPackages(t)
+	if len(discovered) == 0 {
+		t.Fatal("walk found no packages under internal/: the walk is broken, not the tree")
+	}
+
+	for _, sentinel := range []string{modulePath + "/internal/converter", modulePath + "/internal/analysis"} {
+		if !slices.Contains(discovered, sentinel) {
+			t.Fatalf(
+				"walk did not find %s, so it is rooted somewhere unexpected and its verdict is meaningless",
+				sentinel,
+			)
+		}
+	}
+
 	var orphans []string
 
-	for _, pkg := range internalPackages(t) {
+	for _, pkg := range discovered {
 		if reachable[pkg] {
 			continue
 		}
 
-		if _, exempt := unreachableInternalPackages[pkg]; exempt {
+		if reason, exempt := unreachableInternalPackages[pkg]; exempt {
+			// The allowlist's value is its whole point: an entry with no stated
+			// reason is an unexplained exemption, which is the rubber stamp this
+			// guard exists to prevent.
+			if strings.TrimSpace(reason) == "" {
+				t.Errorf("%s is exempted with no stated reason; give the entry a reason or delete the package", pkg)
+			}
+
 			continue
 		}
 
 		orphans = append(orphans, pkg)
+	}
+
+	// An exemption is a claim, and claims rot. A key naming a package that no
+	// longer exists could be silently inherited by an unrelated future package
+	// at the same path; a key since wired into the binary is simply stale.
+	// Neither is reachable from the loop above -- reachable packages skip the
+	// allowlist entirely.
+	for pkg := range unreachableInternalPackages {
+		if !slices.Contains(discovered, pkg) {
+			t.Errorf("%s is exempted but no longer exists; remove the stale entry", pkg)
+		}
+
+		if reachable[pkg] {
+			t.Errorf("%s is exempted but is now reachable from the binary; remove the obsolete entry", pkg)
+		}
 	}
 
 	if len(orphans) > 0 {

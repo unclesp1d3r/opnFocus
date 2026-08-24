@@ -55,7 +55,7 @@ opnDossier is a tool for auditing and reporting on OPNsense configurations, with
 
   - `internal/display/`, `internal/logging/`: Terminal output and structured logging.
 
-  - **Data Flow**: `cfgparser` → `pkg/parser/opnsense` → `converter` → `export`
+  - **Data Flow**: `internal/cfgparser` decodes XML → `pkg/parser/opnsense` converts schema DTOs to `CommonDevice` → `internal/converter` enriches, redacts, and renders → `internal/export` writes
 
 - **Audit overlays**: `converter` → `audit` → `plugins`
 

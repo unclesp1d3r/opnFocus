@@ -88,7 +88,6 @@ The project follows standard Go conventions:
   - `display/` - Terminal display formatting
   - `export/` - File export functionality
   - `logging/` - Structured logging (wraps `charmbracelet/log`)
-  - `progress/` - CLI progress indicators
   - `validator/` - Configuration validation
 - `pkg/` - Public API packages
   - `model/` - Platform-agnostic CommonDevice domain model (public API)

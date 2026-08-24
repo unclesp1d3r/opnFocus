@@ -47,7 +47,7 @@ The `Finding` struct is generic and uses `References`, `Tags`, and `Metadata` fi
 ```go
 // compliance.Finding
 Type           string            // Category; use a constants.FindingType* value (e.g., constants.FindingTypeCompliance)
-Severity       common.Severity   // Severity level: use constants like common.SeverityCritical, common.SeverityHigh, etc.
+Severity       string            // Severity level; use an analysis.Severity* constant value (e.g., string(analysis.SeverityHigh))
 Title          string
 Description    string
 Recommendation string

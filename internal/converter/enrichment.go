@@ -260,9 +260,9 @@ func redactDHCPv6Secrets(cp *common.CommonDevice) {
 
 // redactStatisticsServiceDetails returns a Statistics whose sensitive
 // ServiceDetails values are replaced with the redaction marker. It delegates to
-// analysis.RedactServiceDetails (the shared redaction primitive) and preserves
-// a non-mutating contract: when nothing is
-// redacted the input pointer is returned unchanged, so EnrichForExport can
+// analysis.RedactServiceDetails (the shared redaction primitive) and preserves a
+// non-mutating contract: when nothing is redacted the input pointer is returned
+// unchanged, so EnrichForExport can
 // memoize a single Statistics across mixed redact=true and redact=false callers
 // without leaking redacted values into the caller's data. Only when redaction
 // occurs is the Statistics struct cloned around the already-cloned slice.
