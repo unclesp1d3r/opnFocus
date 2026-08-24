@@ -47,7 +47,7 @@ The `Finding` struct is generic and uses `References`, `Tags`, and `Metadata` fi
 ```go
 // compliance.Finding
 Type           string            // Category; use a constants.FindingType* value (e.g., constants.FindingTypeCompliance)
-Severity       common.Severity   // Severity level: use constants like common.SeverityCritical, common.SeverityHigh, etc.
+Severity       string            // Severity level; use an analysis.Severity* constant value (e.g., string(analysis.SeverityHigh))
 Title          string
 Description    string
 Recommendation string
@@ -58,7 +58,7 @@ Tags           []string
 Metadata       map[string]string
 ```
 
-**Note:** `compliance.Finding` is a type alias for the canonical `analysis.Finding` type defined in `internal/analysis/finding.go`. This architectural change unifies finding representations across the audit, compliance, and processor modules, ensuring consistency throughout the codebase. Plugins should continue to import `github.com/EvilBit-Labs/opnDossier/internal/compliance` and use `compliance.Finding`, which remains fully compatible.
+**Note:** `compliance.Finding` is a type alias for the canonical `analysis.Finding` type defined in `internal/analysis/finding.go`. This architectural change unifies finding representations across the audit, compliance, and converter modules, ensuring consistency throughout the codebase. Plugins should continue to import `github.com/EvilBit-Labs/opnDossier/internal/compliance` and use `compliance.Finding`, which remains fully compatible.
 
 ## Creating a New Plugin
 
