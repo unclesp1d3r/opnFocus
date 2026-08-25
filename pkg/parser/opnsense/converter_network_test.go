@@ -597,11 +597,11 @@ func TestConverter_InterfaceGroups_SpaceSeparated(t *testing.T) {
 	assert.Equal(t, []string{"lan", "opt1"}, device.InterfaceGroups[0].Members)
 }
 
-// TestBridges_EndToEnd_PlaceholderAndRealBridge drives real config.xml content
+// TestConverter_Bridges_EndToEnd_PlaceholderNotCounted drives real config.xml content
 // through the full parse -> convert -> statistics path. The <bridged> tag fix in
 // pkg/schema/opnsense made this path reachable for the first time, so the
 // end-to-end bridge count is asserted here rather than only at the schema layer.
-func TestBridges_EndToEnd_PlaceholderAndRealBridge(t *testing.T) {
+func TestConverter_Bridges_EndToEnd_PlaceholderNotCounted(t *testing.T) {
 	t.Parallel()
 
 	const configTemplate = `<?xml version="1.0"?>
