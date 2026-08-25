@@ -5,7 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [1.7.2] - 2026-08-25
 
 ### Changed
 
@@ -14,6 +14,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **solutions**: Capture markdown-bump output-drift learning
 
 - **internal**: Remove packages outside the binary dependency closure ([#777](https://github.com/EvilBit-Labs/opnDossier/pull/777))
+
+- Add AshSgDe29071999 as a contributor for code ([#786](https://github.com/EvilBit-Labs/opnDossier/pull/786))
+
+- Update third-party license URLs to reflect new versions
 
 
 ### Fixed
