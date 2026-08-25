@@ -226,7 +226,7 @@ type VLAN struct {
 // Bridge represents a network bridge configuration, combining multiple interfaces
 // into a single Layer 2 broadcast domain with optional STP (Spanning Tree Protocol).
 type Bridge struct {
-	XMLName  xml.Name `xml:"bridge"`
+	XMLName  xml.Name `xml:"bridged"`
 	Members  string   `xml:"members,omitempty"`
 	Descr    string   `xml:"descr,omitempty"`
 	Bridgeif string   `xml:"bridgeif,omitempty"`
@@ -236,9 +236,10 @@ type Bridge struct {
 }
 
 // Bridges represents the <bridges> container element holding all bridge configurations.
+// OPNsense stores each entry as <bridged>, not <bridge>.
 type Bridges struct {
 	XMLName xml.Name `xml:"bridges"`
-	Bridge  []Bridge `xml:"bridge,omitempty"`
+	Bridge  []Bridge `xml:"bridged,omitempty"`
 }
 
 // GIF represents a GIF (Generic Tunnel Interface) configuration entry for IPv4/IPv6-in-IPv4/IPv6 tunneling.

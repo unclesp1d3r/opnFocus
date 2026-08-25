@@ -7,16 +7,41 @@ import (
 	schema "github.com/EvilBit-Labs/opnDossier/pkg/schema/opnsense"
 )
 
+// isBridgePlaceholder reports whether a <bridged> element carries no data at all.
+//
+// OPNsense emits a self-closing <bridged/> marker inside <bridges> when no bridge
+// is configured (the shipped testdata/opnsense-config.dtd declares it as
+// "<!ELEMENT bridged EMPTY>" for exactly this reason). Such an element is a
+// structural placeholder, not a bridge.
+//
+// The check is deliberately conservative: an entry is dropped only when every
+// field is zero. A bridge carrying any data at all -- even just a description --
+// is retained, because under-reporting configured resources is the more dangerous
+// direction for an auditing tool.
+func isBridgePlaceholder(b schema.Bridge) bool {
+	return b.Bridgeif == "" &&
+		b.Members == "" &&
+		b.Descr == "" &&
+		!bool(b.STP) &&
+		b.Created == "" &&
+		b.Updated == ""
+}
+
 // convertBridges maps doc.Bridges.Bridge to []common.Bridge.
 // Bridge members are stored as a comma-separated string in OPNsense XML and
 // split into individual interface names for the platform-agnostic model.
+//
+// Empty <bridged/> placeholders are skipped so they neither surface as blank
+// bridges in exported output nor inflate Statistics.TotalBridges. The result is
+// grown on demand rather than preallocated because the loop may skip entries.
 func (c *converter) convertBridges(doc *schema.OpnSenseDocument) []common.Bridge {
-	if len(doc.Bridges.Bridge) == 0 {
-		return nil
-	}
+	var result []common.Bridge
 
-	result := make([]common.Bridge, 0, len(doc.Bridges.Bridge))
 	for _, b := range doc.Bridges.Bridge {
+		if isBridgePlaceholder(b) {
+			continue
+		}
+
 		result = append(result, common.Bridge{
 			BridgeIf:    b.Bridgeif,
 			Members:     splitNonEmpty(b.Members, ","),

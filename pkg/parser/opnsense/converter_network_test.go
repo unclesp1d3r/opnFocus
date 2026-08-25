@@ -1,9 +1,14 @@
 package opnsense_test
 
 import (
+	"context"
+	"strings"
 	"testing"
 
+	"github.com/EvilBit-Labs/opnDossier/internal/analysis"
+	"github.com/EvilBit-Labs/opnDossier/internal/cfgparser"
 	common "github.com/EvilBit-Labs/opnDossier/pkg/model"
+	"github.com/EvilBit-Labs/opnDossier/pkg/parser"
 	"github.com/EvilBit-Labs/opnDossier/pkg/parser/opnsense"
 	schema "github.com/EvilBit-Labs/opnDossier/pkg/schema/opnsense"
 	"github.com/stretchr/testify/assert"
@@ -44,6 +49,24 @@ func TestConverter_Bridges(t *testing.T) {
 				{Bridgeif: "bridge1", Members: "opt3", Descr: "DMZ"},
 			},
 			wantLen: 2,
+		},
+		{
+			name:    "empty bridged placeholder is skipped",
+			bridges: []schema.Bridge{{}},
+			wantLen: 0,
+		},
+		{
+			name: "placeholder alongside a real bridge keeps only the real one",
+			bridges: []schema.Bridge{
+				{},
+				{Bridgeif: "bridge0", Members: "opt1,opt2", Descr: "Internal"},
+			},
+			wantLen: 1,
+		},
+		{
+			name:    "bridge carrying only a description is retained",
+			bridges: []schema.Bridge{{Descr: "staged bridge"}},
+			wantLen: 1,
 		},
 	}
 
@@ -572,4 +595,70 @@ func TestConverter_InterfaceGroups_SpaceSeparated(t *testing.T) {
 
 	// splitNonEmpty trims whitespace from each part
 	assert.Equal(t, []string{"lan", "opt1"}, device.InterfaceGroups[0].Members)
+}
+
+// TestConverter_Bridges_EndToEnd_PlaceholderNotCounted drives real config.xml content
+// through the full parse -> convert -> statistics path. The <bridged> tag fix in
+// pkg/schema/opnsense made this path reachable for the first time, so the
+// end-to-end bridge count is asserted here rather than only at the schema layer.
+func TestConverter_Bridges_EndToEnd_PlaceholderNotCounted(t *testing.T) {
+	t.Parallel()
+
+	const configTemplate = `<?xml version="1.0"?>
+<opnsense>
+  <system>
+    <hostname>fw</hostname>
+    <domain>example.com</domain>
+  </system>
+  <bridges>%s</bridges>
+</opnsense>`
+
+	tests := []struct {
+		name         string
+		bridgesInner string
+		wantBridges  int
+		wantBridgeIf string
+	}{
+		{
+			// OPNsense writes this placeholder when no bridge is configured.
+			name:         "empty bridged placeholder reports zero bridges",
+			bridgesInner: `<bridged/>`,
+			wantBridges:  0,
+		},
+		{
+			name:         "populated bridged element is counted",
+			bridgesInner: `<bridged><bridgeif>bridge0</bridgeif><members>opt1,opt2</members></bridged>`,
+			wantBridges:  1,
+			wantBridgeIf: "bridge0",
+		},
+	}
+
+	factory := parser.NewFactory(cfgparser.NewXMLParser())
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			xmlBody := strings.Replace(configTemplate, "%s", tt.bridgesInner, 1)
+			device, _, err := factory.CreateDevice(
+				context.Background(),
+				strings.NewReader(xmlBody),
+				common.DeviceTypeUnknown,
+				false,
+			)
+			require.NoError(t, err)
+			require.NotNil(t, device)
+
+			assert.Len(t, device.Bridges, tt.wantBridges)
+
+			stats := analysis.ComputeStatistics(device)
+			assert.Equal(t, tt.wantBridges, stats.TotalBridges,
+				"TotalBridges must not count empty <bridged/> placeholders")
+
+			if tt.wantBridgeIf != "" {
+				require.Len(t, device.Bridges, 1)
+				assert.Equal(t, tt.wantBridgeIf, device.Bridges[0].BridgeIf)
+			}
+		})
+	}
 }
