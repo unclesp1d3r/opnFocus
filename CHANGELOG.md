@@ -5,6 +5,22 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Changed
+
+- **third-party**: Update license URLs and add new font license information
+
+- **solutions**: Capture markdown-bump output-drift learning
+
+- **internal**: Remove packages outside the binary dependency closure ([#777](https://github.com/EvilBit-Labs/opnDossier/pull/777))
+
+
+### Fixed
+
+- **schema**: Unmarshal OPNsense <bridged> elements ([#780](https://github.com/EvilBit-Labs/opnDossier/pull/780))
+
+
 ## [1.7.1] - 2026-08-22
 
 ### Changed
@@ -24,6 +40,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **sanitize**: Drop the RLIMIT_FSIZE test that flakes the cmd package ([#763](https://github.com/EvilBit-Labs/opnDossier/pull/763))
 
 - Run the race detector, and stop wall-clock tests from blocking it ([#753](https://github.com/EvilBit-Labs/opnDossier/pull/753))
+
+- **release**: Prep v1.7.1 ([#775](https://github.com/EvilBit-Labs/opnDossier/pull/775))
 
 
 ### Fixed

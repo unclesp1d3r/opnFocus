@@ -2097,7 +2097,7 @@ SOFTWARE.
 ============================================================
 Package: github.com/stretchr/testify
 License: MIT
-URL:     https://github.com/stretchr/testify/blob/v1.12.0/LICENSE
+URL:     https://github.com/stretchr/testify/blob/v1.12.1/LICENSE
 ------------------------------------------------------------
 MIT License
 
@@ -2125,7 +2125,7 @@ SOFTWARE.
 ============================================================
 Package: github.com/stretchr/testify/internal/difflib
 License: BSD-3-Clause
-URL:     https://github.com/stretchr/testify/blob/v1.12.0/internal/difflib/LICENSE
+URL:     https://github.com/stretchr/testify/blob/v1.12.1/internal/difflib/LICENSE
 ------------------------------------------------------------
 Copyright (c) 2013, Patrick Mezard
 All rights reserved.
@@ -2158,7 +2158,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ============================================================
 Package: github.com/stretchr/testify/internal/spew
 License: ISC
-URL:     https://github.com/stretchr/testify/blob/v1.12.0/internal/spew/LICENSE
+URL:     https://github.com/stretchr/testify/blob/v1.12.1/internal/spew/LICENSE
 ------------------------------------------------------------
 ISC License
 
@@ -2317,7 +2317,7 @@ THE SOFTWARE.
 ============================================================
 Package: go.yaml.in/yaml/v3
 License: MIT
-URL:     https://github.com/yaml/go-yaml/blob/v3.0.4/LICENSE
+URL:     https://github.com/yaml/go-yaml/blob/v3.0.5/LICENSE
 ------------------------------------------------------------
 
 This project is covered by two different licenses: MIT and Apache.
