@@ -232,6 +232,7 @@ todos/
 vhs/gif/
 vhs/screenshots/
 vhs/opnDossier
+vhs/opndossier
 
 # Large benchmark fixtures (generated lazily by BenchmarkSanitizeXML_10MB).
 # Kept out of git to avoid repo bloat; regenerated deterministically by

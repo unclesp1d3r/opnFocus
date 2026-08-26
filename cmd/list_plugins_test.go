@@ -469,7 +469,7 @@ func TestListPlugins_DynamicPluginDirEndToEnd(t *testing.T) {
 // text mode must NOT include load-failed plugin names in stdout because
 // the documented contract is that the output is safe to pipe directly into
 // --plugins. A name like `stub.so` that won't actually load would break
-// `opndossier list plugins --plugin-dir ./plugins | xargs -I{} opnDossier
+// `opndossier list plugins --plugin-dir ./plugins | xargs -I{} opndossier
 // audit --plugins {} config.xml`. Stderr WARN logs still fire (via the
 // shared logger) so the operator has a diagnostic trail.
 func TestListPlugins_DynamicPluginLoadFailureHiddenFromTextMode(t *testing.T) {

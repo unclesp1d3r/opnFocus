@@ -41,7 +41,7 @@ go install github.com/EvilBit-Labs/opnDossier@latest
 opndossier version
 ```
 
-**Expected result:** a version string such as `opnDossier v1.7.1`.
+**Expected result:** a version line such as `opndossier version 1.7.2`.
 
 If you see `command not found`, check two things: that the Go bin directory (typically `$HOME/go/bin`) is on your `PATH`, and — if you installed via `go install` — that you renamed the binary as described above. `ls "$(go env GOPATH)/bin" | grep -i opndossier` shows which name you actually have.
 
