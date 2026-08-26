@@ -51,7 +51,7 @@ var lightweightCommands = map[string]bool{ //nolint:gochecknoglobals // Static c
 
 // rootCmd represents the base command when called without any subcommands.
 var rootCmd = &cobra.Command{ //nolint:gochecknoglobals // Cobra root command
-	Use:   "opnDossier",
+	Use:   "opndossier",
 	Short: "opnDossier: A CLI tool for processing OPNsense and pfSense configuration files.",
 	Long: `opnDossier is a command-line interface (CLI) tool designed to process OPNsense
 and pfSense firewall configuration files (config.xml) and convert them into
@@ -61,16 +61,16 @@ understanding their firewall configurations more effectively.
 
 WORKFLOW EXAMPLES:
   # Basic conversion workflow
-  opnDossier convert config.xml -o documentation.md
+  opndossier convert config.xml -o documentation.md
 
   # Development workflow with verbose logging
   opnDossier --verbose convert config.xml --format json
 
   # Generate comprehensive report
-  opnDossier convert config.xml --comprehensive
+  opndossier convert config.xml --comprehensive
 
   # Validation workflow
-  opnDossier validate config.xml && opnDossier convert config.xml -o documentation.md`,
+  opndossier validate config.xml && opnDossier convert config.xml -o documentation.md`,
 	PersistentPreRunE: func(cmd *cobra.Command, _ []string) error {
 		// Fast path: Skip heavy initialization for lightweight commands
 		// This significantly improves startup time for --help, version, etc.

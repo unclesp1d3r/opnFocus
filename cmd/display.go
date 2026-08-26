@@ -91,22 +91,22 @@ RELATED:
   validate   - Validate config.xml structure before displaying
   audit      - Layer compliance checks on top of the rendered report`,
 	Example: `  # Display configuration with auto-detected theme and width
-  opnDossier display config.xml
+  opndossier display config.xml
 
   # Force a specific theme
-  opnDossier display --theme dark config.xml
+  opndossier display --theme dark config.xml
 
   # Restrict output to specific sections
-  opnDossier display --section system,network config.xml
+  opndossier display --section system,network config.xml
 
   # Wrap at a specific column width
-  opnDossier display --wrap 100 config.xml
+  opndossier display --wrap 100 config.xml
 
   # Disable text wrapping
-  opnDossier display --no-wrap config.xml
+  opndossier display --no-wrap config.xml
 
   # Redact sensitive fields from the rendered output
-  opnDossier display --redact config.xml
+  opndossier display --redact config.xml
 
   # Verbose logging for troubleshooting
   opnDossier --verbose display config.xml`,

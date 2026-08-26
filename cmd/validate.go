@@ -45,10 +45,10 @@ The validation includes:
 
 Examples:
   # Validate a single configuration file
-  opnDossier validate config.xml
+  opndossier validate config.xml
 
   # Validate multiple configuration files
-  opnDossier validate config1.xml config2.xml config3.xml
+  opndossier validate config1.xml config2.xml config3.xml
 
   # Validate with verbose output to see detailed validation results
   opnDossier --verbose validate config.xml

@@ -51,13 +51,13 @@ Exit codes:
 
 Examples:
   # Validate the default configuration file
-  opnDossier config validate
+  opndossier config validate
 
   # Validate a specific configuration file
-  opnDossier config validate /path/to/config.yaml
+  opndossier config validate /path/to/config.yaml
 
   # Validate configuration in CI/CD pipeline
-  opnDossier config validate ~/.opnDossier.yaml || exit 1`,
+  opndossier config validate ~/.opnDossier.yaml || exit 1`,
 	Args: cobra.MaximumNArgs(1),
 	RunE: runConfigValidate,
 }

@@ -38,13 +38,13 @@ Subcommands:
 
 Examples:
   # Plain text output (one name per line)
-  opnDossier list devices
+  opndossier list devices
 
   # JSON output suitable for jq
-  opnDossier list formats --json
+  opndossier list formats --json
 
   # Preview dynamic plugins from a directory
-  opnDossier list plugins --plugin-dir ./plugins`,
+  opndossier list plugins --plugin-dir ./plugins`,
 }
 
 // init registers the list parent command with the root command. Child

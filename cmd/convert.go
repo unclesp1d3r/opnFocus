@@ -170,31 +170,31 @@ RELATED:
   validate   - Validate config.xml before conversion
   sanitize   - Redact a config.xml before distribution`,
 	Example: `  # Convert configuration to markdown (default)
-  opnDossier convert my_config.xml
+  opndossier convert my_config.xml
 
   # Convert to JSON format
-  opnDossier convert my_config.xml --format json
+  opndossier convert my_config.xml --format json
 
   # Convert to YAML and save to a file
-  opnDossier convert my_config.xml -f yaml -o documentation.yaml
+  opndossier convert my_config.xml -f yaml -o documentation.yaml
 
   # Convert to self-contained HTML
-  opnDossier convert my_config.xml --format html -o report.html
+  opndossier convert my_config.xml --format html -o report.html
 
   # Generate a comprehensive report
-  opnDossier convert my_config.xml --comprehensive
+  opndossier convert my_config.xml --comprehensive
 
   # Convert only specific sections
-  opnDossier convert my_config.xml --section system,network
+  opndossier convert my_config.xml --section system,network
 
   # Convert multiple files to JSON (each output auto-named)
-  opnDossier convert config1.xml config2.xml --format json
+  opndossier convert config1.xml config2.xml --format json
 
   # Redact sensitive fields (passwords, SNMP community strings, private keys)
-  opnDossier convert config.xml --format json --redact
+  opndossier convert config.xml --format json --redact
 
   # Validate then convert (recommended workflow)
-  opnDossier validate config.xml && opnDossier convert config.xml -f json -o output.json`,
+  opndossier validate config.xml && opnDossier convert config.xml -f json -o output.json`,
 	Args: cobra.MinimumNArgs(1),
 	RunE: runConvert,
 }

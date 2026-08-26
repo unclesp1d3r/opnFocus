@@ -233,28 +233,28 @@ RELATED:
   validate   - Structural validation (no audit)
   sanitize   - Redact secrets before sharing audit output`,
 	Example: `  # Run a blue team audit with all compliance plugins (default)
-  opnDossier audit config.xml
+  opndossier audit config.xml
 
   # Blue team defensive audit with specific plugins
-  opnDossier audit config.xml --plugins stig,sans
+  opndossier audit config.xml --plugins stig,sans
 
   # Red team attack surface analysis
-  opnDossier audit config.xml --mode red
+  opndossier audit config.xml --mode red
 
   # Export audit report as JSON
-  opnDossier audit config.xml --format json -o audit-report.json
+  opndossier audit config.xml --format json -o audit-report.json
 
   # Multi-file audit (reports auto-named config1-audit.md, config2-audit.md)
-  opnDossier audit config1.xml config2.xml --mode blue
+  opndossier audit config1.xml config2.xml --mode blue
 
   # Comprehensive blue team audit with all compliance checks
-  opnDossier audit config.xml --mode blue --comprehensive --plugins stig,sans,firewall
+  opndossier audit config.xml --mode blue --comprehensive --plugins stig,sans,firewall
 
   # Show only failing controls in blue mode markdown output
-  opnDossier audit config.xml --mode blue --failures-only
+  opndossier audit config.xml --mode blue --failures-only
 
   # Redact sensitive fields from audit output
-  opnDossier audit config.xml --redact`,
+  opndossier audit config.xml --redact`,
 	RunE: runAudit,
 }
 

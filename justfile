@@ -337,12 +337,12 @@ site: docs
 # Build documentation
 [group('docs')]
 docs-build:
-    @{{ mise_exec }} uv run mkdocs build
+    @{{ mise_exec }} uv run mkdocs build --strict
 
 # Build documentation with verbose output
 [group('docs')]
 docs-test:
-    @{{ mise_exec }} uv run mkdocs build --verbose
+    @{{ mise_exec }} uv run mkdocs build --verbose --strict
 
 # Generate model reference documentation
 [group('docs')]

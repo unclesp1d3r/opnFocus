@@ -1,6 +1,9 @@
-# API Reference
+# Internal Package Reference
 
-This document provides detailed information about the opnDossier internal Go API and its components.
+This document describes the packages under `internal/`, which implement opnDossier's behaviour but are **not** importable from outside the module.
+
+!!! info "Looking for the library API?"
+    If you are embedding opnDossier as a Go dependency, you want the [Public API Contract](public-api.md) instead — it covers the `pkg/` packages, their stability guarantees, and what counts as a breaking change. Everything on this page is private to the module and may change in any release.
 
 ## Overview
 

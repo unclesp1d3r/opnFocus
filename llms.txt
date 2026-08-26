@@ -128,7 +128,7 @@ just lint               # Run golangci-lint via mise-pinned toolchain
 just ci-check           # Full CI-equivalent checks (pre-commit + format + lint + test + integration + race)
 just ci-smoke           # Fast smoke tests (minimal validation)
 just scan               # Run gosec security scanner
-just generate-cli-docs  # Regenerate docs/cli/opnDossier_*.md from Cobra definitions
+just generate-cli-docs  # Regenerate docs/cli/opndossier_*.md from Cobra definitions
 just docs-build         # Build the mkdocs documentation site
 ```
 

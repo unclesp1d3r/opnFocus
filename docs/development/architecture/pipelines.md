@@ -641,8 +641,8 @@ Each format implements the `FormatHandler` interface:
 type FormatHandler interface {
     FileExtension() string
     Aliases() []string
-    Generate(g *HybridGenerator, data *common.CommonDevice, opts Options) (string, error)
-    GenerateToWriter(g *HybridGenerator, w io.Writer, data *common.CommonDevice, opts Options) error
+    Generate(ctx context.Context, g *HybridGenerator, data *common.CommonDevice, opts Options) (string, error)
+    GenerateToWriter(ctx context.Context, g *HybridGenerator, w io.Writer, data *common.CommonDevice, opts Options) error
 }
 ```
 

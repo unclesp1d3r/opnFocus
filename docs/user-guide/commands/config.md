@@ -58,5 +58,5 @@ opndossier config validate ~/.opnDossier.yaml
 
 ## Related
 
-- [CLI Reference — `config`](../../cli/opnDossier_config.md) -- auto-generated exhaustive flag list (links to `config init`, `config show`, `config validate`)
+- [CLI Reference — `config`](../../cli/opndossier_config.md) -- auto-generated exhaustive flag list (links to `config init`, `config show`, `config validate`)
 - [Configuration Reference](../configuration-reference.md) -- full configuration file format and options

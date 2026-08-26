@@ -29,17 +29,19 @@ Download pre-built binaries for Linux, macOS, or Windows from [releases](https:/
 go install github.com/EvilBit-Labs/opnDossier@latest
 ```
 
+> `go install` names the binary `opnDossier` after the module path. Every other install method ships it as `opndossier`, which is the name used throughout these examples — rename it, or install via Homebrew or a release archive.
+
 ### Basic Usage
 
 ```bash
 # Generate configuration documentation
-opnDossier convert config.xml -o report.md
+opndossier convert config.xml -o report.md
 
 # Run security audit (blue mode is default)
-opnDossier audit config.xml
+opndossier audit config.xml
 
 # Display config in terminal
-opnDossier display config.xml
+opndossier display config.xml
 ```
 
 ### Example Output
@@ -166,7 +168,7 @@ Extract and run:
 
 ```bash
 tar -xzf opnDossier-*.tar.gz
-./opnDossier --help
+./opndossier --help
 ```
 
 ### Install via Go
@@ -182,7 +184,7 @@ go install github.com/EvilBit-Labs/opnDossier@latest
 ```bash
 git clone https://github.com/EvilBit-Labs/opnDossier.git
 cd opnDossier
-go build -o opnDossier main.go
+go build -o opndossier main.go
 ```
 
 For development builds with additional tooling, see [CONTRIBUTING.md](CONTRIBUTING.md).
@@ -203,46 +205,46 @@ Run `just ci-check` manually before pushing for the full quality bar (lint, test
 
 ```bash
 # Run blue team defensive audit (default mode)
-opnDossier audit config.xml
+opndossier audit config.xml
 
 # Blue team audit with specific compliance plugins
-opnDossier audit config.xml --plugins stig,sans
+opndossier audit config.xml --plugins stig,sans
 
 # Red team attack surface analysis
-opnDossier audit config.xml --mode red
+opndossier audit config.xml --mode red
 
 # Export audit findings to JSON for automation/integration
-opnDossier audit -f json config.xml -o findings.json
+opndossier audit -f json config.xml -o findings.json
 ```
 
 ### Configuration Documentation
 
 ```bash
 # Convert OPNsense or pfSense config to markdown documentation
-opnDossier convert config.xml -o firewall-docs.md
+opndossier convert config.xml -o firewall-docs.md
 
 # Generate YAML for configuration management tools
-opnDossier convert -f yaml config.xml -o config.yaml
+opndossier convert -f yaml config.xml -o config.yaml
 
 # Display in terminal with custom wrap width
-opnDossier display --wrap 100 config.xml
+opndossier display --wrap 100 config.xml
 ```
 
 ### Validation
 
 ```bash
 # Validate configuration file
-opnDossier validate config.xml
+opndossier validate config.xml
 
 # Validate before converting
-opnDossier validate config.xml && opnDossier convert config.xml -o report.md
+opndossier validate config.xml && opnDossier convert config.xml -o report.md
 ```
 
 ### Advanced Options
 
 ```bash
 # Include system tunables in report
-opnDossier convert config.xml -o comprehensive.md --include-tunables
+opndossier convert config.xml -o comprehensive.md --include-tunables
 
 # Verbose output for troubleshooting
 opnDossier --verbose convert config.xml
@@ -288,10 +290,10 @@ opnDossier --verbose convert config.xml
 
 # Using environment variables
 export OPNDOSSIER_VERBOSE=true
-opnDossier convert config.xml
+opndossier convert config.xml
 
 # Using config file (automatically loaded from ~/.opnDossier.yaml)
-opnDossier convert config.xml
+opndossier convert config.xml
 ```
 
 ## Output Formats
@@ -306,9 +308,9 @@ opnDossier supports multiple output formats for different use cases:
 Specify format with `-f` or `--format` flag:
 
 ```bash
-opnDossier convert -f json config.xml -o output.json
-opnDossier convert -f yaml config.xml -o output.yaml
-opnDossier convert -f markdown config.xml -o output.md  # default
+opndossier convert -f json config.xml -o output.json
+opndossier convert -f yaml config.xml -o output.yaml
+opndossier convert -f markdown config.xml -o output.md  # default
 ```
 
 ## GitHub Actions
