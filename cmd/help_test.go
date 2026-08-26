@@ -191,23 +191,23 @@ func TestFormatExamples(t *testing.T) {
 		},
 		{
 			"commands get 4-space indent",
-			"opnDossier convert config.xml",
-			"    opnDossier convert config.xml",
+			"opndossier convert config.xml",
+			"    opndossier convert config.xml",
 		},
 		{
 			"blank lines preserved",
-			"# Example\n\nopnDossier convert config.xml",
-			"  # Example\n\n    opnDossier convert config.xml",
+			"# Example\n\nopndossier convert config.xml",
+			"  # Example\n\n    opndossier convert config.xml",
 		},
 		{
 			"leading whitespace is stripped then re-indented",
-			"    opnDossier convert config.xml",
-			"    opnDossier convert config.xml",
+			"    opndossier convert config.xml",
+			"    opndossier convert config.xml",
 		},
 		{
 			"mixed comments and commands",
-			"# Step 1\nopnDossier validate config.xml\n\n# Step 2\nopnDossier convert config.xml",
-			"  # Step 1\n    opnDossier validate config.xml\n\n  # Step 2\n    opnDossier convert config.xml",
+			"# Step 1\nopndossier validate config.xml\n\n# Step 2\nopndossier convert config.xml",
+			"  # Step 1\n    opndossier validate config.xml\n\n  # Step 2\n    opndossier convert config.xml",
 		},
 	}
 

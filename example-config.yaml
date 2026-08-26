@@ -9,7 +9,7 @@
 #   3. Configuration file
 #   4. Built-in defaults
 #
-# Generate a fresh template with: opnDossier config init
+# Generate a fresh template with: opndossier config init
 
 # ==============================================================================
 # BASIC SETTINGS

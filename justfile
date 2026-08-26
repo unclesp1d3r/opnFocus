@@ -337,12 +337,12 @@ site: docs
 # Build documentation
 [group('docs')]
 docs-build:
-    @{{ mise_exec }} uv run mkdocs build
+    @{{ mise_exec }} uv run mkdocs build --strict
 
 # Build documentation with verbose output
 [group('docs')]
 docs-test:
-    @{{ mise_exec }} uv run mkdocs build --verbose
+    @{{ mise_exec }} uv run mkdocs build --verbose --strict
 
 # Generate model reference documentation
 [group('docs')]
@@ -359,10 +359,10 @@ generate-cli-docs:
 [group('docs')]
 generate-demos:
     @echo "Building opnDossier binary for demos..."
-    @{{ mise_exec }} go build -o vhs/opnDossier .
+    @{{ mise_exec }} go build -o vhs/opndossier .
     @mkdir -p vhs/gif vhs/screenshots
     @set -e; \
-    trap 'rm -f vhs/opnDossier' EXIT; \
+    trap 'rm -f vhs/opndossier' EXIT; \
     for tape in vhs/*.tape; do \
         echo "Recording $tape..."; \
         env -i HOME="$HOME" PATH="$PATH" TERM="xterm-256color" vhs "$tape"; \

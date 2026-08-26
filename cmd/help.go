@@ -71,7 +71,7 @@ func createCustomHelpFunc(defaultHelp func(*cobra.Command, []string)) func(*cobr
 		// Add helpful hints at the end for root command
 		if cmd.Parent() == nil && cmd.HasAvailableSubCommands() {
 			fmt.Println()
-			fmt.Println("Tip: Use 'opnDossier validate config.xml' to check your configuration before converting.")
+			fmt.Println("Tip: Use 'opndossier validate config.xml' to check your configuration before converting.")
 		}
 	}
 }

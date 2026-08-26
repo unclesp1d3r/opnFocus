@@ -301,7 +301,7 @@ OpenVPN's `<tls>` element (under `<openvpn-server>` / `<openvpn-client>`) holds 
 
 - **Rule-ordering impact:** None. The `private_key` rule is distinct from `authserver_config` / `password` / `email` / `hostname` and does not participate in the §19.1 ordering invariants.
 
-- **History:** SEC-H1 from the 2026-04-19 comprehensive review. Prior to the fix, `opnDossier sanitize` silently leaked raw HMAC keys sufficient to forge OpenVPN handshakes — the headline promise of the subcommand.
+- **History:** SEC-H1 from the 2026-04-19 comprehensive review. Prior to the fix, `opndossier sanitize` silently leaked raw HMAC keys sufficient to forge OpenVPN handshakes — the headline promise of the subcommand.
 
 ### 11.4 NetBird `setupKey` Is a Credential
 
@@ -311,7 +311,7 @@ The OPNsense `os-netbird` plugin persists the NetBird enrollment/setup key as `<
 - **Fix:** Add `"setupkey"`, `"setup_key"`, `"setup-key"` to the **`secret`** rule's `FieldPatterns` in `internal/sanitizer/rules.go` (enrollment token, not private-key material — unlike SNMPv3 `enckey` which lives on `private_key`) and to `passwordKeywords` in `internal/sanitizer/patterns.go`.
 - **Detection:** `TestSanitizeXML_NetBirdSetupKey_RedactsSecret` + `TestSanitizeXML_NetBirdSetupKey_NoFalsePositives` in `internal/sanitizer/sanitizer_test.go`; `TestRedact_NetBirdSetupKey_RedactsSecret` in `rules_fieldpattern_test.go`.
 - **Rule-ordering impact:** None. The `secret` rule already precedes `private_key` and does not participate in the §19.1 ordering invariants.
-- **Upstream:** https://github.com/opnsense/plugins (`security/netbird`); field declared in `Authentication.xml` as `UpdateOnlyTextField` with UUID mask.
+- **Upstream:** <https://github.com/opnsense/plugins> (`security/netbird`); field declared in `Authentication.xml` as `UpdateOnlyTextField` with UUID mask.
 - **History:** Reported as a cleartext leak through `sanitize` when NetBird is disabled or the plugin XML remains after removal; fixed in #728.
 
 ## 12. Git Tagging
@@ -355,7 +355,7 @@ A fresh `NewRuleEngine` creates a fresh `NewMapper()` — mappings are determini
 
 `sanitizeReflect` in `internal/sanitizer/sanitizer.go` cannot recurse into `map[K]struct{...}` or `map[K]*struct{...}` values. Map values are not addressable in Go, so `reflect.Value.SetMapIndex` is the only way to write back — and that requires a fully reconstructed element, which the current walker does not perform. The guard at the top of the `reflect.Map` case detects this and logs a warning via the optional logger injected through `Sanitizer.SetLogger`. When no logger is set, the gap is silent.
 
-- **Current scope:** This gap is reachable ONLY through `SanitizeStruct`, which is an opt-in consumer flow. The default `opnDossier sanitize` CLI uses `SanitizeXML` (raw element walk) and is not affected — element names like `<password>` and `<bcrypt-hash>` are still redacted regardless of the Go model shape.
+- **Current scope:** This gap is reachable ONLY through `SanitizeStruct`, which is an opt-in consumer flow. The default `opndossier sanitize` CLI uses `SanitizeXML` (raw element walk) and is not affected — element names like `<password>` and `<bcrypt-hash>` are still redacted regardless of the Go model shape.
 - **Known current paths:** OPNsense `KeaDhcp4` already uses map-style subnet containers, but those maps hold config metadata, not credentials. No currently-shipped schema path puts a secret behind a struct-valued map.
 - **Why warn instead of fix:** Supporting struct-valued maps via reflection requires reconstructing each element in place (read → recurse into a copy → `SetMapIndex` with the mutated copy). That work is scheduled under todo #151 (tag-based redaction) which will subsume this gap by annotating sensitive fields directly and driving redaction from tags instead of field-name heuristics. The warning is the bridge until #151 lands.
 - **Regression tests:** `TestSanitizeStruct_MapStructValues_WarnsAndSkips` and `TestSanitizeStruct_MapStructValues_NilLoggerNoPanic` in `internal/sanitizer/sanitizer_reflect_test.go` pin both the warning path and the nil-logger nil-safety invariant. If a future enhancement starts handling struct-valued maps, those tests must be updated (or replaced) to reflect the new behavior — do not delete them blind.
@@ -482,6 +482,31 @@ With `wrap = "no"` in `.mdformat.toml`, mdformat joins consecutive `**Label**:` 
 
 - **Gotcha:** Do not "fix" these back onto separate lines — the `mdformat` pre-commit hook re-collapses them and the edit will not survive a commit. Both `docs/adr/template.md` and the ADRs are kept in the collapsed form, so they are already mutually consistent.
 - **Gotcha:** Reviewers (e.g. CodeRabbit) sometimes flag the collapsed frontmatter as a layout defect and suggest splitting the lines. That suggestion is a false positive against this repo's formatter — decline it.
+
+### 22.3 Cobra `Use:` Drives Generated Filenames — and macOS Hides the Fallout
+
+The root command's `Use:` string (`cmd/root.go`) is not just help text. Cobra derives from it:
+
+- the page **filenames** under `docs/cli/` (`opndossier_audit.md`, …) and the cross-reference links inside them,
+- the man-page filenames emitted by `opndossier man` (`opndossier.1`),
+- every rendered `Usage:` line.
+
+Changing `Use:` therefore renames 19 committed doc files and one packaging artifact.
+
+- **The macOS trap:** on a case-insensitive filesystem, regenerating writes `opndossier_audit.md` *over* `opnDossier_audit.md` and the directory entry keeps the **old** casing. `git status` shows a modification, the build passes, and everything looks fine. On Linux CI the same regeneration produces a **second, duplicate set** of pages while `mkdocs.yml` still points at the stale set.
+- **Release coupling:** `.goreleaser.yaml` references `./packaging/opndossier.1` by exact path in two places (archive `contents:` and nfpm `contents:`). `just ci-check` never runs goreleaser, so a `Use:` change that breaks these paths is invisible until a `git tag` fails the release workflow.
+- **After any `Use:` change:** run `go run . docs docs/cli/`, confirm `git ls-files docs/cli | grep -c '<old-casing>'` returns `0`, run `<binary> man <dir>` and check the emitted `.1` name against both `.goreleaser.yaml` paths, then update `mkdocs.yml`, `docs/for-agents.md`, and `docs/llms.txt`.
+- **Regression test:** `TestGetRootCmd` (`cmd/root_test.go`) pins `Use` to the lowercase shipped binary name and carries a comment explaining why. The name must match goreleaser's `binary:` (`opndossier`), Homebrew, and `justfile`'s `binary_name`. `opnDossier` is the product name in prose, never the command.
+- **`go install` is the permanent exception.** Go derives the installed binary name from the module path (`github.com/EvilBit-Labs/opnDossier`), so `go install` produces `opnDossier` regardless of `Use:`. This cannot be fixed without changing the import path; it is documented as a rename step in `docs/user-guide/getting-started.md` and `installation.md` instead.
+
+### 22.4 `foo.md` and `foo/index.md` Silently Collide
+
+MkDocs maps both `docs/foo.md` and `docs/foo/index.md` to the same output path, `site/foo/index.html`. One silently wins; the other is never served. **`--strict` does not catch this** — there is no broken link, just a page that renders someone else's content.
+
+- **Live example:** `docs/examples.md` and `docs/examples/index.md` both built to `site/examples/index.html`. `examples/index.md` won, so the "All Examples" nav entry pointed at a URL rendering the Overview page. The condition survived undetected because every link still resolved.
+- **Detection:** `for f in docs/*.md; do [ -d "docs/$(basename "$f" .md)" ] && echo "COLLISION: $f"; done`
+- **Rule:** when splitting a page into a directory, delete the original. Do not leave both.
+- **Corollary for `mkdocs-redirects`:** never add a `redirect_map` entry whose *source* collides with a real page's output path. `examples.md: examples/index.md` writes a redirect stub over `site/examples/index.html` — the very page it points at — replacing the Overview content with a self-redirect. `--strict` reports nothing. A colliding source needs no redirect anyway: the URL never changed meaning, only which file backed it.
 
 ### 22.2 mdformat Excludes Live in `.pre-commit-config.yaml`, Not `.mdformat.toml`
 

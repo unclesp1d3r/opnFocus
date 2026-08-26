@@ -11,12 +11,12 @@ Set TypingSpeed 40ms
 Set WindowBar Colorful
 Set WindowBarSize 40
 
-Type "./vhs/opnDossier validate testdata/sample.config.1.xml"
+Type "./vhs/opndossier validate testdata/sample.config.1.xml"
 Sleep 500ms
 Enter
 Sleep 2s
 
-Type "./vhs/opnDossier validate --json-output testdata/sample.config.1.xml"
+Type "./vhs/opndossier validate --json-output testdata/sample.config.1.xml"
 Sleep 500ms
 Enter
 Sleep 3s

@@ -11,7 +11,7 @@ Set TypingSpeed 40ms
 Set WindowBar Colorful
 Set WindowBarSize 40
 
-Type "./vhs/opnDossier convert --format json --section firewall testdata/sample.config.1.xml"
+Type "./vhs/opndossier convert --format json --section firewall testdata/sample.config.1.xml"
 Sleep 500ms
 Enter
 Sleep 5s

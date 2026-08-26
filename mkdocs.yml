@@ -32,6 +32,47 @@ theme:
     - search.share
     - toc.integrate
 
+# Old URLs kept alive. The CLI pages were renamed when the Cobra command name
+# was corrected to the shipped binary (see GOTCHAS.md 22.3); the rest were
+# consolidated into the pages they now point at. docs/for-agents.md and
+# docs/llms.txt are agent-entry artifacts, so external tooling may hold the
+# old paths.
+plugins:
+  - search
+  - redirects:
+      redirect_maps:
+        cli/opnDossier.md: cli/opndossier.md
+        cli/opnDossier_audit.md: cli/opndossier_audit.md
+        cli/opnDossier_completion.md: cli/opndossier_completion.md
+        cli/opnDossier_config.md: cli/opndossier_config.md
+        cli/opnDossier_config_init.md: cli/opndossier_config_init.md
+        cli/opnDossier_config_show.md: cli/opndossier_config_show.md
+        cli/opnDossier_config_validate.md: cli/opndossier_config_validate.md
+        cli/opnDossier_conv.md: cli/opndossier_conv.md
+        cli/opnDossier_convert.md: cli/opndossier_convert.md
+        cli/opnDossier_diff.md: cli/opndossier_diff.md
+        cli/opnDossier_display.md: cli/opndossier_display.md
+        cli/opnDossier_list.md: cli/opndossier_list.md
+        cli/opnDossier_list_devices.md: cli/opndossier_list_devices.md
+        cli/opnDossier_list_formats.md: cli/opndossier_list_formats.md
+        cli/opnDossier_list_plugins.md: cli/opndossier_list_plugins.md
+        cli/opnDossier_man.md: cli/opndossier_man.md
+        cli/opnDossier_sanitize.md: cli/opndossier_sanitize.md
+        cli/opnDossier_validate.md: cli/opndossier_validate.md
+        cli/opnDossier_version.md: cli/opndossier_version.md
+        configuration.md: user-guide/configuration.md
+        dev-guide/contributing.md: development/contributing.md
+        security/compliance.md: pipeline-v2-compliance.md
+        roadmap.md: index.md
+
+# Files that must never be published. `plans/` is gitignored so CI never sees
+# it, but a local `mkdocs build` would otherwise deploy internal planning docs.
+# `adr/template.md` is a form and `templates/` holds generator inputs, not pages.
+exclude_docs: |
+  plans/
+  templates/
+  adr/template.md
+
 # Navigation
 nav:
   - Home: index.md
@@ -62,7 +103,6 @@ nav:
       - Audit & Compliance: examples/audit-compliance.md
       - Automation & Scripting: examples/automation-scripting.md
       - Troubleshooting: examples/troubleshooting.md
-      - All Examples: examples.md
 
   - Data Model & Integration:
       - Overview: data-model/index.md
@@ -78,14 +118,44 @@ nav:
           - Plugin System: development/architecture/plugin-system.md
       - Development Standards: development/standards.md
       - CLI Output Policy: development/cli-output-policy.md
-      - API Reference: development/api.md
+      - Public API Contract: development/public-api.md
+      - Internal Package Reference: development/api.md
       - Plugin Development: development/plugin-development.md
       - Contributing: development/contributing.md
       - Releasing: development/releasing.md
       - Role Definitions: development/authoritative_role_definitions.md
+      - Architecture Decisions:
+          - Overview: adr/README.md
+          - "ADR-0001: SNMP Config Storage Model": adr/0001-opnsense-pfsense-snmp-config-storage-model.md
+          - "ADR-0002: Named-Object Reference Layer": adr/0002-named-object-reference-layer.md
+          - "ADR-0003: FortiGate-First Parser": adr/0003-fortigate-first-parser-defer-generic-engine.md
+          - "ADR-0004: Unified Shadow-Detection Engine": adr/0004-unified-shadow-detection-engine.md
+          - "ADR-0005: pf Evaluation Semantics": adr/0005-analysis-pf-evaluation-semantics.md
+      - Solutions & Post-mortems:
+          - Architecture Issues:
+              - File-Split Refactoring: solutions/architecture-issues/file-split-refactor-gotchas.md
+              - Format Dispatch via FormatRegistry: solutions/architecture-issues/format-dispatch-centralization-registry-pattern.md
+              - pkg/ Importing internal/: solutions/architecture-issues/pkg-internal-import-boundary.md
+              - Pluggable DeviceParser Registry: solutions/architecture-issues/pluggable-deviceparser-registry-pattern.md
+          - Logic Errors:
+              - CLI Flag Silently Ignored: solutions/logic-errors/cli-flag-wiring-silent-ignore.md
+              - Deferred Plugin Name Validation: solutions/logic-errors/cli-prerun-validation-timing-dynamic-plugins.md
+              - Documentation-Code Drift: solutions/logic-errors/documentation-code-drift-interface-refactoring.md
+              - NAT IPProtocol Bare Enum Casts: solutions/logic-errors/opnsense-nat-ipprotocol-enum-cast-missing-guard.md
+              - Exact-String Port Matching: solutions/logic-errors/port-matching-exact-string-under-reports-ranges.md
+              - NAT Forwards vs. Firewall Services: solutions/logic-errors/wan-exposure-nat-inbound-rules-wrongly-correlated-with-firewall-service.md
+          - Runtime Errors:
+              - Liberal Boolean XML Parsing: solutions/runtime-errors/liberal-boolean-xml-parsing-opnsense-pfsense.md
+              - Plugin Panic Recovery: solutions/runtime-errors/plugin-panic-recovery-audit-runchecks.md
+          - Performance Issues:
+              - Recursive Alias Resolution: solutions/performance-issues/recursive-alias-resolution-dag-blowup.md
+          - Workflow Issues:
+              - CI Runs on pull_request: solutions/workflow-issues/ci-runs-on-pull-request-not-feature-branch-push.md
+              - Markdown Output Whitespace Drift: solutions/workflow-issues/dependency-bump-markdown-output-whitespace-drift.md
+          - Conventions:
+              - PR and Commit Message Standard: solutions/conventions/pr-and-commit-message-content-standard-2026-05-04.md
 
   - Security:
-      - Compliance: security/compliance.md
       - Validation: security/validation.md
       - Security Assurance: security/security-assurance.md
       - Vulnerability Scanning: security/vulnerability-scanning.md
@@ -96,22 +166,27 @@ nav:
       - Compliance Standards: compliance-standards.md
       - Pipeline v2 Compliance: pipeline-v2-compliance.md
       - CLI Reference (Auto-generated):
-          - Overview: cli/opnDossier.md
-          - audit: cli/opnDossier_audit.md
-          - convert: cli/opnDossier_convert.md
-          - display: cli/opnDossier_display.md
-          - diff: cli/opnDossier_diff.md
-          - sanitize: cli/opnDossier_sanitize.md
-          - validate: cli/opnDossier_validate.md
+          - Overview: cli/opndossier.md
+          - audit: cli/opndossier_audit.md
+          - convert: cli/opndossier_convert.md
+          - display: cli/opndossier_display.md
+          - diff: cli/opndossier_diff.md
+          - sanitize: cli/opndossier_sanitize.md
+          - validate: cli/opndossier_validate.md
           - config:
-              - Overview: cli/opnDossier_config.md
-              - config init: cli/opnDossier_config_init.md
-              - config show: cli/opnDossier_config_show.md
-              - config validate: cli/opnDossier_config_validate.md
-          - man: cli/opnDossier_man.md
-          - completion: cli/opnDossier_completion.md
-          - conv (alias): cli/opnDossier_conv.md
-          - version: cli/opnDossier_version.md
+              - Overview: cli/opndossier_config.md
+              - config init: cli/opndossier_config_init.md
+              - config show: cli/opndossier_config_show.md
+              - config validate: cli/opndossier_config_validate.md
+          - list:
+              - Overview: cli/opndossier_list.md
+              - list devices: cli/opndossier_list_devices.md
+              - list formats: cli/opndossier_list_formats.md
+              - list plugins: cli/opndossier_list_plugins.md
+          - man: cli/opndossier_man.md
+          - completion: cli/opndossier_completion.md
+          - conv (alias): cli/opndossier_conv.md
+          - version: cli/opndossier_version.md
 
   - Research & Internal:
       - Theme Usage: theme-usage.md
