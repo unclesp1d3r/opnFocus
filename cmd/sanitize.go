@@ -167,22 +167,22 @@ RELATED:
   convert    - Use --redact for single-pass redaction of the rendered report
   audit      - Use --redact to keep audit output safe to share`,
 	Example: `  # Sanitize for public sharing (maximum redaction)
-  opnDossier sanitize config.xml --mode aggressive -o config-sanitized.xml
+  opndossier sanitize config.xml --mode aggressive -o config-sanitized.xml
 
   # Sanitize for internal sharing (default mode)
-  opnDossier sanitize config.xml -o sanitized.xml
+  opndossier sanitize config.xml -o sanitized.xml
 
   # Sanitize with mapping file for reverse lookup
-  opnDossier sanitize config.xml -o sanitized.xml --mapping mappings.json
+  opndossier sanitize config.xml -o sanitized.xml --mapping mappings.json
 
   # Minimal redaction (credentials and authserver values only)
-  opnDossier sanitize config.xml --mode minimal
+  opndossier sanitize config.xml --mode minimal
 
   # Force overwrite of an existing file
-  opnDossier sanitize config.xml -o output.xml --force
+  opndossier sanitize config.xml -o output.xml --force
 
   # Pipe to another command
-  opnDossier sanitize config.xml | less`,
+  opndossier sanitize config.xml | less`,
 	Args: cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		ctx := cmd.Context()

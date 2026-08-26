@@ -138,13 +138,13 @@ consumers can detect failure modes without scraping stderr. Dynamic plugin
 load failures also surface as WARN lines on stderr in both text and JSON
 modes.`,
 	Example: `  # Plain text, one plugin name per line
-  opnDossier list plugins
+  opndossier list plugins
 
   # JSON output for automation
-  opnDossier list plugins --json
+  opndossier list plugins --json
 
   # Include dynamic plugins from a directory
-  opnDossier list plugins --plugin-dir ./plugins --json`,
+  opndossier list plugins --plugin-dir ./plugins --json`,
 	RunE: runListPlugins,
 }
 

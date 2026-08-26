@@ -225,6 +225,6 @@ Whenever a bug report shows `strconv.ParseInt`, `strconv.ParseBool`, or `strconv
 - [GOTCHAS §15 — Liberal Boolean and Integer Parsing](https://github.com/EvilBit-Labs/opnDossier/blob/main/GOTCHAS.md) — decision rubric and pointer-receiver caveats.
 - [PR #577](https://github.com/EvilBit-Labs/opnDossier/pull/577) — this fix.
 - [Issue #558](https://github.com/EvilBit-Labs/opnDossier/issues/558) — reporter-filed bug.
-- [Plan: 2026-04-18-002-fix-issue-558-parser-on-value.md](../../plans/2026-04-18-002-fix-issue-558-parser-on-value.md) — implementation plan.
+- `docs/plans/2026-04-18-002-fix-issue-558-parser-on-value.md` — implementation plan (local working file, not published).
 - [`cli-flag-wiring-silent-ignore`](../logic-errors/cli-flag-wiring-silent-ignore.md) — related silent-failure class of bug (different root cause, same symptom shape).
 - [`pluggable-deviceparser-registry-pattern`](../architecture-issues/pluggable-deviceparser-registry-pattern.md) — parser registry architecture that `WrapDecodeError` lives within.

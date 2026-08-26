@@ -66,21 +66,21 @@ After, the NAT loop is removed entirely, and `wanRulePermitsPort` only ever cons
 // a concrete numeric port that does not contain the service port is treated
 // as non-permitting. See rulePortPermits.
 func wanRulePermitsPort(device *common.CommonDevice, port int) bool {
-	for _, rule := range device.FirewallRules {
-		if rule.Disabled || rule.Type != common.RuleTypePass {
-			continue
-		}
+ for _, rule := range device.FirewallRules {
+  if rule.Disabled || rule.Type != common.RuleTypePass {
+   continue
+  }
 
-		if analysis.RuleReachability(rule, device.Interfaces) != analysis.WANReachable {
-			continue
-		}
+  if analysis.RuleReachability(rule, device.Interfaces) != analysis.WANReachable {
+   continue
+  }
 
-		if rulePortPermits(rule.Destination.Port, port) {
-			return true
-		}
-	}
+  if rulePortPermits(rule.Destination.Port, port) {
+   return true
+  }
+ }
 
-	return false
+ return false
 }
 ```
 
@@ -103,11 +103,11 @@ The caller, `serviceReachability` (`internal/audit/red_analysis.go` ~line 147), 
 // targeting the firewall directly. NAT rules are correlated separately, on
 // their own terms, by addWeakNATRules/InboundNATRuleReachability.
 func serviceReachability(device *common.CommonDevice, port int) analysis.Reachability {
-	if wanRulePermitsPort(device, port) {
-		return analysis.WANReachable
-	}
+ if wanRulePermitsPort(device, port) {
+  return analysis.WANReachable
+ }
 
-	return analysis.LANOnly
+ return analysis.LANOnly
 }
 ```
 

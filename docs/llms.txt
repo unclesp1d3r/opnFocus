@@ -14,14 +14,14 @@ opnDossier is built in Go, ships as a single static binary for Linux / macOS / W
 
 ## CLI Reference (auto-generated)
 
-- [opnDossier (root)](https://opndossier.com/cli/opnDossier/): Global flags and subcommand index — regenerated from Cobra on every build
-- [audit](https://opndossier.com/cli/opnDossier_audit/): Run security audit and compliance checks (blue / red modes)
-- [convert](https://opndossier.com/cli/opnDossier_convert/): Convert `config.xml` to Markdown, JSON, YAML, HTML, or plain text
-- [display](https://opndossier.com/cli/opnDossier_display/): Render `config.xml` as formatted Markdown in the terminal
-- [validate](https://opndossier.com/cli/opnDossier_validate/): Check `config.xml` for structural and semantic correctness
-- [diff](https://opndossier.com/cli/opnDossier_diff/): Compare two OPNsense configuration files
-- [sanitize](https://opndossier.com/cli/opnDossier_sanitize/): Redact sensitive information from `config.xml` into a new file
-- [config](https://opndossier.com/cli/opnDossier_config/): Manage opnDossier configuration (`init`, `show`, `validate`)
+- [opnDossier (root)](https://opndossier.com/cli/opndossier/): Global flags and subcommand index — regenerated from Cobra on every build
+- [audit](https://opndossier.com/cli/opndossier_audit/): Run security audit and compliance checks (blue / red modes)
+- [convert](https://opndossier.com/cli/opndossier_convert/): Convert `config.xml` to Markdown, JSON, YAML, HTML, or plain text
+- [display](https://opndossier.com/cli/opndossier_display/): Render `config.xml` as formatted Markdown in the terminal
+- [validate](https://opndossier.com/cli/opndossier_validate/): Check `config.xml` for structural and semantic correctness
+- [diff](https://opndossier.com/cli/opndossier_diff/): Compare two OPNsense configuration files
+- [sanitize](https://opndossier.com/cli/opndossier_sanitize/): Redact sensitive information from `config.xml` into a new file
+- [config](https://opndossier.com/cli/opndossier_config/): Manage opnDossier configuration (`init`, `show`, `validate`)
 
 ## Data Model & Integration
 

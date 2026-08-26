@@ -20,7 +20,7 @@ body:
           required: true
         - label: I am running the latest release (or a recent commit) of opnDossier.
           required: true
-        - label: This report does not contain unredacted secrets from my `config.xml` (use `opnDossier sanitize` first).
+        - label: This report does not contain unredacted secrets from my `config.xml` (use `opndossier sanitize` first).
           required: true
   - type: textarea
     id: description
@@ -35,7 +35,7 @@ body:
       label: Steps to reproduce
       description: The exact commands and inputs needed to trigger the bug.
       placeholder: |
-        1. Run `opnDossier audit config.xml --mode blue`
+        1. Run `opndossier audit config.xml --mode blue`
         2. Observe ...
     validations:
       required: true
@@ -58,7 +58,7 @@ body:
     id: version
     attributes:
       label: opnDossier version
-      description: Output of `opnDossier version` (or the commit hash if built from source).
+      description: Output of `opndossier version` (or the commit hash if built from source).
       placeholder: "v1.5.0"
     validations:
       required: true

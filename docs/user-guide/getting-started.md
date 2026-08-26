@@ -22,6 +22,15 @@ brew install EvilBit-Labs/tap/opndossier
 go install github.com/EvilBit-Labs/opnDossier@latest
 ```
 
+!!! warning "`go install` names the binary `opnDossier`"
+    `go install` takes the binary name from the module path, so it installs `opnDossier` (capital D), not `opndossier`. On Linux and other case-sensitive filesystems the commands in this guide will not resolve until you rename it:
+
+    ```bash
+    mv -i "$(go env GOPATH)/bin/opnDossier" "$(go env GOPATH)/bin/opndossier"
+    ```
+
+    Homebrew and the release archives install `opndossier` directly and need no rename.
+
 **Linux packages, Docker, and pre-built binaries** are also available -- see the [Installation Guide](installation.md) for all options.
 
 **Expected result:** the `opndossier` command is now available in your shell.
@@ -32,9 +41,9 @@ go install github.com/EvilBit-Labs/opnDossier@latest
 opndossier version
 ```
 
-**Expected result:** a version string such as `opnDossier v1.7.1`.
+**Expected result:** a version line such as `opndossier version 1.7.2`.
 
-If you see `command not found`, ensure the Go bin directory (typically `$HOME/go/bin`) is in your `PATH`.
+If you see `command not found`, check two things: that the Go bin directory (typically `$HOME/go/bin`) is on your `PATH`, and — if you installed via `go install` — that you renamed the binary as described above. `ls "$(go env GOPATH)/bin" | grep -i opndossier` shows which name you actually have.
 
 ## 3. Convert a Config to Markdown
 

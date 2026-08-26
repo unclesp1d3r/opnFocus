@@ -179,28 +179,28 @@ RELATED:
   audit      - Compliance check on a single config (no comparison)
   convert    - Render a single config to markdown/JSON/YAML`,
 	Example: `  # Compare two configs with terminal output (default)
-  opnDossier diff old-config.xml new-config.xml
+  opndossier diff old-config.xml new-config.xml
 
   # Generate a markdown report
-  opnDossier diff old-config.xml new-config.xml -f markdown -o changes.md
+  opndossier diff old-config.xml new-config.xml -f markdown -o changes.md
 
   # Compare only firewall rules
-  opnDossier diff old-config.xml new-config.xml --section firewall
+  opndossier diff old-config.xml new-config.xml --section firewall
 
   # Show only security-relevant changes
-  opnDossier diff old-config.xml new-config.xml --security
+  opndossier diff old-config.xml new-config.xml --security
 
   # Generate JSON for automation
-  opnDossier diff old-config.xml new-config.xml -f json | jq '.changes[]'
+  opndossier diff old-config.xml new-config.xml -f json | jq '.changes[]'
 
   # Generate a self-contained HTML report
-  opnDossier diff old-config.xml new-config.xml -f html -o report.html
+  opndossier diff old-config.xml new-config.xml -f html -o report.html
 
   # Side-by-side terminal comparison
-  opnDossier diff old-config.xml new-config.xml -m side-by-side
+  opndossier diff old-config.xml new-config.xml -m side-by-side
 
   # Normalize values and detect reordering
-  opnDossier diff old-config.xml new-config.xml --normalize --detect-order`,
+  opndossier diff old-config.xml new-config.xml --normalize --detect-order`,
 	Args: cobra.ExactArgs(diffRequiredArgs),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		ctx := cmd.Context()

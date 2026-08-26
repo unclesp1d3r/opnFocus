@@ -38,10 +38,10 @@ binary can actually accept for --device-type.
 By default the command writes one name per line. Use --json to emit a structured
 array of {name, description} objects suitable for jq or other automation.`,
 	Example: `  # Plain text, one device type per line
-  opnDossier list devices
+  opndossier list devices
 
   # JSON output for automation
-  opnDossier list devices --json`,
+  opndossier list devices --json`,
 	RunE: runListDevices,
 }
 

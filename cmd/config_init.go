@@ -148,16 +148,16 @@ By default, the configuration file is created in your home directory as
 
 Examples:
   # Generate template in default location (~/.opnDossier.yaml)
-  opnDossier config init
+  opndossier config init
 
   # Generate template at a custom path
-  opnDossier config init --output /path/to/config.yaml
+  opndossier config init --output /path/to/config.yaml
 
   # Overwrite existing configuration file
-  opnDossier config init --force
+  opndossier config init --force
 
   # Generate in current directory
-  opnDossier config init --output .opnDossier.yaml`,
+  opndossier config init --output .opnDossier.yaml`,
 	Args: cobra.NoArgs,
 	RunE: runConfigInit,
 }

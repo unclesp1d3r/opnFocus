@@ -2,7 +2,7 @@
 
 This directory records architectural decisions and verified findings that shape opnDossier. Each ADR is a short, durable note: the context, the decision (or the verified reality we depend on), the alternatives weighed, and the consequences.
 
-See [template.md](template.md) for the blank format.
+See [`docs/adr/template.md`](https://github.com/EvilBit-Labs/opnDossier/blob/main/docs/adr/template.md) in the repository for the blank format.
 
 | ADR                                                         | Title                                                                      | Status            | Date       |
 | ----------------------------------------------------------- | -------------------------------------------------------------------------- | ----------------- | ---------- |

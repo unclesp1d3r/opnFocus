@@ -60,13 +60,13 @@ Sources:
 
 Examples:
   # Show configuration with styled output
-  opnDossier config show
+  opndossier config show
 
   # Show configuration as JSON for scripting
-  opnDossier config show --json
+  opndossier config show --json
 
   # Show configuration with a specific config file
-  opnDossier --config /path/to/config.yaml config show`,
+  opndossier --config /path/to/config.yaml config show`,
 	Args: cobra.NoArgs,
 	RunE: runConfigShow,
 }

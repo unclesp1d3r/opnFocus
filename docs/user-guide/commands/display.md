@@ -65,6 +65,6 @@ opndossier display --section system,network config.xml
 
 ## Related
 
-- [CLI Reference — `display`](../../cli/opnDossier_display.md) -- auto-generated exhaustive flag list
+- [CLI Reference — `display`](../../cli/opndossier_display.md) -- auto-generated exhaustive flag list
 - [convert](convert.md) -- write output to file instead of terminal
 - [Configuration Reference](../configuration-reference.md) -- global flags and settings

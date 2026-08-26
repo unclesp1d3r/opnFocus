@@ -6,26 +6,26 @@ If you are a human operator, start with the [User Guide](user-guide/getting-star
 
 ## Exhaustive CLI reference (auto-generated)
 
-The CLI reference in [docs/cli/](cli/opnDossier.md) is generated from the Cobra command definitions by `just generate-cli-docs`. Every subcommand, flag, alias, and shell-completion hint is listed; the content is always in sync with the binary because it is regenerated on every build.
+The CLI reference in [docs/cli/](cli/opndossier.md) is generated from the Cobra command definitions by `just generate-cli-docs` and committed to the repository. Every subcommand, flag, alias, and shell-completion hint is listed. Regeneration is a manual step run when command definitions change — not a build-time guarantee — so if you need certainty that a flag exists in the binary you are running, query it with `--help` or the [`list`](cli/opndossier_list.md) subcommands rather than trusting this page.
 
-- [`opnDossier`](cli/opnDossier.md) — root command, global flags
-- [`audit`](cli/opnDossier_audit.md) — security audit and compliance
-- [`convert`](cli/opnDossier_convert.md) — render config to markdown/json/yaml/html/text
-- [`display`](cli/opnDossier_display.md) — render to terminal
-- [`diff`](cli/opnDossier_diff.md) — compare two configs
-- [`sanitize`](cli/opnDossier_sanitize.md) — redact sensitive values
-- [`validate`](cli/opnDossier_validate.md) — structural + semantic validation
-- [`config`](cli/opnDossier_config.md) — manage the opnDossier config file
-  - [`config init`](cli/opnDossier_config_init.md)
-  - [`config show`](cli/opnDossier_config_show.md)
-  - [`config validate`](cli/opnDossier_config_validate.md)
-- [`list`](cli/opnDossier_list.md) — enumerate supported capabilities (agent-friendly)
-  - [`list plugins`](cli/opnDossier_list_plugins.md)
-  - [`list devices`](cli/opnDossier_list_devices.md)
-  - [`list formats`](cli/opnDossier_list_formats.md)
-- [`man`](cli/opnDossier_man.md) — generate man pages
-- [`completion`](cli/opnDossier_completion.md) — shell completion scripts
-- [`version`](cli/opnDossier_version.md)
+- [`opnDossier`](cli/opndossier.md) — root command, global flags
+- [`audit`](cli/opndossier_audit.md) — security audit and compliance
+- [`convert`](cli/opndossier_convert.md) — render config to markdown/json/yaml/html/text
+- [`display`](cli/opndossier_display.md) — render to terminal
+- [`diff`](cli/opndossier_diff.md) — compare two configs
+- [`sanitize`](cli/opndossier_sanitize.md) — redact sensitive values
+- [`validate`](cli/opndossier_validate.md) — structural + semantic validation
+- [`config`](cli/opndossier_config.md) — manage the opndossier config file
+  - [`config init`](cli/opndossier_config_init.md)
+  - [`config show`](cli/opndossier_config_show.md)
+  - [`config validate`](cli/opndossier_config_validate.md)
+- [`list`](cli/opndossier_list.md) — enumerate supported capabilities (agent-friendly)
+  - [`list plugins`](cli/opndossier_list_plugins.md)
+  - [`list devices`](cli/opndossier_list_devices.md)
+  - [`list formats`](cli/opndossier_list_formats.md)
+- [`man`](cli/opndossier_man.md) — generate man pages
+- [`completion`](cli/opndossier_completion.md) — shell completion scripts
+- [`version`](cli/opndossier_version.md)
 
 ## Capability discovery
 
@@ -33,9 +33,9 @@ Use the `list` subcommand group to enumerate what the running binary supports wi
 
 | Question                                                | Command                                                                                    |
 | ------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
-| Which compliance plugins are available?                 | `opnDossier list plugins --json` (add `--plugin-dir DIR` to include dynamic `.so` plugins) |
-| Which device parsers can I target with `--device-type`? | `opnDossier list devices --json`                                                           |
-| Which output formats can I pass to `--format`?          | `opnDossier list formats --json`                                                           |
+| Which compliance plugins are available?                 | `opndossier list plugins --json` (add `--plugin-dir DIR` to include dynamic `.so` plugins) |
+| Which device parsers can I target with `--device-type`? | `opndossier list devices --json`                                                           |
+| Which output formats can I pass to `--format`?          | `opndossier list formats --json`                                                           |
 
 JSON shape is stable: `list plugins` returns `[{"name":"stig","description":"...","version":"1.0.0"}]` (plus optional `"status"` and `"loadError"` fields when a dynamic plugin failed to load); `list devices` and `list formats` return `[{"name":"opnsense","description":"..."}]`. Empty registries return `[]` (never `null`) and exit code `0`.
 
@@ -58,12 +58,12 @@ The `CommonDevice` schema these formats expose is documented in [Model Reference
 
 ## Public Go API
 
-For programmatic consumers embedding opnDossier as a library (not via the CLI), see [API Reference](development/api.md) and the [Public API Contract](development/public-api.md). Key entry points live in `pkg/parser` and `pkg/model`; the public API is under semver commitment from v1.5 onward.
+For programmatic consumers embedding opnDossier as a library (not via the CLI), start with the [Public API Contract](development/public-api.md) — it lists which `pkg/` packages are stability-tracked and what counts as a breaking change. Key entry points live in `pkg/parser` and `pkg/model`; the public API is under semver commitment from v1.5 onward. The [Internal Package Reference](development/api.md) documents the `internal/` packages, which are not importable from outside the module.
 
 ## Configuration
 
 - [Configuration Reference](user-guide/configuration-reference.md) — every flag, environment variable, and config-file key with types, defaults, and precedence rules
-- [`config init`](cli/opnDossier_config_init.md) emits a fully annotated default config that can be used as a starting template
+- [`config init`](cli/opndossier_config_init.md) emits a fully annotated default config that can be used as a starting template
 
 ## Exit semantics
 

@@ -42,10 +42,10 @@ like 'yml' are not listed; use the canonical name they resolve to.
 By default the command writes one name per line. Use --json to emit a
 structured array of {name, description} objects.`,
 	Example: `  # Plain text, one format per line
-  opnDossier list formats
+  opndossier list formats
 
   # JSON output for automation
-  opnDossier list formats --json`,
+  opndossier list formats --json`,
 	RunE: runListFormats,
 }
 

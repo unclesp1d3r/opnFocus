@@ -549,7 +549,7 @@ version = "1.6.1"
 backend = "pipx:mkdocs"
 
 [tools."pipx:mkdocs".options]
-uvx_args = "--with mkdocs-material --with pymdown-extensions"
+uvx_args = "--with mkdocs-material --with pymdown-extensions --with mkdocs-redirects"
 
 [[tools."pipx:pre-commit"]]
 version = "4.6.0"

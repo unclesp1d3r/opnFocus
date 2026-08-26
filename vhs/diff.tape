@@ -11,7 +11,7 @@ Set TypingSpeed 40ms
 Set WindowBar Colorful
 Set WindowBarSize 40
 
-Type "./vhs/opnDossier diff testdata/sample.config.1.xml testdata/sample.config.2.xml"
+Type "./vhs/opndossier diff testdata/sample.config.1.xml testdata/sample.config.2.xml"
 Sleep 500ms
 Enter
 Sleep 5s

@@ -20,7 +20,7 @@ Open a **[GitHub Issue](https://github.com/EvilBit-Labs/opnDossier/issues/new/ch
 
 - Search [existing issues](https://github.com/EvilBit-Labs/opnDossier/issues) to avoid duplicates.
 - Run the latest release where possible.
-- **Sanitize any `config.xml` before attaching it** — use `opnDossier sanitize` so you never paste unredacted secrets into a public issue.
+- **Sanitize any `config.xml` before attaching it** — use `opndossier sanitize` so you never paste unredacted secrets into a public issue.
 
 ## Reporting a security vulnerability
 

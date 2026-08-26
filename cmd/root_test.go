@@ -20,7 +20,11 @@ quiet: false
 func TestGetRootCmd(t *testing.T) {
 	rootCmd := GetRootCmd()
 	require.NotNil(t, rootCmd)
-	assert.Equal(t, "opnDossier", rootCmd.Use)
+	// Lowercase deliberately: this must match the binary name shipped by
+	// goreleaser (`binary: opndossier`), Homebrew, and `just build`, because
+	// Cobra renders Use into the generated CLI reference under docs/cli/.
+	// "opnDossier" is the product name in prose, never the command.
+	assert.Equal(t, "opndossier", rootCmd.Use)
 	assert.Contains(t, rootCmd.Short, "CLI tool for processing OPNsense and pfSense configuration files")
 }
 

@@ -88,7 +88,7 @@ archives:
       - THIRD_PARTY_NOTICES
       - src: ./packaging/completions/*
         dst: completions
-      - src: ./packaging/opnDossier.1
+      - src: ./packaging/opndossier.1
         dst: man/opndossier.1
     # Preserve commit timestamp for reproducibility
     builds_info:
@@ -288,7 +288,7 @@ nfpms:
         file_info:
           mode: 0644
       # Man page
-      - src: ./packaging/opnDossier.1
+      - src: ./packaging/opndossier.1
         dst: /usr/share/man/man1/opndossier.1
         file_info:
           mode: 0644

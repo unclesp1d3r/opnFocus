@@ -33,7 +33,7 @@ func TestListCmd_Structure(t *testing.T) {
 }
 
 func TestListCmd_NoSubcommandPrintsHelp(t *testing.T) {
-	// Bare `opnDossier list` (no subcommand) should print help listing the
+	// Bare `opndossier list` (no subcommand) should print help listing the
 	// three subcommands and exit 0. Cobra renders help by default for a
 	// parent without RunE; this test pins that behavior so a future
 	// contributor adding an unexpected RunE to listCmd fails the assertion.
