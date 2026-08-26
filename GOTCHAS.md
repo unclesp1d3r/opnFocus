@@ -483,6 +483,31 @@ With `wrap = "no"` in `.mdformat.toml`, mdformat joins consecutive `**Label**:` 
 - **Gotcha:** Do not "fix" these back onto separate lines — the `mdformat` pre-commit hook re-collapses them and the edit will not survive a commit. Both `docs/adr/template.md` and the ADRs are kept in the collapsed form, so they are already mutually consistent.
 - **Gotcha:** Reviewers (e.g. CodeRabbit) sometimes flag the collapsed frontmatter as a layout defect and suggest splitting the lines. That suggestion is a false positive against this repo's formatter — decline it.
 
+### 22.3 Cobra `Use:` Drives Generated Filenames — and macOS Hides the Fallout
+
+The root command's `Use:` string (`cmd/root.go`) is not just help text. Cobra derives from it:
+
+- the page **filenames** under `docs/cli/` (`opndossier_audit.md`, …) and the cross-reference links inside them,
+- the man-page filenames emitted by `opndossier man` (`opndossier.1`),
+- every rendered `Usage:` line.
+
+Changing `Use:` therefore renames 19 committed doc files and one packaging artifact.
+
+- **The macOS trap:** on a case-insensitive filesystem, regenerating writes `opndossier_audit.md` *over* `opnDossier_audit.md` and the directory entry keeps the **old** casing. `git status` shows a modification, the build passes, and everything looks fine. On Linux CI the same regeneration produces a **second, duplicate set** of pages while `mkdocs.yml` still points at the stale set.
+- **Release coupling:** `.goreleaser.yaml` references `./packaging/opndossier.1` by exact path in two places (archive `contents:` and nfpm `contents:`). `just ci-check` never runs goreleaser, so a `Use:` change that breaks these paths is invisible until a `git tag` fails the release workflow.
+- **After any `Use:` change:** run `go run . docs docs/cli/`, confirm `git ls-files docs/cli | grep -c '<old-casing>'` returns `0`, run `<binary> man <dir>` and check the emitted `.1` name against both `.goreleaser.yaml` paths, then update `mkdocs.yml`, `docs/for-agents.md`, and `docs/llms.txt`.
+- **Regression test:** `TestGetRootCmd` (`cmd/root_test.go`) pins `Use` to the lowercase shipped binary name and carries a comment explaining why. The name must match goreleaser's `binary:` (`opndossier`), Homebrew, and `justfile`'s `binary_name`. `opnDossier` is the product name in prose, never the command.
+- **`go install` is the permanent exception.** Go derives the installed binary name from the module path (`github.com/EvilBit-Labs/opnDossier`), so `go install` produces `opnDossier` regardless of `Use:`. This cannot be fixed without changing the import path; it is documented as a rename step in `docs/user-guide/getting-started.md` and `installation.md` instead.
+
+### 22.4 `foo.md` and `foo/index.md` Silently Collide
+
+MkDocs maps both `docs/foo.md` and `docs/foo/index.md` to the same output path, `site/foo/index.html`. One silently wins; the other is never served. **`--strict` does not catch this** — there is no broken link, just a page that renders someone else's content.
+
+- **Live example:** `docs/examples.md` and `docs/examples/index.md` both built to `site/examples/index.html`. `examples/index.md` won, so the "All Examples" nav entry pointed at a URL rendering the Overview page. The condition survived undetected because every link still resolved.
+- **Detection:** `for f in docs/*.md; do [ -d "docs/$(basename "$f" .md)" ] && echo "COLLISION: $f"; done`
+- **Rule:** when splitting a page into a directory, delete the original. Do not leave both.
+- **Corollary for `mkdocs-redirects`:** never add a `redirect_map` entry whose *source* collides with a real page's output path. `examples.md: examples/index.md` writes a redirect stub over `site/examples/index.html` — the very page it points at — replacing the Overview content with a self-redirect. `--strict` reports nothing. A colliding source needs no redirect anyway: the URL never changed meaning, only which file backed it.
+
 ### 22.2 mdformat Excludes Live in `.pre-commit-config.yaml`, Not `.mdformat.toml`
 
 File exclusions for the `mdformat` hook are the pre-commit hook's native `exclude:` regex in `.pre-commit-config.yaml` (currently `*.golden.md`, `docs/cli/`, `CHANGELOG.md`, `*.tpl.md`). Do NOT reintroduce an `exclude = [...]` list in `.mdformat.toml`: that feature requires the hook to run under Python 3.13+, but pre-commit builds the hook venv with its own interpreter (3.11 today), so it fails on every markdown file with `'exclude' patterns are only available on Python 3.13+`.

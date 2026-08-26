@@ -32,6 +32,39 @@ theme:
     - search.share
     - toc.integrate
 
+# Old URLs kept alive. The CLI pages were renamed when the Cobra command name
+# was corrected to the shipped binary (see GOTCHAS.md 22.3); the rest were
+# consolidated into the pages they now point at. docs/for-agents.md and
+# docs/llms.txt are agent-entry artifacts, so external tooling may hold the
+# old paths.
+plugins:
+  - search
+  - redirects:
+      redirect_maps:
+        cli/opnDossier.md: cli/opndossier.md
+        cli/opnDossier_audit.md: cli/opndossier_audit.md
+        cli/opnDossier_completion.md: cli/opndossier_completion.md
+        cli/opnDossier_config.md: cli/opndossier_config.md
+        cli/opnDossier_config_init.md: cli/opndossier_config_init.md
+        cli/opnDossier_config_show.md: cli/opndossier_config_show.md
+        cli/opnDossier_config_validate.md: cli/opndossier_config_validate.md
+        cli/opnDossier_conv.md: cli/opndossier_conv.md
+        cli/opnDossier_convert.md: cli/opndossier_convert.md
+        cli/opnDossier_diff.md: cli/opndossier_diff.md
+        cli/opnDossier_display.md: cli/opndossier_display.md
+        cli/opnDossier_list.md: cli/opndossier_list.md
+        cli/opnDossier_list_devices.md: cli/opndossier_list_devices.md
+        cli/opnDossier_list_formats.md: cli/opndossier_list_formats.md
+        cli/opnDossier_list_plugins.md: cli/opndossier_list_plugins.md
+        cli/opnDossier_man.md: cli/opndossier_man.md
+        cli/opnDossier_sanitize.md: cli/opndossier_sanitize.md
+        cli/opnDossier_validate.md: cli/opndossier_validate.md
+        cli/opnDossier_version.md: cli/opndossier_version.md
+        configuration.md: user-guide/configuration.md
+        dev-guide/contributing.md: development/contributing.md
+        security/compliance.md: pipeline-v2-compliance.md
+        roadmap.md: index.md
+
 # Files that must never be published. `plans/` is gitignored so CI never sees
 # it, but a local `mkdocs build` would otherwise deploy internal planning docs.
 # `adr/template.md` is a form and `templates/` holds generator inputs, not pages.
