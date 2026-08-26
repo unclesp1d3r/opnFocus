@@ -86,29 +86,29 @@ If you are an AI agent **invoking the `opnDossier` CLI at runtime** (not contrib
 
 ```text
 # Convert / display
-opnDossier display config.xml                               # Display config in terminal (Markdown + theme)
-opnDossier convert config.xml                               # Convert to Markdown (stdout)
-opnDossier convert config.xml -f json -o output.json        # Export to JSON
-opnDossier convert config.xml -f yaml -o output.yaml        # Export to YAML
-opnDossier convert config.xml -f html -o output.html        # Export to self-contained HTML
+opndossier display config.xml                               # Display config in terminal (Markdown + theme)
+opndossier convert config.xml                               # Convert to Markdown (stdout)
+opndossier convert config.xml -f json -o output.json        # Export to JSON
+opndossier convert config.xml -f yaml -o output.yaml        # Export to YAML
+opndossier convert config.xml -f html -o output.html        # Export to self-contained HTML
 
 # Validate / audit / diff
-opnDossier validate config.xml                              # Structural + semantic validation
-opnDossier audit config.xml                                 # Run blue-mode compliance audit (default)
-opnDossier audit config.xml --mode red                      # Attacker-focused recon (experimental; stub output)
-opnDossier audit config.xml --plugins stig,sans             # Run a subset of built-in plugins
-opnDossier audit config.xml --plugin-dir /opt/plugins       # Load third-party .so plugins (POSIX only)
-opnDossier diff old.xml new.xml                             # Compare two configs with security-aware analysis
+opndossier validate config.xml                              # Structural + semantic validation
+opndossier audit config.xml                                 # Run blue-mode compliance audit (default)
+opndossier audit config.xml --mode red                      # Attacker-focused recon (experimental; stub output)
+opndossier audit config.xml --plugins stig,sans             # Run a subset of built-in plugins
+opndossier audit config.xml --plugin-dir /opt/plugins       # Load third-party .so plugins (POSIX only)
+opndossier diff old.xml new.xml                             # Compare two configs with security-aware analysis
 
 # Sanitize (redact sensitive values into a new file)
-opnDossier sanitize config.xml --mode aggressive -o safe.xml   # --mode: conservative | moderate | aggressive
+opndossier sanitize config.xml --mode aggressive -o safe.xml   # --mode: conservative | moderate | aggressive
 
 # Config file / completions / docs
-opnDossier config init                                      # Emit a fully annotated default config
-opnDossier config show                                      # Show effective merged config
-opnDossier config validate                                  # Validate the config file
-opnDossier completion bash|zsh|fish|powershell              # Shell completion scripts
-opnDossier man ./man                                        # Generate man pages
+opndossier config init                                      # Emit a fully annotated default config
+opndossier config show                                      # Show effective merged config
+opndossier config validate                                  # Validate the config file
+opndossier completion bash|zsh|fish|powershell              # Shell completion scripts
+opndossier man ./man                                        # Generate man pages
 ```
 
 Device type is auto-detected from the XML root element (`<opnsense>` vs `<pfsense>`). Force it with the global `--device-type` flag if needed.

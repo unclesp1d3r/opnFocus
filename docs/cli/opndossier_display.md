@@ -65,7 +65,7 @@ opndossier display [file] [flags]
   opndossier display --redact config.xml
 
   # Verbose logging for troubleshooting
-  opnDossier --verbose display config.xml
+  opndossier --verbose display config.xml
 ```
 
 ### Options

@@ -109,7 +109,7 @@ RELATED:
   opndossier display --redact config.xml
 
   # Verbose logging for troubleshooting
-  opnDossier --verbose display config.xml`,
+  opndossier --verbose display config.xml`,
 	Args: cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		ctx := cmd.Context()

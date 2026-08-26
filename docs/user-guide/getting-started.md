@@ -26,7 +26,7 @@ go install github.com/EvilBit-Labs/opnDossier@latest
     `go install` takes the binary name from the module path, so it installs `opnDossier` (capital D), not `opndossier`. On Linux and other case-sensitive filesystems the commands in this guide will not resolve until you rename it:
 
     ```bash
-    mv "$(go env GOPATH)/bin/opnDossier" "$(go env GOPATH)/bin/opndossier"
+    mv -i "$(go env GOPATH)/bin/opnDossier" "$(go env GOPATH)/bin/opndossier"
     ```
 
     Homebrew and the release archives install `opndossier` directly and need no rename.

@@ -71,7 +71,7 @@ Booleans accept `true`/`false` in any case, plus `1`/`0`. Lists are comma-separa
 
 ```bash
 export OPNDOSSIER_VERBOSE=1
-export OPNDOSSIER_SECTIONS="system,network,firewall,dhcp"
+export OPNDOSSIER_SECTIONS="system,network,firewall,services,security"
 ```
 
 The [Configuration Reference](configuration-reference.md#environment-variables) has the complete key-to-variable table.

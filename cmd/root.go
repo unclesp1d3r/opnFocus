@@ -64,13 +64,13 @@ WORKFLOW EXAMPLES:
   opndossier convert config.xml -o documentation.md
 
   # Development workflow with verbose logging
-  opnDossier --verbose convert config.xml --format json
+  opndossier --verbose convert config.xml --format json
 
   # Generate comprehensive report
   opndossier convert config.xml --comprehensive
 
   # Validation workflow
-  opndossier validate config.xml && opnDossier convert config.xml -o documentation.md`,
+  opndossier validate config.xml && opndossier convert config.xml -o documentation.md`,
 	PersistentPreRunE: func(cmd *cobra.Command, _ []string) error {
 		// Fast path: Skip heavy initialization for lightweight commands
 		// This significantly improves startup time for --help, version, etc.
@@ -249,7 +249,7 @@ func init() {
 			annotationLightweight: annotationValueOn, // Skip heavy initialization for fast startup
 		},
 		Run: func(_ *cobra.Command, _ []string) {
-			fmt.Printf("opnDossier version %s\n", constants.Version)
+			fmt.Printf("opndossier version %s\n", constants.Version)
 			fmt.Printf("Build date: %s\n", getBuildDate())
 			fmt.Printf("Git commit: %s\n", getGitCommit())
 		},

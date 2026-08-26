@@ -32,10 +32,10 @@ Examples:
   opndossier validate config1.xml config2.xml config3.xml
 
   # Validate with verbose output to see detailed validation results
-  opnDossier --verbose validate config.xml
+  opndossier --verbose validate config.xml
 
   # Validate with quiet mode (only show errors)
-  opnDossier --quiet validate config.xml
+  opndossier --quiet validate config.xml
 
 
 ```

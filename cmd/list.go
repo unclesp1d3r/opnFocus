@@ -18,7 +18,7 @@ var listCmd = &cobra.Command{ //nolint:gochecknoglobals // Cobra command
 	Short:   "Enumerate supported plugins, devices, and output formats",
 	GroupID: groupUtility,
 	Annotations: map[string]string{
-		// Applies only when `opnDossier list` is invoked alone — Cobra falls
+		// Applies only when `opndossier list` is invoked alone — Cobra falls
 		// back to help, no heavy init needed. Subcommands set their own
 		// annotation independently: devices/formats are also lightweight,
 		// plugins is not (InitializePlugins runs there).

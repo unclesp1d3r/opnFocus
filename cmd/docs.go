@@ -13,7 +13,7 @@ import (
 // defaultDocsOutputDir is the default output directory for Cobra-generated
 // markdown docs. It is a relative path resolved against the current working
 // directory, so contributors should invoke `just generate-cli-docs` from the
-// repo root (the Justfile does). Running `opnDossier docs` from a different
+// repo root (the Justfile does). Running `opndossier docs` from a different
 // directory will write under that directory's docs/cli/ instead.
 const defaultDocsOutputDir = "docs/cli/"
 
@@ -37,10 +37,10 @@ The generated markdown is intended to be included in the MkDocs site under
 the "CLI Reference" navigation section. Re-run this command after changing
 any Cobra Short/Long/Example text or flag wiring.`,
 	Example: `  # Regenerate into the default docs/cli/ directory
-  opnDossier docs
+  opndossier docs
 
   # Regenerate into a custom directory
-  opnDossier docs /tmp/opndossier-cli-docs/
+  opndossier docs /tmp/opndossier-cli-docs/
 
   # Typical authoring workflow (from repo root)
   just generate-cli-docs`,

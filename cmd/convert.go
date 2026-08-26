@@ -194,7 +194,7 @@ RELATED:
   opndossier convert config.xml --format json --redact
 
   # Validate then convert (recommended workflow)
-  opndossier validate config.xml && opnDossier convert config.xml -f json -o output.json`,
+  opndossier validate config.xml && opndossier convert config.xml -f json -o output.json`,
 	Args: cobra.MinimumNArgs(1),
 	RunE: runConvert,
 }

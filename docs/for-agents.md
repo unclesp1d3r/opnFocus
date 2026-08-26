@@ -15,7 +15,7 @@ The CLI reference in [docs/cli/](cli/opndossier.md) is generated from the Cobra 
 - [`diff`](cli/opndossier_diff.md) — compare two configs
 - [`sanitize`](cli/opndossier_sanitize.md) — redact sensitive values
 - [`validate`](cli/opndossier_validate.md) — structural + semantic validation
-- [`config`](cli/opndossier_config.md) — manage the opnDossier config file
+- [`config`](cli/opndossier_config.md) — manage the opndossier config file
   - [`config init`](cli/opndossier_config_init.md)
   - [`config show`](cli/opndossier_config_show.md)
   - [`config validate`](cli/opndossier_config_validate.md)
@@ -33,9 +33,9 @@ Use the `list` subcommand group to enumerate what the running binary supports wi
 
 | Question                                                | Command                                                                                    |
 | ------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
-| Which compliance plugins are available?                 | `opnDossier list plugins --json` (add `--plugin-dir DIR` to include dynamic `.so` plugins) |
-| Which device parsers can I target with `--device-type`? | `opnDossier list devices --json`                                                           |
-| Which output formats can I pass to `--format`?          | `opnDossier list formats --json`                                                           |
+| Which compliance plugins are available?                 | `opndossier list plugins --json` (add `--plugin-dir DIR` to include dynamic `.so` plugins) |
+| Which device parsers can I target with `--device-type`? | `opndossier list devices --json`                                                           |
+| Which output formats can I pass to `--format`?          | `opndossier list formats --json`                                                           |
 
 JSON shape is stable: `list plugins` returns `[{"name":"stig","description":"...","version":"1.0.0"}]` (plus optional `"status"` and `"loadError"` fields when a dynamic plugin failed to load); `list devices` and `list formats` return `[{"name":"opnsense","description":"..."}]`. Empty registries return `[]` (never `null`) and exit code `0`.
 

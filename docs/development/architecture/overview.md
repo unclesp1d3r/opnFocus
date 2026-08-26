@@ -187,14 +187,23 @@ For practical developer guidance on public package purity and the boundary verif
 #### Device Parser Registry
 
 - **Package**: `pkg/parser/`
+
 - **Pattern**: Self-registration via `init()` + blank imports (mirrors `database/sql` driver pattern)
+
 - **Key Types**: `DeviceParserRegistry`, `ConstructorFunc`, `DeviceParser` interface
+
 - **Singleton**: `parser.DefaultRegistry()` returns the global registry; `parser.NewDeviceParserRegistry()` for test isolation
+
 - **Registration**: Each parser package calls `parser.Register("rootElement", factory)` from `init()`
+
 - **Dispatch**: `Factory.CreateDevice()` auto-detects device type from the XML root element via registry lookup, or accepts an explicit `--device-type` override
+
 - **Built-in**: OPNsense parser self-registers in `pkg/parser/opnsense/parser.go`
+
 - **Extensibility**: External parsers register via blank import in the consumer binary (see [Plugin Development Guide](../plugin-development.md#device-parser-development))
+
 - **Blank Import Requirement**: `cmd/root.go` (and test files using `parser.NewFactory()`) must import both device parsers to trigger registration:
+
   ```go
   _ "github.com/EvilBit-Labs/opnDossier/pkg/parser/opnsense"
   _ "github.com/EvilBit-Labs/opnDossier/pkg/parser/pfsense"

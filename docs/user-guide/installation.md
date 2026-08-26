@@ -101,7 +101,7 @@ This installs the latest release to your `$GOPATH/bin` directory.
     `go install` derives the binary name from the module path, so this method produces `opnDossier` (capital D) while every other install method — and all documentation — uses `opndossier`. On case-sensitive filesystems, rename it:
 
     ```bash
-    mv "$(go env GOPATH)/bin/opnDossier" "$(go env GOPATH)/bin/opndossier"
+    mv -i "$(go env GOPATH)/bin/opnDossier" "$(go env GOPATH)/bin/opndossier"
     ```
 
 ### 6. Build from Source

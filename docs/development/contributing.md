@@ -6,7 +6,7 @@ Thank you for your interest in contributing to opnDossier! This guide will help 
 
 opnDossier is built for operators first. Every contribution should preserve operator control, keep behaviour visible, and avoid abstractions that hide what the tool is doing. If a design makes it harder for an operator to understand or override the result, it is probably moving in the wrong direction.
 
-The project is intentionally **offline-first**. Contributions must not add runtime network calls, telemetry, or external service dependencies that would fail in airgapped or tightly controlled environments. The tool should behave the same way whether or not the internet exists.
+The project is intentionally **offline-first**. Contributions must not add runtime network calls, telemetry, or external service dependencies that would fail in airgapped or tightly controlled environments. The tool should behave the same way whether the internet exists.
 
 We prefer **structured data** to ad-hoc strings. Use typed models, keep outputs machine-readable, and treat exported data as something that should remain portable, versioned, and auditable over time. This makes automation safer and reporting easier to trust.
 
@@ -104,7 +104,7 @@ opnDossier has two independent extension points:
 1. **Device Parsers** (`pkg/parser/`): Add support for new firewall platforms (currently supports OPNsense)
 2. **Compliance Plugins** (`internal/plugins/`): Add new compliance frameworks (currently includes STIG, SANS, Firewall)
 
-Both systems use self-registration patterns -- adding a new parser or plugin requires zero changes to existing code.
+Both systems use self-registration patterns, so neither requires edits to central dispatch code. A new parser still needs a blank import in any binary that calls `parser.NewFactory()` -- registration happens in the parser package's `init()`, which only runs if the package is imported. See [DeviceParser Registry Pattern](#deviceparser-registry-pattern) below, and GOTCHAS.md 7.1.
 
 #### Writing a Compliance Plugin
 
@@ -168,8 +168,9 @@ For canonical interfaces and examples, see `internal/compliance/interfaces.go` a
 
 When modifying XML parsing logic:
 
-- The low-level XML parser lives in `internal/cfgparser/`
-- Data models are defined in `pkg/schema/opnsense/` and parsed into the platform-agnostic `pkg/model/` structures
+- `internal/cfgparser/` parses XML into the vendor DTO `pkg/schema/opnsense.OpnSenseDocument`
+- `pkg/parser/opnsense/` converts that DTO into the platform-agnostic `pkg/model.CommonDevice`
+- Vendor schema types are defined in `pkg/schema/opnsense/`; the platform-agnostic model lives in `pkg/model/`
 - Parser factory and interfaces are in `pkg/parser/` (public API)
 - Test with sample files in `testdata/`
 - Add benchmarks for performance-critical changes
@@ -344,12 +345,12 @@ The project enforces compile-time type safety for domain values through typed st
 **Pattern:**
 
 ```go
-// ❌ Don't use magic strings
+// Wrong: magic strings
 rule.Type = "pass"
 natConfig.OutboundMode = "hybrid"
 vip.Mode = "carp"
 
-// ✅ Do use typed constants
+// Right: typed constants
 rule.Type = common.RuleTypePass
 natConfig.OutboundMode = common.OutboundHybrid
 vip.Mode = common.VIPModeCarp

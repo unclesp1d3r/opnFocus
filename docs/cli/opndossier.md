@@ -23,13 +23,13 @@ WORKFLOW EXAMPLES:
   opndossier convert config.xml -o documentation.md
 
   # Development workflow with verbose logging
-  opnDossier --verbose convert config.xml --format json
+  opndossier --verbose convert config.xml --format json
 
   # Generate comprehensive report
   opndossier convert config.xml --comprehensive
 
   # Validation workflow
-  opndossier validate config.xml && opnDossier convert config.xml -o documentation.md
+  opndossier validate config.xml && opndossier convert config.xml -o documentation.md
 
 ### Options
 

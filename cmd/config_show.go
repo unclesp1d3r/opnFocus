@@ -66,7 +66,7 @@ Examples:
   opndossier config show --json
 
   # Show configuration with a specific config file
-  opnDossier --config /path/to/config.yaml config show`,
+  opndossier --config /path/to/config.yaml config show`,
 	Args: cobra.NoArgs,
 	RunE: runConfigShow,
 }

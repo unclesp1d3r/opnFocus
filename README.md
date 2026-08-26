@@ -237,7 +237,7 @@ opndossier display --wrap 100 config.xml
 opndossier validate config.xml
 
 # Validate before converting
-opndossier validate config.xml && opnDossier convert config.xml -o report.md
+opndossier validate config.xml && opndossier convert config.xml -o report.md
 ```
 
 ### Advanced Options
@@ -247,10 +247,10 @@ opndossier validate config.xml && opnDossier convert config.xml -o report.md
 opndossier convert config.xml -o comprehensive.md --include-tunables
 
 # Verbose output for troubleshooting
-opnDossier --verbose convert config.xml
+opndossier --verbose convert config.xml
 
 # Quiet mode - only show errors
-opnDossier --quiet convert config.xml -o output.md
+opndossier --quiet convert config.xml -o output.md
 ```
 
 ## Configuration
@@ -286,7 +286,7 @@ output_file: ./output.md
 
 ```bash
 # Using CLI flags
-opnDossier --verbose convert config.xml
+opndossier --verbose convert config.xml
 
 # Using environment variables
 export OPNDOSSIER_VERBOSE=true
@@ -538,7 +538,7 @@ Notes on fields that are **not** in this table:
 
 Recommended approaches, in order of preference:
 
-1. **Invoke the opnDossier CLI as a subprocess.** `opnDossier convert --format json` and `opnDossier sanitize` apply the full redaction pipeline, including the field-pattern-based sanitizer. Safest for operators who need a hardened output.
+1. **Invoke the opnDossier CLI as a subprocess.** `opndossier convert --format json` and `opndossier sanitize` apply the full redaction pipeline, including the field-pattern-based sanitizer. Safest for operators who need a hardened output.
 2. **Redact in-place before serializing.** Walk the `CommonDevice` and set each secret field to `""` (or a marker like `"[REDACTED]"`) before passing it to `json.Marshal` or `yaml.Marshal`. Straightforward for known consumers that own the export path.
 3. **Implement a custom `json.Marshaler`.** Define a wrapper type that shallow-copies `CommonDevice`, zeros the secret fields on the copy, then delegates to `json.Marshal`. Useful when the export is deep inside a library you control.
 
@@ -582,7 +582,7 @@ opnDossier is designed with security as a first-class concern:
 
 ### Dynamic plugin trust model
 
-Dynamic compliance plugins are opt-in. The `--plugin-dir` flag on `opnDossier audit` loads every `.so` file in the directory via Go's standard `plugin.Open()` mechanism; those plugins run with full opnDossier process privileges and are not signature-verified. Only point `--plugin-dir` at directories whose contents you build, review, and control — never at a world-writable path. A stderr warning is emitted whenever `--plugin-dir` is supplied. For the full threat model and hardening guidance, see [audit command — Dynamic Plugin Security](docs/user-guide/commands/audit.md#dynamic-plugin-security).
+Dynamic compliance plugins are opt-in. The `--plugin-dir` flag on `opndossier audit` loads every `.so` file in the directory via Go's standard `plugin.Open()` mechanism; those plugins run with full opnDossier process privileges and are not signature-verified. Only point `--plugin-dir` at directories whose contents you build, review, and control — never at a world-writable path. A stderr warning is emitted whenever `--plugin-dir` is supplied. For the full threat model and hardening guidance, see [audit command — Dynamic Plugin Security](docs/user-guide/commands/audit.md#dynamic-plugin-security).
 
 For security vulnerabilities, please see our [security policy](SECURITY.md).
 

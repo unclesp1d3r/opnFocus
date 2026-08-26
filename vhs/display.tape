@@ -11,7 +11,7 @@ Set TypingSpeed 40ms
 Set WindowBar Colorful
 Set WindowBarSize 40
 
-Type "./vhs/opnDossier display --section system,network --redact testdata/sample.config.1.xml"
+Type "./vhs/opndossier display --section system,network --redact testdata/sample.config.1.xml"
 Sleep 500ms
 Enter
 Sleep 6s

@@ -301,7 +301,7 @@ OpenVPN's `<tls>` element (under `<openvpn-server>` / `<openvpn-client>`) holds 
 
 - **Rule-ordering impact:** None. The `private_key` rule is distinct from `authserver_config` / `password` / `email` / `hostname` and does not participate in the §19.1 ordering invariants.
 
-- **History:** SEC-H1 from the 2026-04-19 comprehensive review. Prior to the fix, `opnDossier sanitize` silently leaked raw HMAC keys sufficient to forge OpenVPN handshakes — the headline promise of the subcommand.
+- **History:** SEC-H1 from the 2026-04-19 comprehensive review. Prior to the fix, `opndossier sanitize` silently leaked raw HMAC keys sufficient to forge OpenVPN handshakes — the headline promise of the subcommand.
 
 ### 11.4 NetBird `setupKey` Is a Credential
 
@@ -311,7 +311,7 @@ The OPNsense `os-netbird` plugin persists the NetBird enrollment/setup key as `<
 - **Fix:** Add `"setupkey"`, `"setup_key"`, `"setup-key"` to the **`secret`** rule's `FieldPatterns` in `internal/sanitizer/rules.go` (enrollment token, not private-key material — unlike SNMPv3 `enckey` which lives on `private_key`) and to `passwordKeywords` in `internal/sanitizer/patterns.go`.
 - **Detection:** `TestSanitizeXML_NetBirdSetupKey_RedactsSecret` + `TestSanitizeXML_NetBirdSetupKey_NoFalsePositives` in `internal/sanitizer/sanitizer_test.go`; `TestRedact_NetBirdSetupKey_RedactsSecret` in `rules_fieldpattern_test.go`.
 - **Rule-ordering impact:** None. The `secret` rule already precedes `private_key` and does not participate in the §19.1 ordering invariants.
-- **Upstream:** https://github.com/opnsense/plugins (`security/netbird`); field declared in `Authentication.xml` as `UpdateOnlyTextField` with UUID mask.
+- **Upstream:** <https://github.com/opnsense/plugins> (`security/netbird`); field declared in `Authentication.xml` as `UpdateOnlyTextField` with UUID mask.
 - **History:** Reported as a cleartext leak through `sanitize` when NetBird is disabled or the plugin XML remains after removal; fixed in #728.
 
 ## 12. Git Tagging
@@ -355,7 +355,7 @@ A fresh `NewRuleEngine` creates a fresh `NewMapper()` — mappings are determini
 
 `sanitizeReflect` in `internal/sanitizer/sanitizer.go` cannot recurse into `map[K]struct{...}` or `map[K]*struct{...}` values. Map values are not addressable in Go, so `reflect.Value.SetMapIndex` is the only way to write back — and that requires a fully reconstructed element, which the current walker does not perform. The guard at the top of the `reflect.Map` case detects this and logs a warning via the optional logger injected through `Sanitizer.SetLogger`. When no logger is set, the gap is silent.
 
-- **Current scope:** This gap is reachable ONLY through `SanitizeStruct`, which is an opt-in consumer flow. The default `opnDossier sanitize` CLI uses `SanitizeXML` (raw element walk) and is not affected — element names like `<password>` and `<bcrypt-hash>` are still redacted regardless of the Go model shape.
+- **Current scope:** This gap is reachable ONLY through `SanitizeStruct`, which is an opt-in consumer flow. The default `opndossier sanitize` CLI uses `SanitizeXML` (raw element walk) and is not affected — element names like `<password>` and `<bcrypt-hash>` are still redacted regardless of the Go model shape.
 - **Known current paths:** OPNsense `KeaDhcp4` already uses map-style subnet containers, but those maps hold config metadata, not credentials. No currently-shipped schema path puts a secret behind a struct-valued map.
 - **Why warn instead of fix:** Supporting struct-valued maps via reflection requires reconstructing each element in place (read → recurse into a copy → `SetMapIndex` with the mutated copy). That work is scheduled under todo #151 (tag-based redaction) which will subsume this gap by annotating sensitive fields directly and driving redaction from tags instead of field-name heuristics. The warning is the bridge until #151 lands.
 - **Regression tests:** `TestSanitizeStruct_MapStructValues_WarnsAndSkips` and `TestSanitizeStruct_MapStructValues_NilLoggerNoPanic` in `internal/sanitizer/sanitizer_reflect_test.go` pin both the warning path and the nil-logger nil-safety invariant. If a future enhancement starts handling struct-valued maps, those tests must be updated (or replaced) to reflect the new behavior — do not delete them blind.
