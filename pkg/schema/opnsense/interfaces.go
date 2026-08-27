@@ -237,9 +237,9 @@ type Bridge struct {
 
 // IsPlaceholder reports whether b is an empty <bridged/> marker rather than a
 // configured bridge. OPNsense writes that self-closing element inside <bridges>
-// when nothing is configured -- the shipped DTD declares it as
-// "<!ELEMENT bridged EMPTY>" for exactly this reason -- and it unmarshals into
-// an all-zero entry.
+// when nothing is configured -- the shipped testdata/opnsense-config.dtd
+// declares it as "<!ELEMENT bridged EMPTY>" for exactly this reason -- and it
+// unmarshals into an all-zero entry.
 //
 // The check is deliberately conservative: an entry is dropped only when every
 // field is zero. A bridge carrying any data at all -- even just a description --
