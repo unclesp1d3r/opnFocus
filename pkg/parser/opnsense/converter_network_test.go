@@ -713,6 +713,13 @@ func TestConverter_PPPs_EndToEnd_PlaceholderNotCounted(t *testing.T) {
 			wantPPPs:      1,
 			wantInterface: "pppoe0",
 		},
+		{
+			// A per-item filter must drop only the placeholder, never a sibling.
+			name:          "placeholder alongside a real ppp yields only the real one",
+			pppsInner:     `<ppp/><ppp><if>pppoe0</if><type>pppoe</type><descr>WAN</descr></ppp>`,
+			wantPPPs:      1,
+			wantInterface: "pppoe0",
+		},
 	}
 
 	factory := parser.NewFactory(cfgparser.NewXMLParser())
@@ -781,6 +788,23 @@ func TestConverter_StaticRoutes_EndToEnd_PlaceholderNotCounted(t *testing.T) {
 			wantHasRoutes: true,
 			wantNetwork:   "10.0.0.0/8",
 		},
+		{
+			// A per-item filter must drop only the placeholder, never a sibling.
+			name:          "placeholder alongside a real route yields only the real one",
+			routesInner:   `<route/><route><network>10.0.0.0/8</network><gateway>WAN_GW</gateway></route>`,
+			wantRoutes:    1,
+			wantHasRoutes: true,
+			wantNetwork:   "10.0.0.0/8",
+		},
+		{
+			// Disabled is the one guarded field with non-trivial unmarshal
+			// semantics (BoolFlag: a self-closing tag decodes to true), so it is
+			// driven through real XML rather than built as a struct.
+			name:          "route carrying only a self-closing disabled marker is retained",
+			routesInner:   `<route><disabled/></route>`,
+			wantRoutes:    1,
+			wantHasRoutes: true,
+		},
 	}
 
 	factory := parser.NewFactory(cfgparser.NewXMLParser())
@@ -810,4 +834,59 @@ func TestConverter_StaticRoutes_EndToEnd_PlaceholderNotCounted(t *testing.T) {
 			}
 		})
 	}
+}
+
+// TestConverter_AllPlaceholderContainers_EndToEnd_ProduceNoEntries drives a
+// config carrying the empty placeholder for every guarded container through the
+// full parse -> convert path at once.
+//
+// testdata/opnsense-config.dtd declares each of these elements EMPTY, and
+// testdata/sample.config.5.xml -- a real OPNsense export -- carries all eight in
+// a single file. Guarding them one at a time is how five of them stayed broken
+// after the first three were fixed, so they are asserted together here.
+func TestConverter_AllPlaceholderContainers_EndToEnd_ProduceNoEntries(t *testing.T) {
+	t.Parallel()
+
+	const configXML = `<?xml version="1.0"?>
+<opnsense>
+  <system>
+    <hostname>fw</hostname>
+    <domain>example.com</domain>
+  </system>
+  <staticroutes><route/></staticroutes>
+  <bridges><bridged/></bridges>
+  <ppps><ppp/></ppps>
+  <gifs><gif/></gifs>
+  <gres><gre/></gres>
+  <laggs><lagg/></laggs>
+  <virtualip><vip/></virtualip>
+  <vlans><vlan/></vlans>
+</opnsense>`
+
+	factory := parser.NewFactory(cfgparser.NewXMLParser())
+
+	device, warnings, err := factory.CreateDevice(
+		context.Background(),
+		strings.NewReader(configXML),
+		common.DeviceTypeUnknown,
+		false,
+	)
+	require.NoError(t, err)
+	require.NotNil(t, device)
+
+	assert.Empty(t, device.Routing.StaticRoutes, "static routes")
+	assert.Empty(t, device.Bridges, "bridges")
+	assert.Empty(t, device.PPPs, "PPPs")
+	assert.Empty(t, device.GIFs, "GIFs")
+	assert.Empty(t, device.GREs, "GREs")
+	assert.Empty(t, device.LAGGs, "LAGGs")
+	assert.Empty(t, device.VirtualIPs, "virtual IPs")
+	assert.Empty(t, device.VLANs, "VLANs")
+
+	assert.False(t, device.HasRoutes(),
+		"a config whose only routing content is a placeholder has no routing configuration")
+
+	// A placeholder must not reach the enum-cast validation in convertLAGGs and
+	// convertVirtualIPs, which would warn about its empty protocol/mode.
+	assert.Empty(t, warnings, "placeholders must not produce conversion warnings")
 }

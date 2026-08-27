@@ -47,6 +47,13 @@ func TestConverter_PPPs_EndToEnd_PlaceholderNotCounted(t *testing.T) {
 			wantPPPs:      1,
 			wantInterface: "pppoe0",
 		},
+		{
+			// A per-item filter must drop only the placeholder, never a sibling.
+			name:          "placeholder alongside a real ppp yields only the real one",
+			pppsInner:     `<ppp/><ppp><if>pppoe0</if><type>pppoe</type><descr>WAN</descr></ppp>`,
+			wantPPPs:      1,
+			wantInterface: "pppoe0",
+		},
 	}
 
 	for _, tt := range tests {
@@ -110,6 +117,23 @@ func TestConverter_StaticRoutes_EndToEnd_PlaceholderNotCounted(t *testing.T) {
 			wantRoutes:    1,
 			wantHasRoutes: true,
 			wantNetwork:   "10.0.0.0/8",
+		},
+		{
+			// A per-item filter must drop only the placeholder, never a sibling.
+			name:          "placeholder alongside a real route yields only the real one",
+			routesInner:   `<route/><route><network>10.0.0.0/8</network><gateway>WAN_GW</gateway></route>`,
+			wantRoutes:    1,
+			wantHasRoutes: true,
+			wantNetwork:   "10.0.0.0/8",
+		},
+		{
+			// Disabled is the one guarded field with non-trivial unmarshal
+			// semantics (BoolFlag: a self-closing tag decodes to true), so it is
+			// driven through real XML rather than built as a struct.
+			name:          "route carrying only a self-closing disabled marker is retained",
+			routesInner:   `<route><disabled/></route>`,
+			wantRoutes:    1,
+			wantHasRoutes: true,
 		},
 	}
 

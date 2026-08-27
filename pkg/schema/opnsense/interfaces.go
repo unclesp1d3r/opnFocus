@@ -223,6 +223,24 @@ type VLAN struct {
 	Updated string   `xml:"updated,omitempty"`
 }
 
+// IsPlaceholder reports whether the value is an empty <vlan/> marker rather
+// than a configured VLAN. OPNsense writes that self-closing element inside
+// <vlans> when nothing is configured -- testdata/opnsense-config.dtd
+// declares it as "<!ELEMENT vlan EMPTY>" -- and it unmarshals into an all-zero
+// entry.
+//
+// The check is deliberately conservative: an entry is dropped only when every
+// field is zero. See GOTCHAS.md section 3.4 for why fields are compared by name
+// rather than against the zero value.
+func (v VLAN) IsPlaceholder() bool {
+	return v.If == "" &&
+		v.Tag == "" &&
+		v.Descr == "" &&
+		v.Vlanif == "" &&
+		v.Created == "" &&
+		v.Updated == ""
+}
+
 // Bridge represents a network bridge configuration, combining multiple interfaces
 // into a single Layer 2 broadcast domain with optional STP (Spanning Tree Protocol).
 type Bridge struct {
@@ -275,6 +293,24 @@ type GIF struct {
 	Updated string   `xml:"updated,omitempty"`
 }
 
+// IsPlaceholder reports whether the value is an empty <gif/> marker rather
+// than a configured tunnel. OPNsense writes that self-closing element inside
+// <gifs> when nothing is configured -- testdata/opnsense-config.dtd
+// declares it as "<!ELEMENT gif EMPTY>" -- and it unmarshals into an all-zero
+// entry.
+//
+// The check is deliberately conservative: an entry is dropped only when every
+// field is zero. See GOTCHAS.md section 3.4 for why fields are compared by name
+// rather than against the zero value.
+func (g GIF) IsPlaceholder() bool {
+	return g.Gifif == "" &&
+		g.If == "" &&
+		g.Remote == "" &&
+		g.Descr == "" &&
+		g.Created == "" &&
+		g.Updated == ""
+}
+
 // GRE represents a GRE (Generic Routing Encapsulation) tunnel configuration entry for point-to-point encapsulation.
 type GRE struct {
 	XMLName xml.Name `xml:"gre"`
@@ -284,6 +320,24 @@ type GRE struct {
 	Descr   string   `xml:"descr,omitempty"`
 	Created string   `xml:"created,omitempty"`
 	Updated string   `xml:"updated,omitempty"`
+}
+
+// IsPlaceholder reports whether the value is an empty <gre/> marker rather
+// than a configured tunnel. OPNsense writes that self-closing element inside
+// <gres> when nothing is configured -- testdata/opnsense-config.dtd
+// declares it as "<!ELEMENT gre EMPTY>" -- and it unmarshals into an all-zero
+// entry.
+//
+// The check is deliberately conservative: an entry is dropped only when every
+// field is zero. See GOTCHAS.md section 3.4 for why fields are compared by name
+// rather than against the zero value.
+func (g GRE) IsPlaceholder() bool {
+	return g.Greif == "" &&
+		g.If == "" &&
+		g.Remote == "" &&
+		g.Descr == "" &&
+		g.Created == "" &&
+		g.Updated == ""
 }
 
 // LAGG represents a LAGG (Link Aggregation) interface configuration entry for bonding
@@ -298,6 +352,24 @@ type LAGG struct {
 	Updated string   `xml:"updated,omitempty"`
 }
 
+// IsPlaceholder reports whether the value is an empty <lagg/> marker rather
+// than a configured link aggregation. OPNsense writes that self-closing element inside
+// <laggs> when nothing is configured -- testdata/opnsense-config.dtd
+// declares it as "<!ELEMENT lagg EMPTY>" -- and it unmarshals into an all-zero
+// entry.
+//
+// The check is deliberately conservative: an entry is dropped only when every
+// field is zero. See GOTCHAS.md section 3.4 for why fields are compared by name
+// rather than against the zero value.
+func (l LAGG) IsPlaceholder() bool {
+	return l.Laggif == "" &&
+		l.Members == "" &&
+		l.Proto == "" &&
+		l.Descr == "" &&
+		l.Created == "" &&
+		l.Updated == ""
+}
+
 // VIP represents a virtual IP address configuration entry used for CARP, IP alias,
 // proxy ARP, or other virtual address modes bound to a specific interface.
 type VIP struct {
@@ -306,6 +378,22 @@ type VIP struct {
 	Interface string   `xml:"interface,omitempty"`
 	Subnet    string   `xml:"subnet,omitempty"`
 	Descr     string   `xml:"descr,omitempty"`
+}
+
+// IsPlaceholder reports whether the value is an empty <vip/> marker rather
+// than a configured virtual IP. OPNsense writes that self-closing element inside
+// <virtualip> when nothing is configured -- testdata/opnsense-config.dtd
+// declares it as "<!ELEMENT vip EMPTY>" -- and it unmarshals into an all-zero
+// entry.
+//
+// The check is deliberately conservative: an entry is dropped only when every
+// field is zero. See GOTCHAS.md section 3.4 for why fields are compared by name
+// rather than against the zero value.
+func (v VIP) IsPlaceholder() bool {
+	return v.Mode == "" &&
+		v.Interface == "" &&
+		v.Subnet == "" &&
+		v.Descr == ""
 }
 
 // PPP represents a PPP (Point-to-Point Protocol) interface configuration entry,

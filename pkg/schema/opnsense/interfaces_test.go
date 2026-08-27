@@ -204,6 +204,10 @@ func TestBridge_IsPlaceholder_DecodedEmptyElement_ReportsPlaceholder(t *testing.
 		t.Fatalf("Unmarshal failed: %v", err)
 	}
 
+	if got == (Bridge{}) {
+		t.Fatal("decoded <bridged/> equals Bridge{}; the XMLName premise for IsPlaceholder no longer holds")
+	}
+
 	if !got.IsPlaceholder() {
 		t.Error("decoded <bridged/> must be reported as a placeholder")
 	}
