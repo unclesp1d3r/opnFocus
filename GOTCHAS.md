@@ -129,6 +129,18 @@ When an XML element appears multiple times (e.g., `<priv>a</priv><priv>b</priv>`
 - **Detection:** Compare parsed struct against raw XML — earlier occurrences are silently overwritten by later ones.
 - **Fix:** Change the field type from `string` to `[]string` with the same `xml` tag.
 
+### 3.4 Empty Placeholder Elements Become Phantom Entries
+
+OPNsense and pfSense write a self-closing placeholder inside a container when nothing of that type is configured — `<staticroutes><route/></staticroutes>`, `<bridges><bridged/></bridges>`, `<ppps><ppp/></ppps>`. The shipped DTD declares `<!ELEMENT bridged EMPTY>` for exactly this reason. Each placeholder unmarshals into a one-element slice holding an all-zero struct, so a converter that appends unconditionally produces a phantom entry in `CommonDevice`.
+
+- **Symptom:** A firewall with none of the resource configured reports one. `opndossier convert testdata/sample.config.5.xml --format json | jq -c '{ppps, routes: .routing.staticRoutes}'` returned `{"ppps":[{}],"routes":[{}]}` before the guards landed.
+- **Impact is not just counting.** A phantom reaches every consumer of the slice: unused-object reachability (`internal/analysis/unused.go`), diff route counts (`internal/diff/analyzer_routing.go`), and the `CommonDevice.HasRoutes` has-data predicate that decides whether a report renders a routing section at all.
+- **`reflect.DeepEqual` against the zero value cannot detect it.** Every schema element type carries `XMLName xml.Name`, which `encoding/xml` populates on unmarshal, so a decoded `<ppp/>` is never equal to `PPP{}`. A reflect-based guard silently never matches and becomes dead code.
+- **Fix:** guard at the converter boundary with a field-explicit predicate. `PPP`, `StaticRoute`, and `Bridge` each carry an `IsPlaceholder()` method in `pkg/schema/opnsense`; both parsers consume those same types, so one predicate serves every call site. Keep it conservative — drop an entry only when every field is zero, so one carrying a description alone survives. Under-reporting configured resources is the more dangerous direction for an auditing tool.
+- **Also drop the preallocation.** A guarded loop may skip an append, so `make([]T, 0, len(src))` violates the preallocation rule in `AGENTS.md` § Mandatory Practices item 7. Use `var result []T` — which also makes a placeholder-only container return nil rather than an empty slice.
+- **Regression tests:** `TestPPP_IsPlaceholder_DecodedElement` and `TestStaticRoute_IsPlaceholder_DecodedElement` in `pkg/schema/opnsense` fail loudly if the `XMLName` premise ever stops holding. The `*_EndToEnd_PlaceholderNotCounted` tests in both parser packages drive XML through parse and convert, which the struct-building converter tests never did — that gap is why this shipped undetected.
+- **When adding a repeated-element container:** check whether the vendor emits a placeholder for it. `GIF`, `GRE`, `VLAN`, and gateway containers have no reported phantom today and are deliberately unguarded.
+
 ## 4. Diff Engine
 
 ### 4.1 Section-Level Added/Removed Guards
