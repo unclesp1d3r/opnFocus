@@ -110,10 +110,11 @@ func TestInterfaces_MarshalUnmarshal_Simple(t *testing.T) {
 	}
 }
 
-// TestPPP_IsPlaceholder covers the empty-<ppp/> guard. OPNsense writes a
-// self-closing placeholder inside <ppps> when no PPP link is configured, and the
-// predicate must recognize it while retaining any entry that carries data.
-func TestPPP_IsPlaceholder(t *testing.T) {
+// TestPPP_IsPlaceholder_ReportsTrueOnlyWhenEveryFieldIsZero covers the
+// empty-<ppp/> guard. OPNsense writes a self-closing placeholder inside <ppps>
+// when no PPP link is configured, and the predicate must recognize it while
+// retaining any entry that carries data.
+func TestPPP_IsPlaceholder_ReportsTrueOnlyWhenEveryFieldIsZero(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -142,10 +143,10 @@ func TestPPP_IsPlaceholder(t *testing.T) {
 	}
 }
 
-// TestPPP_IsPlaceholder_DecodedElement pins the reason the predicate compares
-// named fields instead of the zero value: encoding/xml populates XMLName on
-// unmarshal, so a decoded <ppp/> is never equal to PPP{}.
-func TestPPP_IsPlaceholder_DecodedElement(t *testing.T) {
+// TestPPP_IsPlaceholder_DecodedEmptyElement_ReportsPlaceholder pins the reason
+// the predicate compares named fields instead of the zero value: encoding/xml
+// populates XMLName on unmarshal, so a decoded <ppp/> is never equal to PPP{}.
+func TestPPP_IsPlaceholder_DecodedEmptyElement_ReportsPlaceholder(t *testing.T) {
 	t.Parallel()
 
 	var got PPP
@@ -162,9 +163,10 @@ func TestPPP_IsPlaceholder_DecodedElement(t *testing.T) {
 	}
 }
 
-// TestBridge_IsPlaceholder covers the empty-<bridged/> guard relocated from the
-// OPNsense converter so both parsers can share it.
-func TestBridge_IsPlaceholder(t *testing.T) {
+// TestBridge_IsPlaceholder_ReportsTrueOnlyWhenEveryFieldIsZero covers the
+// empty-<bridged/> guard relocated from the OPNsense converter so both parsers
+// can share it.
+func TestBridge_IsPlaceholder_ReportsTrueOnlyWhenEveryFieldIsZero(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -192,9 +194,9 @@ func TestBridge_IsPlaceholder(t *testing.T) {
 	}
 }
 
-// TestBridge_IsPlaceholder_DecodedElement is the Bridge counterpart to
-// TestPPP_IsPlaceholder_DecodedElement.
-func TestBridge_IsPlaceholder_DecodedElement(t *testing.T) {
+// TestBridge_IsPlaceholder_DecodedEmptyElement_ReportsPlaceholder is the Bridge
+// counterpart to TestPPP_IsPlaceholder_DecodedEmptyElement_ReportsPlaceholder.
+func TestBridge_IsPlaceholder_DecodedEmptyElement_ReportsPlaceholder(t *testing.T) {
 	t.Parallel()
 
 	var got Bridge

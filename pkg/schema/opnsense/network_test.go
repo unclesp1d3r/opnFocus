@@ -5,11 +5,12 @@ import (
 	"testing"
 )
 
-// TestStaticRoute_IsPlaceholder covers the empty-<route/> guard. OPNsense writes
-// a self-closing placeholder inside <staticroutes> when no route is configured,
-// and the predicate must recognize it while retaining any entry that carries
-// data -- including one that is only a disabled marker.
-func TestStaticRoute_IsPlaceholder(t *testing.T) {
+// TestStaticRoute_IsPlaceholder_ReportsTrueOnlyWhenEveryFieldIsZero covers the
+// empty-<route/> guard. OPNsense writes a self-closing placeholder inside
+// <staticroutes> when no route is configured, and the predicate must recognize
+// it while retaining any entry that carries data -- including one that is only a
+// disabled marker.
+func TestStaticRoute_IsPlaceholder_ReportsTrueOnlyWhenEveryFieldIsZero(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -41,10 +42,11 @@ func TestStaticRoute_IsPlaceholder(t *testing.T) {
 	}
 }
 
-// TestStaticRoute_IsPlaceholder_DecodedElement pins the reason the predicate
-// compares named fields instead of the zero value: encoding/xml populates
-// XMLName on unmarshal, so a decoded <route/> is never equal to StaticRoute{}.
-func TestStaticRoute_IsPlaceholder_DecodedElement(t *testing.T) {
+// TestStaticRoute_IsPlaceholder_DecodedEmptyElement_ReportsPlaceholder pins the
+// reason the predicate compares named fields instead of the zero value:
+// encoding/xml populates XMLName on unmarshal, so a decoded <route/> is never
+// equal to StaticRoute{}.
+func TestStaticRoute_IsPlaceholder_DecodedEmptyElement_ReportsPlaceholder(t *testing.T) {
 	t.Parallel()
 
 	var got StaticRoute
