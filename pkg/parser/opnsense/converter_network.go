@@ -7,26 +7,6 @@ import (
 	schema "github.com/EvilBit-Labs/opnDossier/pkg/schema/opnsense"
 )
 
-// isBridgePlaceholder reports whether a <bridged> element carries no data at all.
-//
-// OPNsense emits a self-closing <bridged/> marker inside <bridges> when no bridge
-// is configured (the shipped testdata/opnsense-config.dtd declares it as
-// "<!ELEMENT bridged EMPTY>" for exactly this reason). Such an element is a
-// structural placeholder, not a bridge.
-//
-// The check is deliberately conservative: an entry is dropped only when every
-// field is zero. A bridge carrying any data at all -- even just a description --
-// is retained, because under-reporting configured resources is the more dangerous
-// direction for an auditing tool.
-func isBridgePlaceholder(b schema.Bridge) bool {
-	return b.Bridgeif == "" &&
-		b.Members == "" &&
-		b.Descr == "" &&
-		!bool(b.STP) &&
-		b.Created == "" &&
-		b.Updated == ""
-}
-
 // convertBridges maps doc.Bridges.Bridge to []common.Bridge.
 // Bridge members are stored as a comma-separated string in OPNsense XML and
 // split into individual interface names for the platform-agnostic model.
@@ -38,7 +18,7 @@ func (c *converter) convertBridges(doc *schema.OpnSenseDocument) []common.Bridge
 	var result []common.Bridge
 
 	for _, b := range doc.Bridges.Bridge {
-		if isBridgePlaceholder(b) {
+		if b.IsPlaceholder() {
 			continue
 		}
 
@@ -57,13 +37,22 @@ func (c *converter) convertBridges(doc *schema.OpnSenseDocument) []common.Bridge
 
 // convertPPPs maps doc.PPPInterfaces.Ppp to []common.PPP.
 // PPP entries represent point-to-point protocol connections (PPPoE, PPTP, L2TP).
+//
+// Empty <ppp/> placeholders are skipped so they do not surface as blank PPP
+// links in exported output. The result is grown on demand rather than
+// preallocated because the loop may skip entries.
 func (c *converter) convertPPPs(doc *schema.OpnSenseDocument) []common.PPP {
 	if len(doc.PPPInterfaces.Ppp) == 0 {
 		return nil
 	}
 
-	result := make([]common.PPP, 0, len(doc.PPPInterfaces.Ppp))
+	var result []common.PPP
+
 	for _, p := range doc.PPPInterfaces.Ppp {
+		if p.IsPlaceholder() {
+			continue
+		}
+
 		result = append(result, common.PPP{
 			Interface:   p.If,
 			Type:        p.Type,

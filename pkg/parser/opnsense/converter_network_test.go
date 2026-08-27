@@ -163,6 +163,22 @@ func TestConverter_PPPs(t *testing.T) {
 			},
 			wantLen: 3,
 		},
+		{
+			// OPNsense writes this placeholder when no PPP link is configured.
+			name:    "empty ppp placeholder is skipped",
+			ppps:    []schema.PPP{{}},
+			wantLen: 0,
+		},
+		{
+			name:    "description-only ppp is retained",
+			ppps:    []schema.PPP{{Descr: "backup link"}},
+			wantLen: 1,
+		},
+		{
+			name:    "placeholder alongside a real ppp yields only the real one",
+			ppps:    []schema.PPP{{}, {If: "pppoe0", Type: "pppoe", Descr: "WAN"}},
+			wantLen: 1,
+		},
 	}
 
 	for _, tt := range tests {
@@ -658,6 +674,139 @@ func TestConverter_Bridges_EndToEnd_PlaceholderNotCounted(t *testing.T) {
 			if tt.wantBridgeIf != "" {
 				require.Len(t, device.Bridges, 1)
 				assert.Equal(t, tt.wantBridgeIf, device.Bridges[0].BridgeIf)
+			}
+		})
+	}
+}
+
+// TestConverter_PPPs_EndToEnd_PlaceholderNotCounted drives real config.xml
+// content through the full parse -> convert path. The existing table tests build
+// schema.PPP values directly in Go and so never exercise the XML path, which is
+// how the empty-<ppp/> placeholder reached CommonDevice unnoticed.
+func TestConverter_PPPs_EndToEnd_PlaceholderNotCounted(t *testing.T) {
+	t.Parallel()
+
+	const configTemplate = `<?xml version="1.0"?>
+<opnsense>
+  <system>
+    <hostname>fw</hostname>
+    <domain>example.com</domain>
+  </system>
+  <ppps>%s</ppps>
+</opnsense>`
+
+	tests := []struct {
+		name          string
+		pppsInner     string
+		wantPPPs      int
+		wantInterface string
+	}{
+		{
+			// OPNsense writes this placeholder when no PPP link is configured.
+			name:      "empty ppp placeholder reports zero PPPs",
+			pppsInner: `<ppp/>`,
+			wantPPPs:  0,
+		},
+		{
+			name:          "populated ppp element is counted",
+			pppsInner:     `<ppp><if>pppoe0</if><type>pppoe</type><descr>WAN</descr></ppp>`,
+			wantPPPs:      1,
+			wantInterface: "pppoe0",
+		},
+	}
+
+	factory := parser.NewFactory(cfgparser.NewXMLParser())
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			xmlBody := strings.Replace(configTemplate, "%s", tt.pppsInner, 1)
+			device, _, err := factory.CreateDevice(
+				context.Background(),
+				strings.NewReader(xmlBody),
+				common.DeviceTypeUnknown,
+				false,
+			)
+			require.NoError(t, err)
+			require.NotNil(t, device)
+
+			assert.Len(t, device.PPPs, tt.wantPPPs,
+				"PPPs must not include empty <ppp/> placeholders")
+
+			if tt.wantInterface != "" {
+				require.Len(t, device.PPPs, 1)
+				assert.Equal(t, tt.wantInterface, device.PPPs[0].Interface)
+			}
+		})
+	}
+}
+
+// TestConverter_StaticRoutes_EndToEnd_PlaceholderNotCounted drives real
+// config.xml content through the full parse -> convert path and asserts the
+// consumer that makes this bug user-visible: HasRoutes reports whether the
+// device has routing configuration, and a phantom route flips an empty routing
+// section to populated. The fixture carries no <gateways> because HasRoutes ORs
+// static routes with gateways and gateway groups.
+func TestConverter_StaticRoutes_EndToEnd_PlaceholderNotCounted(t *testing.T) {
+	t.Parallel()
+
+	const configTemplate = `<?xml version="1.0"?>
+<opnsense>
+  <system>
+    <hostname>fw</hostname>
+    <domain>example.com</domain>
+  </system>
+  <staticroutes>%s</staticroutes>
+</opnsense>`
+
+	tests := []struct {
+		name          string
+		routesInner   string
+		wantRoutes    int
+		wantHasRoutes bool
+		wantNetwork   string
+	}{
+		{
+			// OPNsense writes this placeholder when no route is configured.
+			name:          "empty route placeholder reports zero routes",
+			routesInner:   `<route/>`,
+			wantRoutes:    0,
+			wantHasRoutes: false,
+		},
+		{
+			name:          "populated route element is counted",
+			routesInner:   `<route><network>10.0.0.0/8</network><gateway>WAN_GW</gateway><descr>branch</descr></route>`,
+			wantRoutes:    1,
+			wantHasRoutes: true,
+			wantNetwork:   "10.0.0.0/8",
+		},
+	}
+
+	factory := parser.NewFactory(cfgparser.NewXMLParser())
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			xmlBody := strings.Replace(configTemplate, "%s", tt.routesInner, 1)
+			device, _, err := factory.CreateDevice(
+				context.Background(),
+				strings.NewReader(xmlBody),
+				common.DeviceTypeUnknown,
+				false,
+			)
+			require.NoError(t, err)
+			require.NotNil(t, device)
+
+			assert.Len(t, device.Routing.StaticRoutes, tt.wantRoutes,
+				"StaticRoutes must not include empty <route/> placeholders")
+			assert.Equal(t, tt.wantHasRoutes, device.HasRoutes(),
+				"HasRoutes must not be flipped true by an empty <route/> placeholder")
+
+			if tt.wantNetwork != "" {
+				require.Len(t, device.Routing.StaticRoutes, 1)
+				assert.Equal(t, tt.wantNetwork, device.Routing.StaticRoutes[0].Network)
 			}
 		})
 	}
