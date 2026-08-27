@@ -109,3 +109,100 @@ func TestInterfaces_MarshalUnmarshal_Simple(t *testing.T) {
 		t.Errorf("wan.Enable = %q, want %q", wan.Enable, "1")
 	}
 }
+
+// TestPPP_IsPlaceholder covers the empty-<ppp/> guard. OPNsense writes a
+// self-closing placeholder inside <ppps> when no PPP link is configured, and the
+// predicate must recognize it while retaining any entry that carries data.
+func TestPPP_IsPlaceholder(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name string
+		ppp  PPP
+		want bool
+	}{
+		{name: "zero value is a placeholder", ppp: PPP{}, want: true},
+		{name: "description only is retained", ppp: PPP{Descr: "backup link"}, want: false},
+		{name: "interface only is retained", ppp: PPP{If: "pppoe0"}, want: false},
+		{name: "type only is retained", ppp: PPP{Type: "pppoe"}, want: false},
+		{
+			name: "fully populated is retained",
+			ppp:  PPP{If: "pppoe0", Type: "pppoe", Descr: "WAN uplink"},
+			want: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			if got := tt.ppp.IsPlaceholder(); got != tt.want {
+				t.Errorf("IsPlaceholder() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+// TestPPP_IsPlaceholder_DecodedElement pins the reason the predicate compares
+// named fields instead of the zero value: encoding/xml populates XMLName on
+// unmarshal, so a decoded <ppp/> is never equal to PPP{}.
+func TestPPP_IsPlaceholder_DecodedElement(t *testing.T) {
+	t.Parallel()
+
+	var got PPP
+	if err := xml.Unmarshal([]byte(`<ppp/>`), &got); err != nil {
+		t.Fatalf("Unmarshal failed: %v", err)
+	}
+
+	if got == (PPP{}) {
+		t.Fatal("decoded <ppp/> equals PPP{}; the XMLName premise for IsPlaceholder no longer holds")
+	}
+
+	if !got.IsPlaceholder() {
+		t.Error("decoded <ppp/> must be reported as a placeholder")
+	}
+}
+
+// TestBridge_IsPlaceholder covers the empty-<bridged/> guard relocated from the
+// OPNsense converter so both parsers can share it.
+func TestBridge_IsPlaceholder(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name   string
+		bridge Bridge
+		want   bool
+	}{
+		{name: "zero value is a placeholder", bridge: Bridge{}, want: true},
+		{name: "description only is retained", bridge: Bridge{Descr: "guest bridge"}, want: false},
+		{name: "stp only is retained", bridge: Bridge{STP: BoolFlag(true)}, want: false},
+		{
+			name:   "fully populated is retained",
+			bridge: Bridge{Bridgeif: "bridge0", Members: "opt1,opt2", Descr: "LAN"},
+			want:   false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			if got := tt.bridge.IsPlaceholder(); got != tt.want {
+				t.Errorf("IsPlaceholder() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+// TestBridge_IsPlaceholder_DecodedElement is the Bridge counterpart to
+// TestPPP_IsPlaceholder_DecodedElement.
+func TestBridge_IsPlaceholder_DecodedElement(t *testing.T) {
+	t.Parallel()
+
+	var got Bridge
+	if err := xml.Unmarshal([]byte(`<bridged/>`), &got); err != nil {
+		t.Fatalf("Unmarshal failed: %v", err)
+	}
+
+	if !got.IsPlaceholder() {
+		t.Error("decoded <bridged/> must be reported as a placeholder")
+	}
+}

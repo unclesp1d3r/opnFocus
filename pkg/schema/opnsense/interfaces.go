@@ -235,6 +235,28 @@ type Bridge struct {
 	Updated  string   `xml:"updated,omitempty"`
 }
 
+// IsPlaceholder reports whether b is an empty <bridged/> marker rather than a
+// configured bridge. OPNsense writes that self-closing element inside <bridges>
+// when nothing is configured -- the shipped DTD declares it as
+// "<!ELEMENT bridged EMPTY>" for exactly this reason -- and it unmarshals into
+// an all-zero entry.
+//
+// The check is deliberately conservative: an entry is dropped only when every
+// field is zero. A bridge carrying any data at all -- even just a description --
+// is retained, because under-reporting configured resources is the more
+// dangerous direction for an auditing tool.
+//
+// Fields are compared by name rather than against the zero value: encoding/xml
+// populates XMLName on unmarshal, so a decoded <bridged/> never equals Bridge{}.
+func (b Bridge) IsPlaceholder() bool {
+	return b.Bridgeif == "" &&
+		b.Members == "" &&
+		b.Descr == "" &&
+		!bool(b.STP) &&
+		b.Created == "" &&
+		b.Updated == ""
+}
+
 // Bridges represents the <bridges> container element holding all bridge configurations.
 // OPNsense stores each entry as <bridged>, not <bridge>.
 type Bridges struct {
@@ -293,6 +315,23 @@ type PPP struct {
 	If      string   `xml:"if,omitempty"`
 	Type    string   `xml:"type,omitempty"`
 	Descr   string   `xml:"descr,omitempty"`
+}
+
+// IsPlaceholder reports whether p is an empty <ppp/> marker rather than a
+// configured PPP link. OPNsense writes that self-closing element inside <ppps>
+// when nothing is configured, and it unmarshals into an all-zero entry.
+//
+// The check is deliberately conservative: an entry is dropped only when every
+// field is zero. A link carrying any data at all -- even just a description --
+// is retained, because under-reporting configured resources is the more
+// dangerous direction for an auditing tool.
+//
+// Fields are compared by name rather than against the zero value: encoding/xml
+// populates XMLName on unmarshal, so a decoded <ppp/> never equals PPP{}.
+func (p PPP) IsPlaceholder() bool {
+	return p.If == "" &&
+		p.Type == "" &&
+		p.Descr == ""
 }
 
 // IfGroupEntry represents an interface group entry, binding a group name to its member interfaces.
