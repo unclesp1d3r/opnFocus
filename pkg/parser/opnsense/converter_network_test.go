@@ -613,10 +613,10 @@ func TestConverter_InterfaceGroups_SpaceSeparated(t *testing.T) {
 	assert.Equal(t, []string{"lan", "opt1"}, device.InterfaceGroups[0].Members)
 }
 
-// TestConverter_Bridges_EndToEnd_PlaceholderNotCounted drives real config.xml content
-// through the full parse -> convert -> statistics path. The <bridged> tag fix in
-// pkg/schema/opnsense made this path reachable for the first time, so the
-// end-to-end bridge count is asserted here rather than only at the schema layer.
+// TestConverter_Bridges_EndToEnd_PlaceholderNotCounted drives config.xml content
+// through the full parse -> convert -> statistics path. The bridge count is
+// asserted end to end rather than only at the schema layer, because XML-driven
+// parsing exercises decode behavior that struct-literal tests cannot reach.
 func TestConverter_Bridges_EndToEnd_PlaceholderNotCounted(t *testing.T) {
 	t.Parallel()
 
@@ -679,10 +679,10 @@ func TestConverter_Bridges_EndToEnd_PlaceholderNotCounted(t *testing.T) {
 	}
 }
 
-// TestConverter_PPPs_EndToEnd_PlaceholderNotCounted drives real config.xml
-// content through the full parse -> convert path. The existing table tests build
-// schema.PPP values directly in Go and so never exercise the XML path, which is
-// how the empty-<ppp/> placeholder reached CommonDevice unnoticed.
+// TestConverter_PPPs_EndToEnd_PlaceholderNotCounted drives config.xml content
+// through the full parse -> convert path. The table tests above build schema.PPP
+// values directly in Go, which cannot exercise XML decode behavior; only this
+// path proves an empty <ppp/> never reaches CommonDevice.
 func TestConverter_PPPs_EndToEnd_PlaceholderNotCounted(t *testing.T) {
 	t.Parallel()
 
@@ -842,8 +842,8 @@ func TestConverter_StaticRoutes_EndToEnd_PlaceholderNotCounted(t *testing.T) {
 //
 // testdata/opnsense-config.dtd declares each of these elements EMPTY, and
 // testdata/sample.config.5.xml -- a real OPNsense export -- carries all eight in
-// a single file. Guarding them one at a time is how five of them stayed broken
-// after the first three were fixed, so they are asserted together here.
+// a single file. They are asserted together so that guarding a new container
+// without covering it here is visible as a gap in one place.
 func TestConverter_AllPlaceholderContainers_EndToEnd_ProduceNoEntries(t *testing.T) {
 	t.Parallel()
 
@@ -889,4 +889,57 @@ func TestConverter_AllPlaceholderContainers_EndToEnd_ProduceNoEntries(t *testing
 	// A placeholder must not reach the enum-cast validation in convertLAGGs and
 	// convertVirtualIPs, which would warn about its empty protocol/mode.
 	assert.Empty(t, warnings, "placeholders must not produce conversion warnings")
+}
+
+// TestConverter_EnumWarningIndex_AfterSkippedPlaceholder_PointsAtOutputIndex
+// pins the warning dot-path against the index drift a skip-then-warn loop
+// invites.
+//
+// ConversionWarning.Field is documented as a path into the converted output, so
+// once the placeholder guard can skip an entry, the raw loop index no longer
+// addresses the right element. A placeholder preceding an invalid-enum entry is
+// the shape that exposes it: the entry lands at output index 0 while the raw
+// index reads 1.
+func TestConverter_EnumWarningIndex_AfterSkippedPlaceholder_PointsAtOutputIndex(t *testing.T) {
+	t.Parallel()
+
+	const configXML = `<?xml version="1.0"?>
+<opnsense>
+  <system>
+    <hostname>fw</hostname>
+    <domain>example.com</domain>
+  </system>
+  <laggs>
+    <lagg/>
+    <lagg><laggif>lagg0</laggif><members>em0,em1</members><proto>bogus</proto></lagg>
+  </laggs>
+  <virtualip>
+    <vip/>
+    <vip><mode>bogusmode</mode><interface>wan</interface><subnet>10.0.0.1</subnet></vip>
+  </virtualip>
+</opnsense>`
+
+	factory := parser.NewFactory(cfgparser.NewXMLParser())
+
+	device, warnings, err := factory.CreateDevice(
+		context.Background(),
+		strings.NewReader(configXML),
+		common.DeviceTypeUnknown,
+		false,
+	)
+	require.NoError(t, err)
+	require.NotNil(t, device)
+
+	require.Len(t, device.LAGGs, 1, "placeholder must be skipped")
+	require.Len(t, device.VirtualIPs, 1, "placeholder must be skipped")
+
+	fields := make([]string, 0, len(warnings))
+	for _, w := range warnings {
+		fields = append(fields, w.Field)
+	}
+
+	assert.Contains(t, fields, "LAGGs[0].Protocol",
+		"warning must address the entry's index in the converted output, not its raw XML position")
+	assert.Contains(t, fields, "VirtualIPs[0].Mode",
+		"warning must address the entry's index in the converted output, not its raw XML position")
 }

@@ -416,6 +416,15 @@ type PPP struct {
 //
 // Fields are compared by name rather than against the zero value: encoding/xml
 // populates XMLName on unmarshal, so a decoded <ppp/> never equals PPP{}.
+//
+// The pfSense parser shares this type, and pkg/schema/pfsense/README.md records
+// <ppps> as an "Identical base" rather than a full mirror: real pfSense entries
+// can also carry ptpid, ports, username, password, provider, and mtu, none of
+// which this struct declares. An entry populating only those unparsed fields
+// would be read as a placeholder. No committed fixture exhibits that shape, and
+// a usable PPP link sets if and type in practice, so this is an accepted
+// assumption rather than a known defect -- but a fuller pfSense PPP fork must
+// extend this predicate along with the struct.
 func (p PPP) IsPlaceholder() bool {
 	return p.If == "" &&
 		p.Type == "" &&

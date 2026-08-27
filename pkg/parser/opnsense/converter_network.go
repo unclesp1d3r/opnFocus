@@ -124,15 +124,17 @@ func (c *converter) convertGREs(doc *schema.OpnSenseDocument) []common.GRE {
 func (c *converter) convertLAGGs(doc *schema.OpnSenseDocument) []common.LAGG {
 	var result []common.LAGG
 
-	for i, l := range doc.LAGGInterfaces.Lagg {
+	for _, l := range doc.LAGGInterfaces.Lagg {
 		if l.IsPlaceholder() {
 			continue
 		}
 
 		proto := common.LAGGProtocol(l.Proto)
 		if l.Proto != "" && !proto.IsValid() {
+			// len(result) is the index this entry will occupy in the output.
+			// The raw loop index would drift once a placeholder is skipped.
 			c.addWarning(
-				fmt.Sprintf("LAGGs[%d].Protocol", i),
+				fmt.Sprintf("LAGGs[%d].Protocol", len(result)),
 				l.Proto,
 				"unrecognized LAGG protocol",
 				common.SeverityLow,
@@ -160,15 +162,17 @@ func (c *converter) convertLAGGs(doc *schema.OpnSenseDocument) []common.LAGG {
 func (c *converter) convertVirtualIPs(doc *schema.OpnSenseDocument) []common.VirtualIP {
 	var result []common.VirtualIP
 
-	for i, v := range doc.VirtualIP.Vip {
+	for _, v := range doc.VirtualIP.Vip {
 		if v.IsPlaceholder() {
 			continue
 		}
 
 		mode := common.VIPMode(v.Mode)
 		if v.Mode != "" && !mode.IsValid() {
+			// len(result) is the index this entry will occupy in the output.
+			// The raw loop index would drift once a placeholder is skipped.
 			c.addWarning(
-				fmt.Sprintf("VirtualIPs[%d].Mode", i),
+				fmt.Sprintf("VirtualIPs[%d].Mode", len(result)),
 				v.Mode,
 				"unrecognized virtual IP mode",
 				common.SeverityLow,
