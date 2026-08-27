@@ -80,10 +80,6 @@ func (c *converter) convertVLANs(doc *pfsense.Document) []common.VLAN {
 // links in exported output. The result is grown on demand rather than
 // preallocated because the loop may skip entries.
 func (c *converter) convertPPPs(doc *pfsense.Document) []common.PPP {
-	if len(doc.PPPs.Ppp) == 0 {
-		return nil
-	}
-
 	var result []common.PPP
 
 	for _, p := range doc.PPPs.Ppp {
@@ -183,9 +179,6 @@ func (c *converter) convertGatewayGroups(doc *pfsense.Document) []common.Gateway
 // than preallocated because the loop may skip entries.
 func (c *converter) convertStaticRoutes(doc *pfsense.Document) []common.StaticRoute {
 	routes := doc.StaticRoutes.Route
-	if len(routes) == 0 {
-		return nil
-	}
 
 	var result []common.StaticRoute
 

@@ -42,10 +42,6 @@ func (c *converter) convertBridges(doc *schema.OpnSenseDocument) []common.Bridge
 // links in exported output. The result is grown on demand rather than
 // preallocated because the loop may skip entries.
 func (c *converter) convertPPPs(doc *schema.OpnSenseDocument) []common.PPP {
-	if len(doc.PPPInterfaces.Ppp) == 0 {
-		return nil
-	}
-
 	var result []common.PPP
 
 	for _, p := range doc.PPPInterfaces.Ppp {

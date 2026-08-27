@@ -605,10 +605,6 @@ func (c *converter) convertGatewayGroups(groups []schema.GatewayGroup) []common.
 // device with no routing configuration. The result is grown on demand rather
 // than preallocated because the loop may skip entries.
 func (c *converter) convertStaticRoutes(routes []schema.StaticRoute) []common.StaticRoute {
-	if len(routes) == 0 {
-		return nil
-	}
-
 	var result []common.StaticRoute
 
 	for _, r := range routes {
