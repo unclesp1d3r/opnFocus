@@ -77,6 +77,28 @@ type StaticRoute struct {
 	Updated  string   `xml:"updated,omitempty"`
 }
 
+// IsPlaceholder reports whether r is an empty <route/> marker rather than a
+// configured static route. OPNsense writes that self-closing element inside
+// <staticroutes> when nothing is configured, and it unmarshals into an entry
+// whose configuration fields are all zero.
+//
+// The check is deliberately conservative: an entry is dropped only when every
+// field is zero. A route carrying any data at all -- even just a description --
+// is retained, because under-reporting configured resources is the more
+// dangerous direction for an auditing tool.
+//
+// Fields are compared by name rather than against the zero value: encoding/xml
+// populates XMLName on unmarshal, so a decoded <route/> never equals
+// StaticRoute{}.
+func (r StaticRoute) IsPlaceholder() bool {
+	return r.Network == "" &&
+		r.Gateway == "" &&
+		r.Descr == "" &&
+		!bool(r.Disabled) &&
+		r.Created == "" &&
+		r.Updated == ""
+}
+
 // Constructor functions for network models
 
 // NewNetworkConfig returns a NetworkConfig with initialized empty slices for VLANs and Gateways, and an initialized map for Interfaces.

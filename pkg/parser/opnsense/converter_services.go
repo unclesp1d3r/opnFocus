@@ -599,13 +599,19 @@ func (c *converter) convertGatewayGroups(groups []schema.GatewayGroup) []common.
 }
 
 // convertStaticRoutes maps []schema.StaticRoute to []common.StaticRoute.
+//
+// Empty <route/> placeholders are skipped so they neither surface as blank
+// routes in exported output nor flip CommonDevice.HasRoutes to true for a
+// device with no routing configuration. The result is grown on demand rather
+// than preallocated because the loop may skip entries.
 func (c *converter) convertStaticRoutes(routes []schema.StaticRoute) []common.StaticRoute {
-	if len(routes) == 0 {
-		return nil
-	}
+	var result []common.StaticRoute
 
-	result := make([]common.StaticRoute, 0, len(routes))
 	for _, r := range routes {
+		if r.IsPlaceholder() {
+			continue
+		}
+
 		result = append(result, common.StaticRoute{
 			Network:     r.Network,
 			NetworkRef:  c.namedObjects.Ref(r.Network),

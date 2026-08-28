@@ -7,26 +7,6 @@ import (
 	schema "github.com/EvilBit-Labs/opnDossier/pkg/schema/opnsense"
 )
 
-// isBridgePlaceholder reports whether a <bridged> element carries no data at all.
-//
-// OPNsense emits a self-closing <bridged/> marker inside <bridges> when no bridge
-// is configured (the shipped testdata/opnsense-config.dtd declares it as
-// "<!ELEMENT bridged EMPTY>" for exactly this reason). Such an element is a
-// structural placeholder, not a bridge.
-//
-// The check is deliberately conservative: an entry is dropped only when every
-// field is zero. A bridge carrying any data at all -- even just a description --
-// is retained, because under-reporting configured resources is the more dangerous
-// direction for an auditing tool.
-func isBridgePlaceholder(b schema.Bridge) bool {
-	return b.Bridgeif == "" &&
-		b.Members == "" &&
-		b.Descr == "" &&
-		!bool(b.STP) &&
-		b.Created == "" &&
-		b.Updated == ""
-}
-
 // convertBridges maps doc.Bridges.Bridge to []common.Bridge.
 // Bridge members are stored as a comma-separated string in OPNsense XML and
 // split into individual interface names for the platform-agnostic model.
@@ -38,7 +18,7 @@ func (c *converter) convertBridges(doc *schema.OpnSenseDocument) []common.Bridge
 	var result []common.Bridge
 
 	for _, b := range doc.Bridges.Bridge {
-		if isBridgePlaceholder(b) {
+		if b.IsPlaceholder() {
 			continue
 		}
 
@@ -57,13 +37,18 @@ func (c *converter) convertBridges(doc *schema.OpnSenseDocument) []common.Bridge
 
 // convertPPPs maps doc.PPPInterfaces.Ppp to []common.PPP.
 // PPP entries represent point-to-point protocol connections (PPPoE, PPTP, L2TP).
+//
+// Empty <ppp/> placeholders are skipped so they do not surface as blank PPP
+// links in exported output. The result is grown on demand rather than
+// preallocated because the loop may skip entries.
 func (c *converter) convertPPPs(doc *schema.OpnSenseDocument) []common.PPP {
-	if len(doc.PPPInterfaces.Ppp) == 0 {
-		return nil
-	}
+	var result []common.PPP
 
-	result := make([]common.PPP, 0, len(doc.PPPInterfaces.Ppp))
 	for _, p := range doc.PPPInterfaces.Ppp {
+		if p.IsPlaceholder() {
+			continue
+		}
+
 		result = append(result, common.PPP{
 			Interface:   p.If,
 			Type:        p.Type,
@@ -78,13 +63,17 @@ func (c *converter) convertPPPs(doc *schema.OpnSenseDocument) []common.PPP {
 // GIF (Generic Tunnel Interface) entries encapsulate IPv4-in-IPv4 or IPv6-in-IPv4
 // tunnels. The Gifif field is the tunnel interface name (e.g., "gif0"), while If
 // is the parent physical interface.
+//
+// Empty <gif/> placeholders are skipped; see GOTCHAS.md section 3.4. The result
+// is grown on demand rather than preallocated because the loop may skip entries.
 func (c *converter) convertGIFs(doc *schema.OpnSenseDocument) []common.GIF {
-	if len(doc.GIFInterfaces.Gif) == 0 {
-		return nil
-	}
+	var result []common.GIF
 
-	result := make([]common.GIF, 0, len(doc.GIFInterfaces.Gif))
 	for _, g := range doc.GIFInterfaces.Gif {
+		if g.IsPlaceholder() {
+			continue
+		}
+
 		result = append(result, common.GIF{
 			Interface:   g.Gifif,
 			Local:       g.If,
@@ -102,13 +91,17 @@ func (c *converter) convertGIFs(doc *schema.OpnSenseDocument) []common.GIF {
 // GRE (Generic Routing Encapsulation) entries define point-to-point tunnel
 // interfaces. The Greif field is the tunnel interface name (e.g., "gre0"), while
 // If is the parent physical interface.
+//
+// Empty <gre/> placeholders are skipped; see GOTCHAS.md section 3.4. The result
+// is grown on demand rather than preallocated because the loop may skip entries.
 func (c *converter) convertGREs(doc *schema.OpnSenseDocument) []common.GRE {
-	if len(doc.GREInterfaces.Gre) == 0 {
-		return nil
-	}
+	var result []common.GRE
 
-	result := make([]common.GRE, 0, len(doc.GREInterfaces.Gre))
 	for _, g := range doc.GREInterfaces.Gre {
+		if g.IsPlaceholder() {
+			continue
+		}
+
 		result = append(result, common.GRE{
 			Interface:   g.Greif,
 			Local:       g.If,
@@ -125,17 +118,23 @@ func (c *converter) convertGREs(doc *schema.OpnSenseDocument) []common.GRE {
 // convertLAGGs maps doc.LAGGInterfaces.Lagg to []common.LAGG.
 // LAGG (Link Aggregation) entries bond multiple physical interfaces under
 // a single logical interface. Members are comma-separated in the XML.
+//
+// Empty <lagg/> placeholders are skipped; see GOTCHAS.md section 3.4. The result
+// is grown on demand rather than preallocated because the loop may skip entries.
 func (c *converter) convertLAGGs(doc *schema.OpnSenseDocument) []common.LAGG {
-	if len(doc.LAGGInterfaces.Lagg) == 0 {
-		return nil
-	}
+	var result []common.LAGG
 
-	result := make([]common.LAGG, 0, len(doc.LAGGInterfaces.Lagg))
-	for i, l := range doc.LAGGInterfaces.Lagg {
+	for _, l := range doc.LAGGInterfaces.Lagg {
+		if l.IsPlaceholder() {
+			continue
+		}
+
 		proto := common.LAGGProtocol(l.Proto)
 		if l.Proto != "" && !proto.IsValid() {
+			// len(result) is the index this entry will occupy in the output.
+			// The raw loop index would drift once a placeholder is skipped.
 			c.addWarning(
-				fmt.Sprintf("LAGGs[%d].Protocol", i),
+				fmt.Sprintf("LAGGs[%d].Protocol", len(result)),
 				l.Proto,
 				"unrecognized LAGG protocol",
 				common.SeverityLow,
@@ -157,17 +156,23 @@ func (c *converter) convertLAGGs(doc *schema.OpnSenseDocument) []common.LAGG {
 // convertVirtualIPs maps doc.VirtualIP.Vip to []common.VirtualIP.
 // Virtual IP modes include "carp" (HA failover), "ipalias" (additional addresses),
 // and "proxyarp" (ARP proxying for downstream hosts).
+//
+// Empty <vip/> placeholders are skipped; see GOTCHAS.md section 3.4. The result
+// is grown on demand rather than preallocated because the loop may skip entries.
 func (c *converter) convertVirtualIPs(doc *schema.OpnSenseDocument) []common.VirtualIP {
-	if len(doc.VirtualIP.Vip) == 0 {
-		return nil
-	}
+	var result []common.VirtualIP
 
-	result := make([]common.VirtualIP, 0, len(doc.VirtualIP.Vip))
-	for i, v := range doc.VirtualIP.Vip {
+	for _, v := range doc.VirtualIP.Vip {
+		if v.IsPlaceholder() {
+			continue
+		}
+
 		mode := common.VIPMode(v.Mode)
 		if v.Mode != "" && !mode.IsValid() {
+			// len(result) is the index this entry will occupy in the output.
+			// The raw loop index would drift once a placeholder is skipped.
 			c.addWarning(
-				fmt.Sprintf("VirtualIPs[%d].Mode", i),
+				fmt.Sprintf("VirtualIPs[%d].Mode", len(result)),
 				v.Mode,
 				"unrecognized virtual IP mode",
 				common.SeverityLow,

@@ -163,6 +163,22 @@ func TestConverter_PPPs(t *testing.T) {
 			},
 			wantLen: 3,
 		},
+		{
+			// OPNsense writes this placeholder when no PPP link is configured.
+			name:    "empty ppp placeholder is skipped",
+			ppps:    []schema.PPP{{}},
+			wantLen: 0,
+		},
+		{
+			name:    "description-only ppp is retained",
+			ppps:    []schema.PPP{{Descr: "backup link"}},
+			wantLen: 1,
+		},
+		{
+			name:    "placeholder alongside a real ppp yields only the real one",
+			ppps:    []schema.PPP{{}, {If: "pppoe0", Type: "pppoe", Descr: "WAN"}},
+			wantLen: 1,
+		},
 	}
 
 	for _, tt := range tests {
@@ -597,10 +613,10 @@ func TestConverter_InterfaceGroups_SpaceSeparated(t *testing.T) {
 	assert.Equal(t, []string{"lan", "opt1"}, device.InterfaceGroups[0].Members)
 }
 
-// TestConverter_Bridges_EndToEnd_PlaceholderNotCounted drives real config.xml content
-// through the full parse -> convert -> statistics path. The <bridged> tag fix in
-// pkg/schema/opnsense made this path reachable for the first time, so the
-// end-to-end bridge count is asserted here rather than only at the schema layer.
+// TestConverter_Bridges_EndToEnd_PlaceholderNotCounted drives config.xml content
+// through the full parse -> convert -> statistics path. The bridge count is
+// asserted end to end rather than only at the schema layer, because XML-driven
+// parsing exercises decode behavior that struct-literal tests cannot reach.
 func TestConverter_Bridges_EndToEnd_PlaceholderNotCounted(t *testing.T) {
 	t.Parallel()
 
@@ -661,4 +677,269 @@ func TestConverter_Bridges_EndToEnd_PlaceholderNotCounted(t *testing.T) {
 			}
 		})
 	}
+}
+
+// TestConverter_PPPs_EndToEnd_PlaceholderNotCounted drives config.xml content
+// through the full parse -> convert path. The table tests above build schema.PPP
+// values directly in Go, which cannot exercise XML decode behavior; only this
+// path proves an empty <ppp/> never reaches CommonDevice.
+func TestConverter_PPPs_EndToEnd_PlaceholderNotCounted(t *testing.T) {
+	t.Parallel()
+
+	const configTemplate = `<?xml version="1.0"?>
+<opnsense>
+  <system>
+    <hostname>fw</hostname>
+    <domain>example.com</domain>
+  </system>
+  <ppps>%s</ppps>
+</opnsense>`
+
+	tests := []struct {
+		name          string
+		pppsInner     string
+		wantPPPs      int
+		wantInterface string
+	}{
+		{
+			// OPNsense writes this placeholder when no PPP link is configured.
+			name:      "empty ppp placeholder reports zero PPPs",
+			pppsInner: `<ppp/>`,
+			wantPPPs:  0,
+		},
+		{
+			name:          "populated ppp element is counted",
+			pppsInner:     `<ppp><if>pppoe0</if><type>pppoe</type><descr>WAN</descr></ppp>`,
+			wantPPPs:      1,
+			wantInterface: "pppoe0",
+		},
+		{
+			// A per-item filter must drop only the placeholder, never a sibling.
+			name:          "placeholder alongside a real ppp yields only the real one",
+			pppsInner:     `<ppp/><ppp><if>pppoe0</if><type>pppoe</type><descr>WAN</descr></ppp>`,
+			wantPPPs:      1,
+			wantInterface: "pppoe0",
+		},
+	}
+
+	factory := parser.NewFactory(cfgparser.NewXMLParser())
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			xmlBody := strings.Replace(configTemplate, "%s", tt.pppsInner, 1)
+			device, _, err := factory.CreateDevice(
+				context.Background(),
+				strings.NewReader(xmlBody),
+				common.DeviceTypeUnknown,
+				false,
+			)
+			require.NoError(t, err)
+			require.NotNil(t, device)
+
+			assert.Len(t, device.PPPs, tt.wantPPPs,
+				"PPPs must not include empty <ppp/> placeholders")
+
+			if tt.wantInterface != "" {
+				require.Len(t, device.PPPs, 1)
+				assert.Equal(t, tt.wantInterface, device.PPPs[0].Interface)
+			}
+		})
+	}
+}
+
+// TestConverter_StaticRoutes_EndToEnd_PlaceholderNotCounted drives real
+// config.xml content through the full parse -> convert path and asserts the
+// consumer that makes this bug user-visible: HasRoutes reports whether the
+// device has routing configuration, and a phantom route flips an empty routing
+// section to populated. The fixture carries no <gateways> because HasRoutes ORs
+// static routes with gateways and gateway groups.
+func TestConverter_StaticRoutes_EndToEnd_PlaceholderNotCounted(t *testing.T) {
+	t.Parallel()
+
+	const configTemplate = `<?xml version="1.0"?>
+<opnsense>
+  <system>
+    <hostname>fw</hostname>
+    <domain>example.com</domain>
+  </system>
+  <staticroutes>%s</staticroutes>
+</opnsense>`
+
+	tests := []struct {
+		name          string
+		routesInner   string
+		wantRoutes    int
+		wantHasRoutes bool
+		wantNetwork   string
+	}{
+		{
+			// OPNsense writes this placeholder when no route is configured.
+			name:          "empty route placeholder reports zero routes",
+			routesInner:   `<route/>`,
+			wantRoutes:    0,
+			wantHasRoutes: false,
+		},
+		{
+			name:          "populated route element is counted",
+			routesInner:   `<route><network>10.0.0.0/8</network><gateway>WAN_GW</gateway><descr>branch</descr></route>`,
+			wantRoutes:    1,
+			wantHasRoutes: true,
+			wantNetwork:   "10.0.0.0/8",
+		},
+		{
+			// A per-item filter must drop only the placeholder, never a sibling.
+			name:          "placeholder alongside a real route yields only the real one",
+			routesInner:   `<route/><route><network>10.0.0.0/8</network><gateway>WAN_GW</gateway></route>`,
+			wantRoutes:    1,
+			wantHasRoutes: true,
+			wantNetwork:   "10.0.0.0/8",
+		},
+		{
+			// Disabled is the one guarded field with non-trivial unmarshal
+			// semantics (BoolFlag: a self-closing tag decodes to true), so it is
+			// driven through real XML rather than built as a struct.
+			name:          "route carrying only a self-closing disabled marker is retained",
+			routesInner:   `<route><disabled/></route>`,
+			wantRoutes:    1,
+			wantHasRoutes: true,
+		},
+	}
+
+	factory := parser.NewFactory(cfgparser.NewXMLParser())
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			xmlBody := strings.Replace(configTemplate, "%s", tt.routesInner, 1)
+			device, _, err := factory.CreateDevice(
+				context.Background(),
+				strings.NewReader(xmlBody),
+				common.DeviceTypeUnknown,
+				false,
+			)
+			require.NoError(t, err)
+			require.NotNil(t, device)
+
+			assert.Len(t, device.Routing.StaticRoutes, tt.wantRoutes,
+				"StaticRoutes must not include empty <route/> placeholders")
+			assert.Equal(t, tt.wantHasRoutes, device.HasRoutes(),
+				"HasRoutes must not be flipped true by an empty <route/> placeholder")
+
+			if tt.wantNetwork != "" {
+				require.Len(t, device.Routing.StaticRoutes, 1)
+				assert.Equal(t, tt.wantNetwork, device.Routing.StaticRoutes[0].Network)
+			}
+		})
+	}
+}
+
+// TestConverter_AllPlaceholderContainers_EndToEnd_ProduceNoEntries drives a
+// config carrying the empty placeholder for every guarded container through the
+// full parse -> convert path at once.
+//
+// testdata/opnsense-config.dtd declares each of these elements EMPTY, and
+// testdata/sample.config.5.xml -- a real OPNsense export -- carries all eight in
+// a single file. They are asserted together so that guarding a new container
+// without covering it here is visible as a gap in one place.
+func TestConverter_AllPlaceholderContainers_EndToEnd_ProduceNoEntries(t *testing.T) {
+	t.Parallel()
+
+	const configXML = `<?xml version="1.0"?>
+<opnsense>
+  <system>
+    <hostname>fw</hostname>
+    <domain>example.com</domain>
+  </system>
+  <staticroutes><route/></staticroutes>
+  <bridges><bridged/></bridges>
+  <ppps><ppp/></ppps>
+  <gifs><gif/></gifs>
+  <gres><gre/></gres>
+  <laggs><lagg/></laggs>
+  <virtualip><vip/></virtualip>
+  <vlans><vlan/></vlans>
+</opnsense>`
+
+	factory := parser.NewFactory(cfgparser.NewXMLParser())
+
+	device, warnings, err := factory.CreateDevice(
+		context.Background(),
+		strings.NewReader(configXML),
+		common.DeviceTypeUnknown,
+		false,
+	)
+	require.NoError(t, err)
+	require.NotNil(t, device)
+
+	assert.Empty(t, device.Routing.StaticRoutes, "static routes")
+	assert.Empty(t, device.Bridges, "bridges")
+	assert.Empty(t, device.PPPs, "PPPs")
+	assert.Empty(t, device.GIFs, "GIFs")
+	assert.Empty(t, device.GREs, "GREs")
+	assert.Empty(t, device.LAGGs, "LAGGs")
+	assert.Empty(t, device.VirtualIPs, "virtual IPs")
+	assert.Empty(t, device.VLANs, "VLANs")
+
+	assert.False(t, device.HasRoutes(),
+		"a config whose only routing content is a placeholder has no routing configuration")
+
+	// A placeholder must not reach the enum-cast validation in convertLAGGs and
+	// convertVirtualIPs, which would warn about its empty protocol/mode.
+	assert.Empty(t, warnings, "placeholders must not produce conversion warnings")
+}
+
+// TestConverter_EnumWarningIndex_AfterSkippedPlaceholder_PointsAtOutputIndex
+// pins the warning dot-path against the index drift a skip-then-warn loop
+// invites.
+//
+// ConversionWarning.Field is documented as a path into the converted output, so
+// once the placeholder guard can skip an entry, the raw loop index no longer
+// addresses the right element. A placeholder preceding an invalid-enum entry is
+// the shape that exposes it: the entry lands at output index 0 while the raw
+// index reads 1.
+func TestConverter_EnumWarningIndex_AfterSkippedPlaceholder_PointsAtOutputIndex(t *testing.T) {
+	t.Parallel()
+
+	const configXML = `<?xml version="1.0"?>
+<opnsense>
+  <system>
+    <hostname>fw</hostname>
+    <domain>example.com</domain>
+  </system>
+  <laggs>
+    <lagg/>
+    <lagg><laggif>lagg0</laggif><members>em0,em1</members><proto>bogus</proto></lagg>
+  </laggs>
+  <virtualip>
+    <vip/>
+    <vip><mode>bogusmode</mode><interface>wan</interface><subnet>10.0.0.1</subnet></vip>
+  </virtualip>
+</opnsense>`
+
+	factory := parser.NewFactory(cfgparser.NewXMLParser())
+
+	device, warnings, err := factory.CreateDevice(
+		context.Background(),
+		strings.NewReader(configXML),
+		common.DeviceTypeUnknown,
+		false,
+	)
+	require.NoError(t, err)
+	require.NotNil(t, device)
+
+	require.Len(t, device.LAGGs, 1, "placeholder must be skipped")
+	require.Len(t, device.VirtualIPs, 1, "placeholder must be skipped")
+
+	fields := make([]string, 0, len(warnings))
+	for _, w := range warnings {
+		fields = append(fields, w.Field)
+	}
+
+	assert.Contains(t, fields, "LAGGs[0].Protocol",
+		"warning must address the entry's index in the converted output, not its raw XML position")
+	assert.Contains(t, fields, "VirtualIPs[0].Mode",
+		"warning must address the entry's index in the converted output, not its raw XML position")
 }
