@@ -29,11 +29,112 @@ var ErrUnsupportedCharset = errors.New("unsupported charset")
 // Both the OPNsense and pfSense parsers delegate to this function to avoid
 // duplicating security hardening logic.
 func NewSecureXMLDecoder(r io.Reader, maxSize int64) *xml.Decoder {
-	dec := xml.NewDecoder(io.LimitReader(r, maxSize))
+	dec, _ := NewSecureXMLDecoderTracked(r, maxSize)
+
+	return dec
+}
+
+// ErrInputTooLarge reports that the input exceeded the configured maximum size
+// and was truncated before the decoder saw the end of the document.
+var ErrInputTooLarge = errors.New("input exceeds maximum allowed size")
+
+// TruncationTracker reports whether a size-capped reader stopped because it hit
+// its cap. A decode error alone cannot distinguish an oversized document from a
+// corrupt one: both surface from encoding/xml as "unexpected EOF", because the
+// cap simply ends the stream early. Callers consult this to say which happened.
+type TruncationTracker interface {
+	// Truncated reports whether the cap was reached.
+	Truncated() bool
+}
+
+// truncatingReader caps reads at limit bytes and records whether the cap
+// actually cut the input short.
+//
+// The cap is exact: at most limit bytes reach the decoder, so the documented
+// size limit is enforced to the byte. Distinguishing "the document ended
+// exactly at the cap" from "the cap cut it short" needs one look past the
+// boundary, so when the budget is spent the reader probes the underlying
+// stream once. Data there means the input really was truncated; EOF means the
+// document simply ended.
+type truncatingReader struct {
+	r         io.Reader
+	remaining int64
+	truncated bool
+	probed    bool
+}
+
+func (t *truncatingReader) Read(p []byte) (int, error) {
+	if t.remaining <= 0 {
+		t.probeForMore()
+
+		return 0, io.EOF
+	}
+
+	if int64(len(p)) > t.remaining {
+		p = p[:t.remaining]
+	}
+
+	n, err := t.r.Read(p)
+	t.remaining -= int64(n)
+
+	return n, err
+}
+
+// probeForMore reads a single byte past the cap, once, to decide whether the
+// input was truncated. The byte is discarded: the reader is already returning
+// EOF to the decoder either way.
+func (t *truncatingReader) probeForMore() {
+	if t.probed {
+		return
+	}
+
+	t.probed = true
+
+	var probe [1]byte
+
+	// The read error is deliberately discarded: any outcome other than "a byte
+	// was available" means the input ended at or before the cap, which is
+	// exactly the not-truncated case. The byte itself is dropped because the
+	// reader is already returning EOF to the decoder.
+	n, _ := t.r.Read(probe[:]) //nolint:errcheck // see above
+	if n > 0 {
+		t.truncated = true
+	}
+}
+
+func (t *truncatingReader) Truncated() bool { return t.truncated }
+
+// NewSecureXMLDecoderTracked is [NewSecureXMLDecoder] plus a tracker reporting
+// whether the size cap truncated the input.
+//
+// Without it an oversized config is indistinguishable from a corrupt one: the
+// cap ends the stream mid-document and encoding/xml reports "unexpected EOF",
+// so an operator handed an 11 MB config.xml is told their file is malformed and
+// goes looking for the wrong problem. Pair the tracker with
+// [WrapSizeLimitedDecodeError] to name the real cause.
+func NewSecureXMLDecoderTracked(r io.Reader, maxSize int64) (*xml.Decoder, TruncationTracker) {
+	tracked := &truncatingReader{r: r, remaining: maxSize}
+
+	dec := xml.NewDecoder(tracked)
 	dec.Entity = map[string]string{}
 	dec.CharsetReader = CharsetReader
 
-	return dec
+	return dec, tracked
+}
+
+// WrapSizeLimitedDecodeError annotates err like [WrapDecodeError], but reports
+// the size cap as the cause when the tracker shows the input was truncated.
+// Returns nil when err is nil.
+func WrapSizeLimitedDecodeError(err error, elementPath string, tracker TruncationTracker, maxSize int64) error {
+	if err == nil {
+		return nil
+	}
+
+	if tracker != nil && tracker.Truncated() {
+		return fmt.Errorf("field %q: %w (limit %d bytes): %w", elementPath, ErrInputTooLarge, maxSize, err)
+	}
+
+	return WrapDecodeError(err, elementPath)
 }
 
 // WrapDecodeError annotates an encoding/xml decode error with the element
