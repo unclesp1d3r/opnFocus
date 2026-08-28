@@ -338,7 +338,7 @@ classDiagram
 
 #### Consumer-Local Interface Narrowing
 
-`HybridGenerator` demonstrates the consumer-local interface narrowing pattern (documented in AGENTS.md §5.9a). It defines a private `reportGenerator` interface that exposes only the four methods it directly calls:
+`HybridGenerator` demonstrates the consumer-local interface narrowing pattern. It defines a private `reportGenerator` interface that exposes only the four methods it directly calls:
 
 - `SetIncludeTunables`, `BuildAuditSection`, `BuildStandardReport`, and `BuildComprehensiveReport` -- all listed directly, not via embedded sub-interfaces
 
@@ -346,7 +346,7 @@ The `HybridGenerator.builder` field is typed as this narrower `reportGenerator` 
 
 #### FormatRegistry Integration
 
-`HybridGenerator` delegates format-specific generation to `FormatHandler` implementations retrieved from `DefaultRegistry` (documented in AGENTS.md §5.9b). The `handlerForFormat()` helper function resolves the format string to a handler via the registry; format defaulting (to markdown) is handled earlier via `DefaultOptions` / CLI configuration, so `handlerForFormat()` expects a non-empty, registered format string. Each handler implements:
+`HybridGenerator` delegates format-specific generation to `FormatHandler` implementations retrieved from `DefaultRegistry`. The `handlerForFormat()` helper function resolves the format string to a handler via the registry; format defaulting (to markdown) is handled earlier via `DefaultOptions` / CLI configuration, so `handlerForFormat()` expects a non-empty, registered format string. Each handler implements:
 
 - **`FileExtension()`** - Returns the file extension for the format (e.g., ".md", ".json")
 - **`Aliases()`** - Returns alternative format names (e.g., "md" for markdown, "yml" for yaml)
@@ -711,8 +711,6 @@ All validation, shell completion, and dispatch logic automatically picks up the 
 - **Type Safety**: Handler interface ensures consistent format implementation
 
 ### Related Documentation
-
-For detailed guidance on the FormatRegistry pattern and consumer-local interface narrowing, see AGENTS.md §5.9b.
 
 For practical developer guidance on the FormatRegistry pattern, format addition workflow, and avoiding hardcoded switch statements, see **[CONTRIBUTING.md](https://github.com/EvilBit-Labs/opnDossier/blob/main/CONTRIBUTING.md) Go Development Standards** section.
 
