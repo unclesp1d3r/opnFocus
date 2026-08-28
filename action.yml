@@ -115,7 +115,19 @@ runs:
           ARGS+=("${EXTRA[@]}")
         fi
 
+        # Run as the workspace owner. The image defaults to USER 65532:65532,
+        # which is the right default for a bare `docker run`, but a runner
+        # workspace is owned by the runner user (uid 1001 on GitHub-hosted
+        # runners). Without this the container cannot write into the mount, so
+        # every invocation using the `output` input failed with
+        # "permission denied" while stdout-only runs appeared to work.
+        #
+        # On a self-hosted runner that executes as root this resolves to 0:0.
+        # That is deliberate: such a runner already owns the workspace as root,
+        # so any other uid still could not write to it, and the container gains
+        # no privilege the runner did not already have.
         docker run --rm \
+          --user "$(id -u):$(id -g)" \
           --volume "${GITHUB_WORKSPACE}:/data" \
           --workdir /data \
           "${IMAGE}" \
