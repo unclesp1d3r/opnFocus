@@ -12,14 +12,10 @@ import (
 	"go.uber.org/automaxprocs/maxprocs"
 )
 
-// Version information injected by GoReleaser via ldflags.
-var (
-	version = "dev"
-	// commit and date are injected by GoReleaser but not currently used
-	// They are kept for potential future use.
-	_ = "unknown" // commit
-	_ = "unknown" // date
-)
+// version is injected by GoReleaser via ldflags. Commit and date go to
+// cmd.gitCommit / cmd.buildDate instead; a blank identifier here would have no
+// linker symbol, so main.commit and main.date are deliberately absent.
+var version = "dev"
 
 // init updates the package version with the build-time injected value when it is not the default "dev".
 func init() {
@@ -44,7 +40,14 @@ func main() {
 		log.Printf("warning: failed to set GOMAXPROCS: %v", err)
 	}
 
-	if err := fang.Execute(context.Background(), cmd.GetRootCmd()); err != nil {
+	// fang owns --version. Without WithVersion it answers from module build
+	// info, which reads "unknown (built from source)" even in a tagged build.
+	if err := fang.Execute(
+		context.Background(),
+		cmd.GetRootCmd(),
+		fang.WithVersion(constants.Version),
+		fang.WithCommit(cmd.GitCommit()),
+	); err != nil {
 		// fang.Execute already handles error output, so we just need to exit
 		os.Exit(1)
 	}
