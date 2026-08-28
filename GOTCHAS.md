@@ -11,7 +11,7 @@ The `cmd/` package uses package-level global variables for CLI flags (required b
 - **Problem:** Concurrent tests modifying `sharedDeviceType`, `sharedAuditMode`, or the `rootCmd` flag set will cause non-deterministic data races.
 - **Symptom:** `just test-race` fails with "DATA RACE" reports in the `cmd` package.
 - **Solution:** Remove `t.Parallel()` from the parent test and all subtests that interact with global flags. Use `t.Cleanup()` to restore original global values after the test.
-- **Enforcement:** The `.golangci.yml` `forbidigo` rule forbids `t.Parallel()` anywhere in `cmd/` — catches the regression at lint time. The race detector runs in CI (the `Race Detector` job in `.github/workflows/ci.yml`) and locally via `just test-race` (or `just ci-check`). A prior pre-push `just ci-check` hook broke non-interactive push clients, so the full gate is still not wired to a git hook. See [CONTRIBUTING.md § Git Hooks](CONTRIBUTING.md#git-hooks) for the current setup.
+- **Enforcement:** The `.golangci.yml` `forbidigo` rule forbids `t.Parallel()` anywhere in `cmd/` — catches the regression at lint time, which is the only automated gate for this class. The race detector is **local-only**, via `just test-race` (or `just ci-check`); it is deliberately not a CI job — see § 1.7. A prior pre-push `just ci-check` hook broke non-interactive push clients, so the full gate is still not wired to a git hook. See [CONTRIBUTING.md § Git Hooks](CONTRIBUTING.md#git-hooks) for the current setup.
 
 ### 1.2 Race Detector Collateral
 
@@ -45,12 +45,23 @@ The `.golangci.yml` `gocognit` linter is configured to fail at cognitive complex
 
 ### 1.6 Wall-Clock Assertions and `-race`
 
-Race instrumentation multiplies execution cost, so a latency assertion calibrated without it measures the instrumentation. On a loaded machine `TestPerformanceBaselines` failed 10 of 10 runs under `-race` and passed 10 of 10 without it, which is why the detector was previously kept out of CI.
+Race instrumentation multiplies execution cost, so a latency assertion calibrated without it measures the instrumentation. On a loaded machine `TestPerformanceBaselines` failed 10 of 10 runs under `-race` and passed 10 of 10 without it — one of the reasons the detector is local-only (§ 1.7).
 
 - **Rule:** never add a wall-clock upper bound to a test without deciding what it does under `-race`.
 - **Pattern:** `internal/testing/racedetect.Enabled` is a build-tagged constant. Skip the assertion when the test is a latency baseline (`TestPerformanceBaselines`), or scale the bound when the bound is a coarse guard rather than a measurement (`cancelAbortBudget` in `internal/converter`, which only needs to tell "aborted" apart from "generated the whole document").
 - **Subprocess builds:** a test that shells out to `go build` gets no benefit from a `-race` run (the child is not instrumented) and pays for it twice: the build cache holds only race-flavored artifacts, so the child compiles cold, and a deadline calibrated against a warm cache kills it. `build_test.go` skips under `racedetect.Enabled` for exactly this reason.
 - **Do not** reach for `-short` to dodge this. It also skips the stress and thread-safety tests, which are the ones most worth running under the detector.
+
+### 1.7 The Race Detector Is Local-Only, Deliberately
+
+`just test-race` runs the detector locally and is part of `just ci-check`. It is **not** a CI job, and adding one back is a regression, not an improvement.
+
+GitHub's shared runners cannot host it reliably. The instrumented suite is slow and contended enough that the job fails without producing a usable signal — the last attempt exited non-zero after every one of the ~40 packages reported `ok`, with no data race, no failing test, and no error text anywhere in the log, then passed on a retry with no code change. A gate that red-lights a clean tree and greens a rerun teaches contributors to re-run it rather than to read it, which is worse than not having it.
+
+- **Where the protection actually comes from:** the `forbidigo` rule in `.golangci.yml` forbids `t.Parallel()` in `cmd/` at lint time (§ 1.1), and `just ci-check` runs the detector before you push.
+- **If you re-add the job, you must also re-add its Mergify gates.** `.mergify.yml` lists `check-success` conditions in three places (the dependabot queue, the `default` queue, and the `Full CI must pass` rule). Removing a job without removing its gates deadlocks every PR on a check that never reports; adding a job without adding its gates means nothing enforces it.
+- **The `-race` accommodations in the test suite stay.** `internal/testing/racedetect.Enabled` and the skips it drives (§ 1.6) exist for the local run and are still load-bearing.
+- **The PR that removes a gated check cannot pass its own gate.** Mergify evaluates `.mergify.yml` from the **base** branch, so a PR deleting a job is still judged against `main`'s copy, which still requires it — `Full CI must pass` sits at "Waiting checks: `<job>`" indefinitely. This is not a misconfiguration and cannot be fixed from inside the PR; a maintainer merges it manually, and every PR afterwards uses the new config. The repo already routes workflow changes this way: the `Auto-queue` protection excludes any PR touching `.github/workflows/`.
 
 ## 2. Plugin Architecture
 
