@@ -110,9 +110,9 @@ Before creating a release, verify:
 - [ ] All issues/PRs for the milestone are closed
 - [ ] `CHANGELOG.md` is up to date (or will be auto-generated)
 - [ ] Version references in code are correct (if any hardcoded)
-- [ ] `action.yml` default `version:` input is bumped to the new tag (enforced by `TestActionDefaultVersionMatchesLatestRelease`, which compares it against the topmost released `CHANGELOG.md` entry)
-- [ ] README GitHub Action examples (`uses:` lines) are swept to the new tag (enforced by `TestReadmeActionExamplesUseLatestRelease`)
-- [ ] README "Pinning" section SHA-pin example is updated to the new release commit SHA (not enforced by a test -- the SHA is not derivable from a committed file)
+- [ ] `action.yml` default `version:` input is bumped to the new tag
+- [ ] README GitHub Action examples (`uses:` lines) are swept to the new tag
+- [ ] README "Pinning" section SHA-pin example is updated to the new release commit SHA
 - [ ] Public-API snapshot fixtures (`pkg/*/testdata/api-snapshots/*.golden`) reviewed for unintended diffs since the last tag. These are the authoritative baseline for the semver contract — any unexplained change must be explained or reverted before tagging. See [docs/development/public-api.md § API Shape Enforcement](docs/development/public-api.md#api-shape-enforcement).
 - [ ] Documentation reflects new features/changes
 - [ ] Breaking changes are documented
