@@ -186,6 +186,7 @@ func redactSensitiveFields(cp *common.CommonDevice) {
 	}
 	redactWireGuardPSKs(cp)
 	redactDHCPv6Secrets(cp)
+	redactInterfaceDHCPv6Secrets(cp)
 }
 
 func redactCertPrivateKeys(cp *common.CommonDevice) {
@@ -255,6 +256,26 @@ func redactDHCPv6Secrets(cp *common.CommonDevice) {
 		v6Copy := *adv
 		v6Copy.AdvDHCP6KeyInfoStatementSecret = redactedValue
 		cp.DHCP[i].AdvancedV6 = &v6Copy
+	}
+}
+
+// redactInterfaceDHCPv6Secrets redacts the DHCPv6 authentication secret carried by
+// each interface's advanced DHCPv6 *client* settings. This is a separate storage
+// location from the DHCP server scopes redactDHCPv6Secrets covers: real config.xml
+// files put the adv_dhcp6_* elements under <interfaces>, not under <dhcpd>.
+func redactInterfaceDHCPv6Secrets(cp *common.CommonDevice) {
+	if len(cp.Interfaces) == 0 {
+		return
+	}
+	cp.Interfaces = slices.Clone(cp.Interfaces)
+	for i := range cp.Interfaces {
+		adv := cp.Interfaces[i].DHCPAdvancedV6
+		if adv == nil || adv.AdvDHCP6KeyInfoStatementSecret == "" {
+			continue
+		}
+		v6Copy := *adv
+		v6Copy.AdvDHCP6KeyInfoStatementSecret = redactedValue
+		cp.Interfaces[i].DHCPAdvancedV6 = &v6Copy
 	}
 }
 

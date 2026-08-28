@@ -567,6 +567,31 @@ func TestRedactSensitiveFields_DHCPv6Secret(t *testing.T) {
 	assert.Equal(t, "dhcp-secret", device.DHCP[0].AdvancedV6.AdvDHCP6KeyInfoStatementSecret, "original not mutated")
 }
 
+// TestRedactSensitiveFields_InterfaceDHCPv6Secret covers the interface-side copy of
+// the DHCPv6 authentication secret. Real configs store the adv_dhcp6_* elements
+// under <interfaces>, not under <dhcpd>, so redacting only the DHCP scopes would
+// leave the secret in exported output for every config written by the GUI.
+func TestRedactSensitiveFields_InterfaceDHCPv6Secret(t *testing.T) {
+	t.Parallel()
+
+	device := &common.CommonDevice{
+		Interfaces: []common.Interface{
+			{
+				Name:           "lan",
+				DHCPAdvancedV6: &common.InterfaceDHCPAdvancedV6{AdvDHCP6KeyInfoStatementSecret: "iface-secret"},
+			},
+			{Name: "opt1"},
+		},
+	}
+
+	result := prepareForExport(device, true)
+
+	assert.Equal(t, redactedValue, result.Interfaces[0].DHCPAdvancedV6.AdvDHCP6KeyInfoStatementSecret)
+	assert.Nil(t, result.Interfaces[1].DHCPAdvancedV6, "nil DHCPAdvancedV6 should stay nil")
+	assert.Equal(t, "iface-secret", device.Interfaces[0].DHCPAdvancedV6.AdvDHCP6KeyInfoStatementSecret,
+		"original not mutated")
+}
+
 func TestRedactSensitiveFields_EmptyFieldsNotRedacted(t *testing.T) {
 	t.Parallel()
 

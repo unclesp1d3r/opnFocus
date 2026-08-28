@@ -128,6 +128,8 @@ func (c *converter) buildDHCPAdvancedV4(d pfsense.DhcpdInterface) *common.DHCPAd
 
 // buildDHCPAdvancedV6 constructs a DHCPAdvancedV6 from schema fields.
 // Returns nil when all fields are empty, so the pointer is omitted during serialization.
+//
+//nolint:dupl // Field-for-field copy between two deliberately separate types: the <interfaces> and <dhcpd> element sets have diverged, so InterfaceDHCPAdvancedV6 and DHCPAdvancedV6 are kept apart on purpose. Sharing a body would need reflection or a 29-method accessor interface, and would re-couple exactly what that split decouples. Both sides carry the directive because dupl reports pairs (GOTCHAS.md 9.1).
 func (c *converter) buildDHCPAdvancedV6(d pfsense.DhcpdInterface) *common.DHCPAdvancedV6 {
 	v6 := common.DHCPAdvancedV6{
 		Track6Interface:                                 d.Track6Interface,

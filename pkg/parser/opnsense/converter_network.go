@@ -207,3 +207,80 @@ func (c *converter) convertInterfaceGroups(doc *schema.OpnSenseDocument) []commo
 
 	return result
 }
+
+// buildInterfaceDHCPAdvancedV4 constructs a DHCPAdvancedV4 from the advanced DHCPv4
+// *client* elements stored on the interface itself. Real config.xml files put these
+// under <interfaces><wan>, not under <dhcpd>.
+// Returns nil when all fields are empty, so the pointer is omitted during serialization.
+func (c *converter) buildInterfaceDHCPAdvancedV4(iface schema.Interface) *common.InterfaceDHCPAdvancedV4 {
+	v4 := common.InterfaceDHCPAdvancedV4{
+		AliasAddress:                  iface.AliasAddress,
+		AliasSubnet:                   iface.AliasSubnet,
+		DHCPRejectFrom:                iface.DHCPRejectFrom,
+		AdvDHCPPTTimeout:              iface.AdvDHCPPTTimeout,
+		AdvDHCPPTRetry:                iface.AdvDHCPPTRetry,
+		AdvDHCPPTSelectTimeout:        iface.AdvDHCPPTSelectTimeout,
+		AdvDHCPPTReboot:               iface.AdvDHCPPTReboot,
+		AdvDHCPPTBackoffCutoff:        iface.AdvDHCPPTBackoffCutoff,
+		AdvDHCPPTInitialInterval:      iface.AdvDHCPPTInitialInterval,
+		AdvDHCPPTValues:               iface.AdvDHCPPTValues,
+		AdvDHCPSendOptions:            iface.AdvDHCPSendOptions,
+		AdvDHCPRequestOptions:         iface.AdvDHCPRequestOptions,
+		AdvDHCPRequiredOptions:        iface.AdvDHCPRequiredOptions,
+		AdvDHCPOptionModifiers:        iface.AdvDHCPOptionModifiers,
+		AdvDHCPConfigAdvanced:         iface.AdvDHCPConfigAdvanced,
+		AdvDHCPConfigFileOverride:     iface.AdvDHCPConfigFileOverride,
+		AdvDHCPConfigFileOverridePath: iface.AdvDHCPConfigFileOverridePath,
+	}
+
+	if (v4 == common.InterfaceDHCPAdvancedV4{}) {
+		return nil
+	}
+
+	return &v4
+}
+
+// buildInterfaceDHCPAdvancedV6 constructs a DHCPAdvancedV6 from the advanced DHCPv6
+// client elements stored on the interface itself.
+// Returns nil when all fields are empty, so the pointer is omitted during serialization.
+//
+//nolint:dupl // Field-for-field copy between two deliberately separate types: the <interfaces> and <dhcpd> element sets have diverged, so InterfaceDHCPAdvancedV6 and DHCPAdvancedV6 are kept apart on purpose. Sharing a body would need reflection or a 29-method accessor interface, and would re-couple exactly what that split decouples. Both sides carry the directive because dupl reports pairs (GOTCHAS.md 9.1).
+func (c *converter) buildInterfaceDHCPAdvancedV6(iface schema.Interface) *common.InterfaceDHCPAdvancedV6 {
+	v6 := common.InterfaceDHCPAdvancedV6{
+		Track6Interface:                                 iface.Track6Interface,
+		Track6PrefixID:                                  iface.Track6PrefixID,
+		AdvDHCP6InterfaceStatementSendOptions:           iface.AdvDHCP6InterfaceStatementSendOptions,
+		AdvDHCP6InterfaceStatementRequestOptions:        iface.AdvDHCP6InterfaceStatementRequestOptions,
+		AdvDHCP6InterfaceStatementInformationOnlyEnable: iface.AdvDHCP6InterfaceStatementInformationOnlyEnable,
+		AdvDHCP6InterfaceStatementScript:                iface.AdvDHCP6InterfaceStatementScript,
+		AdvDHCP6IDAssocStatementAddressEnable:           iface.AdvDHCP6IDAssocStatementAddressEnable,
+		AdvDHCP6IDAssocStatementAddress:                 iface.AdvDHCP6IDAssocStatementAddress,
+		AdvDHCP6IDAssocStatementAddressID:               iface.AdvDHCP6IDAssocStatementAddressID,
+		AdvDHCP6IDAssocStatementAddressPLTime:           iface.AdvDHCP6IDAssocStatementAddressPLTime,
+		AdvDHCP6IDAssocStatementAddressVLTime:           iface.AdvDHCP6IDAssocStatementAddressVLTime,
+		AdvDHCP6IDAssocStatementPrefixEnable:            iface.AdvDHCP6IDAssocStatementPrefixEnable,
+		AdvDHCP6IDAssocStatementPrefix:                  iface.AdvDHCP6IDAssocStatementPrefix,
+		AdvDHCP6IDAssocStatementPrefixID:                iface.AdvDHCP6IDAssocStatementPrefixID,
+		AdvDHCP6IDAssocStatementPrefixPLTime:            iface.AdvDHCP6IDAssocStatementPrefixPLTime,
+		AdvDHCP6IDAssocStatementPrefixVLTime:            iface.AdvDHCP6IDAssocStatementPrefixVLTime,
+		AdvDHCP6PrefixInterfaceStatementSLALen:          iface.AdvDHCP6PrefixInterfaceStatementSLALen,
+		AdvDHCP6AuthenticationStatementAuthName:         iface.AdvDHCP6AuthenticationStatementAuthName,
+		AdvDHCP6AuthenticationStatementProtocol:         iface.AdvDHCP6AuthenticationStatementProtocol,
+		AdvDHCP6AuthenticationStatementAlgorithm:        iface.AdvDHCP6AuthenticationStatementAlgorithm,
+		AdvDHCP6AuthenticationStatementRDM:              iface.AdvDHCP6AuthenticationStatementRDM,
+		AdvDHCP6KeyInfoStatementKeyName:                 iface.AdvDHCP6KeyInfoStatementKeyName,
+		AdvDHCP6KeyInfoStatementRealm:                   iface.AdvDHCP6KeyInfoStatementRealm,
+		AdvDHCP6KeyInfoStatementKeyID:                   iface.AdvDHCP6KeyInfoStatementKeyID,
+		AdvDHCP6KeyInfoStatementSecret:                  iface.AdvDHCP6KeyInfoStatementSecret,
+		AdvDHCP6KeyInfoStatementExpire:                  iface.AdvDHCP6KeyInfoStatementExpire,
+		AdvDHCP6ConfigAdvanced:                          iface.AdvDHCP6ConfigAdvanced,
+		AdvDHCP6ConfigFileOverride:                      iface.AdvDHCP6ConfigFileOverride,
+		AdvDHCP6ConfigFileOverridePath:                  iface.AdvDHCP6ConfigFileOverridePath,
+	}
+
+	if (v6 == common.InterfaceDHCPAdvancedV6{}) {
+		return nil
+	}
+
+	return &v6
+}
