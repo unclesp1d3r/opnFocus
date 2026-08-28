@@ -1,6 +1,7 @@
 package parser_test
 
 import (
+	"bytes"
 	"context"
 	"io"
 	"strings"
@@ -283,13 +284,18 @@ func TestFactory_UnsupportedCharset(t *testing.T) {
 		false,
 	)
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "unsupported XML charset")
+	assert.Contains(t, err.Error(), "unsupported charset")
 }
 
 func TestFactory_AcceptedCharsets(t *testing.T) {
 	t.Parallel()
 
-	charsets := []string{"US-ASCII", "ISO-8859-1", "Latin-1", "UTF-8"}
+	charsets := []string{
+		"US-ASCII", "ascii",
+		"ISO-8859-1", "iso8859-1", "Latin-1", "latin1", "ISO-8859-1:1987",
+		"Windows-1252", "windows1252", "cp1252",
+		"UTF-8", "utf8",
+	}
 	for _, charset := range charsets {
 		t.Run(charset, func(t *testing.T) {
 			t.Parallel()
@@ -307,6 +313,47 @@ func TestFactory_AcceptedCharsets(t *testing.T) {
 			assert.Equal(t, common.DeviceTypeOPNsense, device.DeviceType)
 		})
 	}
+}
+
+// TestFactory_Windows1252_DecodesHighBytes verifies that a Windows-1252
+// document is decoded, not merely accepted.
+//
+// Regression: root-element detection used its own charset reader that accepted
+// only us-ascii, iso-8859-1, latin-1 and utf-8. Detection runs before the
+// device parsers, so a Windows-1252 config was rejected outright even though
+// CharsetReader supports it and five documentation pages list it as supported.
+// The failure surfaced as "unsupported device type: no root XML element found",
+// which points at the wrong problem.
+//
+// 0x93 and 0x94 are the curly quotes. They are undefined in ISO-8859-1, so
+// decoding them correctly proves the Windows-1252 table was applied rather than
+// the bytes being passed through.
+func TestFactory_Windows1252_DecodesHighBytes(t *testing.T) {
+	t.Parallel()
+
+	var buf bytes.Buffer
+	buf.WriteString(`<?xml version="1.0" encoding="Windows-1252"?>` + "\n")
+	buf.WriteString(`<opnsense><system><hostname>test</hostname><domain>test.local</domain>`)
+	buf.WriteString(`<group><name>caf`)
+	buf.WriteByte(0xE9) // e-acute, same in ISO-8859-1 and Windows-1252
+	buf.WriteByte(0x20)
+	buf.WriteByte(0x93) // left curly quote, Windows-1252 only
+	buf.WriteString("crew")
+	buf.WriteByte(0x94) // right curly quote, Windows-1252 only
+	buf.WriteString(`</name></group></system></opnsense>`)
+
+	device, _, err := parser.NewFactory(cfgparser.NewXMLParser()).CreateDevice(
+		context.Background(),
+		bytes.NewReader(buf.Bytes()),
+		common.DeviceTypeUnknown,
+		false,
+	)
+	require.NoError(t, err)
+	require.NotNil(t, device)
+	require.NotEmpty(t, device.Groups)
+
+	assert.Equal(t, "caf\u00e9 \u201ccrew\u201d", device.Groups[0].Name,
+		"Windows-1252 high bytes were not decoded through the charset table")
 }
 
 func TestFactory_LargeInput_BoundedRead(t *testing.T) {

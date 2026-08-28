@@ -7,7 +7,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"strings"
 
 	common "github.com/EvilBit-Labs/opnDossier/pkg/model"
 	schema "github.com/EvilBit-Labs/opnDossier/pkg/schema/opnsense"
@@ -227,7 +226,10 @@ func peekRootElementBounded(ctx context.Context, r io.Reader) (string, io.Reader
 	limited := io.LimitReader(newCtxReader(ctx, r), DefaultMaxInputSize)
 	tee := io.TeeReader(limited, &buf)
 	dec := xml.NewDecoder(tee)
-	dec.CharsetReader = simpleCharsetReader
+	// Same charset reader the device parsers use. Root-element detection runs
+	// before them, so a charset this rejects is a charset the tool refuses
+	// outright, whatever the parser downstream supports.
+	dec.CharsetReader = CharsetReader
 
 	ch := make(chan peekResult, 1)
 
@@ -276,16 +278,4 @@ func newCtxReader(ctx context.Context, r io.Reader) io.Reader {
 
 		return r.Read(p)
 	})
-}
-
-// simpleCharsetReader handles common XML charset declarations for root-element
-// detection. Only charsets whose ASCII subset matches UTF-8 are accepted, which
-// is sufficient because XML element names use only ASCII-range characters.
-func simpleCharsetReader(charset string, input io.Reader) (io.Reader, error) {
-	switch strings.ToLower(charset) {
-	case "us-ascii", "iso-8859-1", "latin-1", "utf-8":
-		return input, nil
-	default:
-		return nil, fmt.Errorf("unsupported XML charset: %s", charset)
-	}
 }
