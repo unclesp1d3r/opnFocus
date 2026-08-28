@@ -1852,3 +1852,81 @@ func getFindings(findings []compliance.Finding) []string {
 
 	return ids
 }
+
+// hasFindingRef reports whether findings contains one referencing controlID.
+func hasFindingRef(findings []compliance.Finding, controlID string) bool {
+	for _, f := range findings {
+		if f.Reference == controlID {
+			return true
+		}
+	}
+
+	return false
+}
+
+// TestFirewallPlugin_AnyAnyPassRule_AllAnySpellings guards a false negative on
+// the two highest-severity rule checks. Both compared the endpoint address
+// against the "any" literal, so a pass rule matching all traffic reported
+// compliant whenever the config spelled "any" any other way: an omitted or
+// empty <source>/<destination> element (Address ""), a wildcard CIDR, or
+// different casing. FIREWALL-022 and FIREWALL-023 exist to catch exactly that
+// rule, and the repo's own testdata/gateway_groups_test.xml contains a <rule>
+// with no <source> element.
+func TestFirewallPlugin_AnyAnyPassRule_AllAnySpellings(t *testing.T) {
+	t.Parallel()
+
+	for _, addr := range []string{"any", "ANY", "", "0.0.0.0/0", "::/0"} {
+		t.Run("addr="+addr, func(t *testing.T) {
+			t.Parallel()
+
+			device := &common.CommonDevice{
+				Interfaces: []common.Interface{
+					{Name: "wan", IPAddress: "203.0.113.10", Enabled: true},
+				},
+				FirewallRules: []common.FirewallRule{{
+					Type:        common.RuleTypePass,
+					Interfaces:  []string{"wan"},
+					Description: "wide open",
+					Source:      common.RuleEndpoint{Address: addr},
+					Destination: common.RuleEndpoint{Address: addr},
+				}},
+			}
+
+			findings, _, err := firewall.NewPlugin().RunChecks(device)
+			require.NoError(t, err)
+
+			assert.True(t, hasFindingRef(findings, "FIREWALL-022"),
+				"a pass rule with source and destination %q passes all traffic", addr)
+			assert.True(t, hasFindingRef(findings, "FIREWALL-023"),
+				"a WAN pass rule with source %q accepts every source", addr)
+		})
+	}
+}
+
+// TestFirewallPlugin_ScopedRule_NoAnyAnyFinding is the false-positive half:
+// widening the any predicate must not flag a properly scoped rule.
+func TestFirewallPlugin_ScopedRule_NoAnyAnyFinding(t *testing.T) {
+	t.Parallel()
+
+	device := &common.CommonDevice{
+		Interfaces: []common.Interface{
+			{Name: "wan", IPAddress: "203.0.113.10", Enabled: true},
+		},
+		FirewallRules: []common.FirewallRule{{
+			Type:        common.RuleTypePass,
+			Interfaces:  []string{"wan"},
+			Protocol:    "tcp",
+			Description: "scoped inbound https",
+			Source:      common.RuleEndpoint{Address: "198.51.100.0/24"},
+			Destination: common.RuleEndpoint{Address: "203.0.113.10", Port: "443"},
+		}},
+	}
+
+	findings, _, err := firewall.NewPlugin().RunChecks(device)
+	require.NoError(t, err)
+
+	assert.False(t, hasFindingRef(findings, "FIREWALL-022"),
+		"a scoped rule must not be reported as any-any")
+	assert.False(t, hasFindingRef(findings, "FIREWALL-023"),
+		"a rule with a scoped source must not be reported as any-source on WAN")
+}

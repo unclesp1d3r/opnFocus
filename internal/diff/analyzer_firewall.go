@@ -7,6 +7,7 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/EvilBit-Labs/opnDossier/internal/analysis"
 	common "github.com/EvilBit-Labs/opnDossier/pkg/model"
 )
 
@@ -373,6 +374,6 @@ func objectRefsEqual(a, b *common.ObjectRef) bool {
 // that allows all traffic from any source to any destination.
 func isPermissiveRule(rule common.FirewallRule) bool {
 	return rule.Type == common.RuleTypePass &&
-		rule.Source.Address == "any" &&
-		rule.Destination.Address == "any"
+		analysis.IsAnyAddress(rule.Source.Address) &&
+		analysis.IsAnyAddress(rule.Destination.Address)
 }

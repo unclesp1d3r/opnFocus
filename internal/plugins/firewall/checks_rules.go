@@ -5,7 +5,6 @@ import (
 	"strings"
 
 	"github.com/EvilBit-Labs/opnDossier/internal/analysis"
-	"github.com/EvilBit-Labs/opnDossier/internal/constants"
 	common "github.com/EvilBit-Labs/opnDossier/pkg/model"
 )
 
@@ -33,10 +32,10 @@ func (fp *Plugin) checkNoAnyAnyPassRules(device *common.CommonDevice) checkResul
 			continue
 		}
 
-		srcAny := rule.Source.Address == constants.NetworkAny
-		dstAny := rule.Destination.Address == constants.NetworkAny
-		portAny := rule.Destination.Port == "" || rule.Destination.Port == constants.NetworkAny
-		protoAny := rule.Protocol == "" || strings.EqualFold(rule.Protocol, constants.NetworkAny)
+		srcAny := analysis.IsAnyAddress(rule.Source.Address)
+		dstAny := analysis.IsAnyAddress(rule.Destination.Address)
+		portAny := analysis.IsAnyPort(rule.Destination.Port)
+		protoAny := analysis.IsAnyProtocol(rule.Protocol)
 
 		if srcAny && dstAny && portAny && protoAny {
 			return checkResult{Result: false, Known: true}
@@ -62,7 +61,7 @@ func (fp *Plugin) checkNoAnySourceOnWANInbound(device *common.CommonDevice) chec
 		// RuleReachability (not a bare rule.Interfaces scan) so unscoped
 		// floating pass rules with source=any on WAN are not missed — their
 		// interface list is empty and would otherwise skip the loop entirely.
-		if rule.Source.Address == constants.NetworkAny &&
+		if analysis.IsAnyAddress(rule.Source.Address) &&
 			analysis.RuleReachability(rule, device.Interfaces) == analysis.WANReachable {
 			return checkResult{Result: false, Known: true}
 		}
@@ -90,7 +89,7 @@ func (fp *Plugin) checkSpecificPortRules(device *common.CommonDevice) checkResul
 			continue
 		}
 
-		portEmpty := rule.Destination.Port == "" || rule.Destination.Port == constants.NetworkAny
+		portEmpty := analysis.IsAnyPort(rule.Destination.Port)
 		if portEmpty && (proto == "tcp" || proto == "udp" || proto == "tcp/udp" || proto == "") {
 			return checkResult{Result: false, Known: true}
 		}
@@ -150,7 +149,7 @@ func (fp *Plugin) checkProtocolSpecification(device *common.CommonDevice) checkR
 			continue
 		}
 
-		if rule.Protocol == "" || strings.EqualFold(rule.Protocol, constants.NetworkAny) {
+		if analysis.IsAnyProtocol(rule.Protocol) {
 			return checkResult{Result: false, Known: true}
 		}
 	}

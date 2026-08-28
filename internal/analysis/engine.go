@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/EvilBit-Labs/opnDossier/internal/constants"
 	common "github.com/EvilBit-Labs/opnDossier/pkg/model"
 )
 
@@ -276,12 +275,7 @@ func detectAnyToAnyRules(cfg *common.CommonDevice) []Observation {
 			continue
 		}
 
-		srcAny := rule.Source.Address == constants.NetworkAny
-		dstAny := rule.Destination.Address == constants.NetworkAny
-		portAny := rule.Destination.Port == "" || rule.Destination.Port == constants.NetworkAny
-		protoAny := rule.Protocol == "" || strings.EqualFold(rule.Protocol, constants.NetworkAny)
-
-		if !srcAny || !dstAny || !portAny || !protoAny {
+		if !IsWideOpenPassRule(rule) {
 			continue
 		}
 

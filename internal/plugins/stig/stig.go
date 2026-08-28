@@ -4,6 +4,7 @@ package stig
 import (
 	"slices"
 
+	"github.com/EvilBit-Labs/opnDossier/internal/analysis"
 	"github.com/EvilBit-Labs/opnDossier/internal/compliance"
 	"github.com/EvilBit-Labs/opnDossier/internal/constants"
 	common "github.com/EvilBit-Labs/opnDossier/pkg/model"
@@ -359,7 +360,7 @@ func (sp *Plugin) hasDefaultDenyPolicy(device *common.CommonDevice) bool {
 			srcTarget := rule.Source.Address
 			dstTarget := rule.Destination.Address
 
-			if srcTarget == constants.NetworkAny && (dstTarget == "" || dstTarget == constants.NetworkAny) {
+			if analysis.IsAnyAddress(srcTarget) && analysis.IsAnyAddress(dstTarget) {
 				hasAnyAnyAllow = true
 				break
 			}
@@ -386,24 +387,23 @@ func (sp *Plugin) hasOverlyPermissiveRules(device *common.CommonDevice) bool {
 		srcTarget := rule.Source.Address
 		dstTarget := rule.Destination.Address
 
-		srcBroad := srcTarget == constants.NetworkAny || slices.Contains(broadNetworks, srcTarget)
-		dstBroad := dstTarget == "" || dstTarget == constants.NetworkAny ||
-			slices.Contains(broadNetworks, dstTarget)
+		srcBroad := analysis.IsAnyAddress(srcTarget) || slices.Contains(broadNetworks, srcTarget)
+		dstBroad := analysis.IsAnyAddress(dstTarget) || slices.Contains(broadNetworks, dstTarget)
 
 		// Check for "any/any" rules (most permissive)
-		if srcTarget == constants.NetworkAny && (dstTarget == "" || dstTarget == constants.NetworkAny) {
+		if analysis.IsAnyAddress(srcTarget) && analysis.IsAnyAddress(dstTarget) {
 			return true
 		}
 
 		// Check for broad network ranges (e.g., entire subnets without specific restrictions)
-		if srcTarget != "" && srcBroad && dstBroad {
+		if srcBroad && dstBroad {
 			return true
 		}
 
 		// Check for broad rules without specific port restrictions (TCP/UDP or unspecified protocol)
 		if srcBroad && dstBroad &&
 			(rule.Protocol == "" || rule.Protocol == "tcp" || rule.Protocol == "udp" || rule.Protocol == "tcp/udp") &&
-			(rule.Destination.Port == "" || rule.Destination.Port == constants.NetworkAny) {
+			analysis.IsAnyPort(rule.Destination.Port) {
 			return true
 		}
 	}

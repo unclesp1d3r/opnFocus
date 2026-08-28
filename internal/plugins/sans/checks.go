@@ -6,7 +6,6 @@ import (
 	"strings"
 
 	"github.com/EvilBit-Labs/opnDossier/internal/analysis"
-	"github.com/EvilBit-Labs/opnDossier/internal/constants"
 	common "github.com/EvilBit-Labs/opnDossier/pkg/model"
 )
 
@@ -114,8 +113,8 @@ func (sp *Plugin) checkDefaultDeny(device *common.CommonDevice) checkResult {
 			hasBlock = true
 		}
 		if r.Type == common.RuleTypePass &&
-			r.Source.Address == constants.NetworkAny &&
-			r.Destination.Address == constants.NetworkAny {
+			analysis.IsAnyAddress(r.Source.Address) &&
+			analysis.IsAnyAddress(r.Destination.Address) {
 			hasAnyAnyPass = true
 		}
 	}
@@ -465,7 +464,7 @@ func (sp *Plugin) checkMailRestriction(device *common.CommonDevice) checkResult 
 		if r.Destination.Port == "25" || r.Destination.Port == "587" ||
 			r.Destination.Port == "465" {
 			hasSMTPRules = true
-			if r.Destination.Address == constants.NetworkAny {
+			if analysis.IsAnyAddress(r.Destination.Address) {
 				return checkResult{Result: false, Known: true}
 			}
 		}
@@ -525,7 +524,7 @@ func (sp *Plugin) checkDNSZoneTransfer(device *common.CommonDevice) checkResult 
 			continue
 		}
 		if r.Destination.Port == "53" &&
-			r.Source.Address == constants.NetworkAny {
+			analysis.IsAnyAddress(r.Source.Address) {
 			return checkResult{Result: true, Known: true}
 		}
 	}
@@ -546,7 +545,7 @@ func (sp *Plugin) checkEgressFiltering(device *common.CommonDevice) checkResult 
 			continue
 		}
 		hasOutbound = true
-		if r.Source.Address == constants.NetworkAny {
+		if analysis.IsAnyAddress(r.Source.Address) {
 			return checkResult{Result: false, Known: true}
 		}
 	}
