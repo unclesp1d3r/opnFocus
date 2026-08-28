@@ -342,34 +342,58 @@ func (s *Sanitizer) sanitizeValue(fieldName, value string) string {
 
 // sanitizeCommentContent applies redaction to XML comment content.
 // Comments can contain sensitive data like IPs, hostnames, and credentials.
-// Each word is checked independently and tracked in statistics.
+// Each whitespace-delimited token is checked independently. Surrounding
+// whitespace is preserved verbatim, so a multi-line comment stays multi-line,
+// and the result goes through escapeXMLComment before it is emitted.
 func (s *Sanitizer) sanitizeCommentContent(content string) string {
 	if content == "" {
 		return content
 	}
 
-	// Split comment into words and sanitize each potential sensitive value
-	words := strings.Fields(content)
-	for i, word := range words {
+	redacted := whitespaceTokenPattern.ReplaceAllStringFunc(content, func(token string) string {
 		s.stats.TotalFields++
-		should, rule := s.engine.ShouldRedactValue("comment", word)
-		if should {
-			redacted := s.engine.RedactWithRule(rule, "comment", word)
-			if redacted != word {
-				s.stats.RedactedFields++
-				if rule.Name != "" {
-					s.stats.RedactionsByType[rule.Name]++
-				}
-				words[i] = redacted
-			} else {
-				s.stats.SkippedFields++
-			}
-		} else {
+
+		should, rule := s.engine.ShouldRedactValue("comment", token)
+		if !should {
 			s.stats.SkippedFields++
+			return token
 		}
+
+		out := s.engine.RedactWithRule(rule, "comment", token)
+		if out == token {
+			s.stats.SkippedFields++
+			return token
+		}
+
+		s.stats.RedactedFields++
+		if rule.Name != "" {
+			s.stats.RedactionsByType[rule.Name]++
+		}
+		return out
+	})
+
+	return escapeXMLComment(redacted)
+}
+
+// escapeXMLComment makes s safe to emit between the "<!--" and "-->"
+// delimiters. XML 1.0 §2.5 forbids "--" inside a comment and forbids the
+// content from ending in "-", which would fuse with the delimiter into "--->".
+// A config carrying "<!-- migrated 2024- -->" is enough to hit it.
+//
+// A space neutralizes both. One ReplaceAll pass handles any run of dashes,
+// since "--" becomes "- " and cannot recombine.
+func escapeXMLComment(s string) string {
+	if s == "" {
+		return s
 	}
 
-	return strings.Join(words, " ")
+	s = strings.ReplaceAll(s, "--", "- ")
+
+	if strings.HasSuffix(s, "-") {
+		s += " "
+	}
+
+	return s
 }
 
 // SanitizeStruct uses reflection to sanitize a struct in place.

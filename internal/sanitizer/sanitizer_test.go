@@ -2,6 +2,9 @@ package sanitizer
 
 import (
 	"bytes"
+	"encoding/xml"
+	"errors"
+	"io"
 	"strconv"
 	"strings"
 	"testing"
@@ -465,7 +468,7 @@ func TestSanitizeXML_NetBirdSetupKey_NoFalsePositives(t *testing.T) {
 func TestSanitizeXML_SNMPv3Password(t *testing.T) {
 	const passwordBody = "s3cr3t-auth-passphrase"
 
-	xml := "<opnsense><OPNsense><netsnmp><user><users><user><password>" +
+	input := "<opnsense><OPNsense><netsnmp><user><users><user><password>" +
 		passwordBody +
 		"</password></user></users></user></netsnmp></OPNsense></opnsense>"
 
@@ -473,7 +476,7 @@ func TestSanitizeXML_SNMPv3Password(t *testing.T) {
 		t.Run(string(mode), func(t *testing.T) {
 			s := NewSanitizer(mode)
 			var output bytes.Buffer
-			if err := s.SanitizeXML(strings.NewReader(xml), &output); err != nil {
+			if err := s.SanitizeXML(strings.NewReader(input), &output); err != nil {
 				t.Fatalf("SanitizeXML() error = %v", err)
 			}
 			result := output.String()
@@ -868,6 +871,146 @@ func TestSanitizeXML_StripsDTDDirective(t *testing.T) {
 	// The document content should still be present.
 	if !strings.Contains(result, "<root>") {
 		t.Error("root element not preserved after directive stripping")
+	}
+}
+
+// mustReparse fails the test when s is not a well-formed XML document.
+// The sanitizer's contract is that a config.xml in produces a config.xml out,
+// so any output that no longer parses is a defect regardless of redaction
+// correctness.
+func mustReparse(t *testing.T, s string) {
+	t.Helper()
+
+	decoder := xml.NewDecoder(strings.NewReader(s))
+	for {
+		_, err := decoder.Token()
+		if errors.Is(err, io.EOF) {
+			return
+		}
+		if err != nil {
+			t.Fatalf("sanitized output is not well-formed XML: %v (output: %s)", err, s)
+		}
+	}
+}
+
+func TestSanitizeXML_CommentEndingInDashStaysWellFormed(t *testing.T) {
+	t.Parallel()
+
+	// XML 1.0 forbids a comment body from ending in "-": emitting it verbatim
+	// produces "--->", which no parser accepts. A trailing dash is ordinary in
+	// operator-written config comments ("<!-- migrated 2024- -->").
+	tests := []struct {
+		name  string
+		input string
+	}{
+		{"trailing dash", `<?xml version="1.0"?><opnsense><!-- migrated 2024- --><a>x</a></opnsense>`},
+		{"only a dash", `<?xml version="1.0"?><opnsense><!-- - --><a>x</a></opnsense>`},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			s := NewSanitizer(ModeAggressive)
+			var output bytes.Buffer
+			if err := s.SanitizeXML(strings.NewReader(tt.input), &output); err != nil {
+				t.Fatalf("SanitizeXML() error = %v", err)
+			}
+
+			result := output.String()
+			mustReparse(t, result)
+
+			if strings.Contains(result, "--->") {
+				t.Errorf("output contains the malformed sequence %q: %s", "--->", result)
+			}
+		})
+	}
+}
+
+func TestSanitizeXML_CommentPreservesLineStructure(t *testing.T) {
+	t.Parallel()
+
+	// A multi-line comment must stay multi-line: flattening it onto a single
+	// line loses information the operator wrote into the config.
+	input := "<?xml version=\"1.0\"?><opnsense><!-- line one\nline two\nline three --><a>x</a></opnsense>"
+
+	s := NewSanitizer(ModeAggressive)
+	var output bytes.Buffer
+	if err := s.SanitizeXML(strings.NewReader(input), &output); err != nil {
+		t.Fatalf("SanitizeXML() error = %v", err)
+	}
+
+	result := output.String()
+	mustReparse(t, result)
+
+	if got := strings.Count(result, "\n"); got < 2 {
+		t.Errorf("comment line structure was collapsed: got %d newlines in %q", got, result)
+	}
+	for _, want := range []string{"line one", "line two", "line three"} {
+		if !strings.Contains(result, want) {
+			t.Errorf("output lost comment text %q: %s", want, result)
+		}
+	}
+}
+
+func TestSanitizeXML_CommentRedactionStillApplies(t *testing.T) {
+	t.Parallel()
+
+	// The whitespace-preserving rewrite must not weaken redaction: a secret
+	// inside a comment is still replaced.
+	input := "<?xml version=\"1.0\"?><opnsense><!-- reachable at 8.8.8.8\n and admin@example.com --><a>x</a></opnsense>"
+
+	s := NewSanitizer(ModeAggressive)
+	var output bytes.Buffer
+	if err := s.SanitizeXML(strings.NewReader(input), &output); err != nil {
+		t.Fatalf("SanitizeXML() error = %v", err)
+	}
+
+	result := output.String()
+	mustReparse(t, result)
+
+	if strings.Contains(result, testPublicIP) {
+		t.Errorf("public IP not redacted inside comment: %s", result)
+	}
+	if strings.Contains(result, "admin@example.com") {
+		t.Errorf("email not redacted inside comment: %s", result)
+	}
+}
+
+func TestEscapeXMLComment(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name  string
+		input string
+		want  string
+	}{
+		{"empty", "", ""},
+		{"plain", "hello world", "hello world"},
+		{"trailing dash", "rev-3-", "rev-3- "},
+		{"double dash", "a--b", "a- b"},
+		{"triple dash", "a---b", "a- -b"},
+		{"quadruple dash", "a----b", "a- - b"},
+		{"trailing double dash", "a--", "a- "},
+		{"only dashes", "---", "- - "},
+		{"newlines preserved", "a\nb", "a\nb"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			got := escapeXMLComment(tt.input)
+			if got != tt.want {
+				t.Errorf("escapeXMLComment(%q) = %q, want %q", tt.input, got, tt.want)
+			}
+			if strings.Contains(got, "--") {
+				t.Errorf("escapeXMLComment(%q) = %q still contains a double dash", tt.input, got)
+			}
+			if strings.HasSuffix(got, "-") {
+				t.Errorf("escapeXMLComment(%q) = %q still ends in a dash", tt.input, got)
+			}
+		})
 	}
 }
 
