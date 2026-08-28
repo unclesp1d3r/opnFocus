@@ -160,6 +160,19 @@ func TestDeclaresNonUTF8Charset(t *testing.T) {
 		{`<?xml version="1.0" encoding="ISO-8859-1"?>`, true},
 		{`<?xml version="1.0" encoding="Windows-1252"?>`, true},
 		{`<?xml version="1.0" encoding=""?>`, false},
+		// Whitespace around the "=" is legal XML but Go's decoder does not
+		// implement it, so it never transcodes these and the declaration must
+		// be copied rather than relabelled.
+		{`<?xml version="1.0" encoding= "ISO-8859-1"?>`, false},
+		{`<?xml version="1.0" encoding ="ISO-8859-1"?>`, false},
+		{"<?xml version=\"1.0\" encoding=\n\"ISO-8859-1\"?>", false},
+		{"<?xml version=\"1.0\" encoding\n=\"ISO-8859-1\"?>", false},
+		// Whitespace before the attribute name is fine: the decoder reads it.
+		{"<?xml version=\"1.0\"\n  encoding=\"ISO-8859-1\"?>", true},
+		// The decoder scans for the next "encoding=" that is followed by a
+		// quote, so the second attribute is the one that counts.
+		{`<?xml version="1.0" encoding=x encoding="ISO-8859-1"?>`, true},
+		{`<?xml version="1.0" encoding=broken?>`, false},
 	}
 
 	for _, tt := range tests {
@@ -168,6 +181,78 @@ func TestDeclaresNonUTF8Charset(t *testing.T) {
 
 			if got := declaresNonUTF8Charset([]byte(tt.decl)); got != tt.want {
 				t.Errorf("declaresNonUTF8Charset(%q) = %v, want %v", tt.decl, got, tt.want)
+			}
+		})
+	}
+}
+
+// TestDeclaresNonUTF8Charset_AgreesWithDecoder pins the invariant the helper
+// exists to satisfy: the sanitizer must relabel a declaration exactly when the
+// decoder transcoded the body, and never otherwise. Disagreement in either
+// direction is a bug. Relabelling without transcoding rewrites a document that
+// was passed through untouched; transcoding without relabelling leaves the
+// output claiming an encoding it is not in.
+//
+// The two are checked against each other rather than against a fixed table
+// because the helper deliberately mirrors encoding/xml's own non-conformant
+// parsing of the encoding attribute.
+func TestDeclaresNonUTF8Charset_AgreesWithDecoder(t *testing.T) {
+	t.Parallel()
+
+	const body = `<o><h>fw</h></o>`
+
+	decls := []string{
+		`<?xml version="1.0" encoding="ISO-8859-1"?>`,
+		`<?xml version="1.0" encoding='ISO-8859-1'?>`,
+		"<?xml version=\"1.0\"\n  encoding=\"ISO-8859-1\"?>",
+		"<?xml version=\"1.0\"\tencoding=\"ISO-8859-1\"?>",
+		"<?xml version=\"1.0\"\r encoding=\"ISO-8859-1\"?>",
+		"<?xml version=\"1.0\" encoding=\n\"ISO-8859-1\"?>",
+		"<?xml version=\"1.0\" encoding=\r\"ISO-8859-1\"?>",
+		"<?xml version=\"1.0\" encoding\n=\"ISO-8859-1\"?>",
+		`<?xml version="1.0" encoding= "ISO-8859-1"?>`,
+		`<?xml version="1.0" encoding ="ISO-8859-1"?>`,
+		`<?xml version="1.0" encoding="UTF-8"?>`,
+		`<?xml version="1.0" encoding="UTF_8"?>`,
+		`<?xml version="1.0" encoding="ISO_8859_1"?>`,
+		`<?xml version="1.0" encoding="us-ascii"?>`,
+		`<?xml version="1.0"?>`,
+		`<?xml version="1.0" encoding=broken?>`,
+		`<?xml version="1.0" encoding=x encoding="ISO-8859-1"?>`,
+	}
+
+	for _, decl := range decls {
+		t.Run(decl, func(t *testing.T) {
+			t.Parallel()
+
+			var handed string
+
+			decoder := xml.NewDecoder(strings.NewReader(decl + body))
+			decoder.CharsetReader = func(charset string, input io.Reader) (io.Reader, error) {
+				handed = charset
+
+				return input, nil
+			}
+
+			for {
+				if _, err := decoder.Token(); err != nil {
+					break
+				}
+			}
+
+			// CharsetReader is called only for a declared charset the decoder
+			// recognized, and it passes UTF-8 bytes through untouched.
+			normalized := strings.ReplaceAll(strings.ToLower(handed), "_", "-")
+			transcoded := handed != "" && normalized != "utf-8" && normalized != "utf8"
+
+			if got := declaresNonUTF8Charset([]byte(decl)); got != transcoded {
+				t.Errorf(
+					"declaresNonUTF8Charset(%q) = %v, but the decoder transcoded = %v (charset handed to CharsetReader: %q)",
+					decl,
+					got,
+					transcoded,
+					handed,
+				)
 			}
 		})
 	}

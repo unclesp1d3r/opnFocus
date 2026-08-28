@@ -578,22 +578,35 @@ func writeXMLDeclaration(output *strings.Builder, data []byte) {
 // declaresNonUTF8Charset reports whether decl names an encoding that is not
 // UTF-8. A declaration with no encoding attribute is treated as UTF-8, the XML
 // default and what the sanitizer emits.
+//
+// The attribute is located the way encoding/xml locates it: the literal
+// "encoding=" followed immediately by a quote. XML 1.0 allows whitespace around
+// the "=" but Go's decoder does not, and a form the decoder does not recognize
+// is never transcoded, so treating it as a declared charset here would relabel
+// a document that was passed through untouched.
 func declaresNonUTF8Charset(decl []byte) bool {
 	lower := strings.ToLower(string(decl))
 
-	idx := strings.Index(lower, "encoding")
-	if idx < 0 {
-		return false
-	}
+	const attr = "encoding="
 
-	value := strings.TrimLeft(lower[idx+len("encoding"):], " \t=")
+	var (
+		value string
+		quote byte
+	)
 
-	var quote byte
-	if value != "" && (value[0] == '"' || value[0] == '\'') {
-		quote = value[0]
-		value = value[1:]
-	} else {
-		return false
+	for i := 0; ; {
+		k := strings.Index(lower[i:], attr)
+		if k < 0 {
+			return false
+		}
+
+		i += k + len(attr)
+		if i < len(lower) && (lower[i] == '"' || lower[i] == '\'') {
+			quote = lower[i]
+			value = lower[i+1:]
+
+			break
+		}
 	}
 
 	end := strings.IndexByte(value, quote)
