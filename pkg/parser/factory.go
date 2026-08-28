@@ -237,7 +237,17 @@ func peekRootElementBounded(ctx context.Context, r io.Reader) (string, io.Reader
 		for {
 			tok, err := dec.Token()
 			if err != nil {
+				// An encoding the decoder cannot read is not a device-type or
+				// missing-root failure. Reporting it as one sends the operator
+				// after the wrong problem, so keep the category intact.
+				if errors.Is(err, ErrUnsupportedCharset) {
+					ch <- peekResult{err: fmt.Errorf("reading root XML element: %w", err)}
+
+					return
+				}
+
 				ch <- peekResult{err: fmt.Errorf("unsupported device type: no root XML element found: %w", err)}
+
 				return
 			}
 

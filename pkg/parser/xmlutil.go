@@ -2,6 +2,7 @@ package parser
 
 import (
 	"encoding/xml"
+	"errors"
 	"fmt"
 	"io"
 	"strings"
@@ -9,6 +10,12 @@ import (
 	"golang.org/x/text/encoding/charmap"
 	"golang.org/x/text/transform"
 )
+
+// ErrUnsupportedCharset reports that an XML declaration named an encoding the
+// decoder cannot read. Callers wrap decode failures with their own context, so
+// this lets them tell an encoding problem apart from a malformed document
+// rather than reporting the first as the second.
+var ErrUnsupportedCharset = errors.New("unsupported charset")
 
 // NewSecureXMLDecoder returns an *xml.Decoder configured with security hardening:
 //   - Input size limited to maxSize bytes (prevents XML bomb attacks)
@@ -65,6 +72,6 @@ func CharsetReader(charset string, input io.Reader) (io.Reader, error) {
 	case "windows-1252", "windows1252", "cp1252":
 		return transform.NewReader(input, charmap.Windows1252.NewDecoder()), nil
 	default:
-		return nil, fmt.Errorf("unsupported charset: %s", charset)
+		return nil, fmt.Errorf("%w: %s", ErrUnsupportedCharset, charset)
 	}
 }

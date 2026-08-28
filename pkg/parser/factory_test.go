@@ -287,6 +287,47 @@ func TestFactory_UnsupportedCharset(t *testing.T) {
 	assert.Contains(t, err.Error(), "unsupported charset")
 }
 
+// TestFactory_UnsupportedCharset_KeepsErrorCategory guards the failure
+// category. Root-element detection wraps every decode error as "unsupported
+// device type: no root XML element found", so an encoding the decoder cannot
+// read was reported as two things it is not, and the operator went looking for
+// a malformed or unsupported config rather than an encoding.
+func TestFactory_UnsupportedCharset_KeepsErrorCategory(t *testing.T) {
+	t.Parallel()
+
+	xmlData := `<?xml version="1.0" encoding="EBCDIC"?><opnsense/>`
+	_, _, err := parser.NewFactory(cfgparser.NewXMLParser()).CreateDevice(
+		context.Background(),
+		strings.NewReader(xmlData),
+		common.DeviceTypeUnknown,
+		false,
+	)
+
+	require.Error(t, err)
+	require.ErrorIs(t, err, parser.ErrUnsupportedCharset, "the charset cause must survive wrapping")
+	assert.NotContains(t, err.Error(), "unsupported device type",
+		"an encoding failure must not be reported as a device-type failure")
+	assert.NotContains(t, err.Error(), "no root XML element found",
+		"an encoding failure must not be reported as a missing root element")
+}
+
+// TestFactory_NoRootElement_KeepsErrorCategory is the other half: input that
+// genuinely has no root element must still say so.
+func TestFactory_NoRootElement_KeepsErrorCategory(t *testing.T) {
+	t.Parallel()
+
+	_, _, err := parser.NewFactory(cfgparser.NewXMLParser()).CreateDevice(
+		context.Background(),
+		strings.NewReader("not xml at all"),
+		common.DeviceTypeUnknown,
+		false,
+	)
+
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "no root XML element found")
+	assert.NotErrorIs(t, err, parser.ErrUnsupportedCharset)
+}
+
 func TestFactory_AcceptedCharsets(t *testing.T) {
 	t.Parallel()
 

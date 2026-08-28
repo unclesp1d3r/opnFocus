@@ -48,6 +48,15 @@ const DefaultMaxInputSize = 10 * 1024 * 1024 // 10MB
     root-element detection and parsing.
 
 
+VARIABLES
+
+var ErrUnsupportedCharset = errors.New("unsupported charset")
+    ErrUnsupportedCharset reports that an XML declaration named an encoding the
+    decoder cannot read. Callers wrap decode failures with their own context,
+    so this lets them tell an encoding problem apart from a malformed document
+    rather than reporting the first as the second.
+
+
 FUNCTIONS
 
 func CharsetReader(charset string, input io.Reader) (io.Reader, error)
