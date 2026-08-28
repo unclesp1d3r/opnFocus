@@ -83,42 +83,169 @@ func (a *Analyzer) CompareFirewallRules(old, newCfg []common.FirewallRule) []Cha
 		}
 	}
 
-	// Also compare by position for rules without UUIDs
-	changes = append(changes, a.compareRulesByPosition(old, newCfg)...)
+	// Rules without a UUID are compared separately; see compareRulesWithoutUUID.
+	changes = append(changes, a.compareRulesWithoutUUID(old, newCfg)...)
 
 	return changes
 }
 
-// compareRulesByPosition compares rules that don't have UUIDs by position.
-func (a *Analyzer) compareRulesByPosition(old, newCfg []common.FirewallRule) []Change {
+// Similarity weights for pairing leftover rules. A rule's description is the
+// operator's own name for it and survives most edits, so it counts for more
+// than any single match field; the interface list is the next strongest signal.
+const (
+	simWeightDescription = 4
+	simWeightInterfaces  = 2
+	simWeightField       = 1
+
+	// simMinScore is the floor for calling two rules the same rule edited:
+	// a matching description alone, or a matching interface list plus two
+	// other fields.
+	simMinScore = 4
+
+	// simMaxPairs bounds the similarity scoring; see itemPairer.maxPairs.
+	simMaxPairs = 512
+)
+
+// ruleSimilarity scores how likely a and b are the same rule after an edit.
+func ruleSimilarity(a, b common.FirewallRule) int {
+	score := 0
+
+	if a.Description != "" && a.Description == b.Description {
+		score += simWeightDescription
+	}
+
+	if slices.Equal(a.Interfaces, b.Interfaces) {
+		score += simWeightInterfaces
+	}
+
+	for _, same := range []bool{
+		a.Type == b.Type,
+		a.Protocol == b.Protocol,
+		a.Source.Address == b.Source.Address,
+		a.Destination.Address == b.Destination.Address,
+		a.Destination.Port == b.Destination.Port,
+	} {
+		if same {
+			score += simWeightField
+		}
+	}
+
+	return score
+}
+
+// compareRulesWithoutUUID compares the rules that carry no UUID.
+//
+// It previously compared only the rule COUNT, so any content change that left
+// the count intact was invisible: flipping a rule from pass to block, widening
+// a source to any, or disabling its logging all reported "no changes". That is
+// the common case rather than an edge case -- pfSense rules never carry a
+// <uuid>, and neither do older OPNsense ones.
+func (a *Analyzer) compareRulesWithoutUUID(old, newCfg []common.FirewallRule) []Change {
+	oldRules := rulesWithoutUUID(old)
+	newRules := rulesWithoutUUID(newCfg)
+
 	var changes []Change
 
-	// Filter to rules without UUIDs
-	var oldNoUUID, newNoUUID []common.FirewallRule
-	for _, r := range old {
-		if r.UUID == "" {
-			oldNoUUID = append(oldNoUUID, r)
-		}
+	pairer := itemPairer[common.FirewallRule]{
+		identity:   ruleIdentity,
+		equal:      rulesEqual,
+		similarity: ruleSimilarity,
+		minScore:   simMinScore,
+		maxPairs:   simMaxPairs,
 	}
-	for _, r := range newCfg {
-		if r.UUID == "" {
-			newNoUUID = append(newNoUUID, r)
+
+	res := pairer.pair(oldRules, newRules, func(oi, ni int) {
+		if rulesEqual(oldRules[oi], newRules[ni]) {
+			return
+		}
+
+		changes = append(changes, modifiedRuleChange(oldRules[oi], newRules[ni], ni))
+	})
+
+	for i, paired := range res.oldPaired {
+		if !paired {
+			changes = append(changes, removedRuleChange(oldRules[i], i))
 		}
 	}
 
-	// Simple length comparison for rules without UUIDs
-	if len(oldNoUUID) != len(newNoUUID) {
-		changes = append(changes, Change{
-			Type:        ChangeModified,
-			Section:     SectionFirewall,
-			Path:        "filter.rules",
-			Description: fmt.Sprintf("Rule count changed (without UUID): %d → %d", len(oldNoUUID), len(newNoUUID)),
-			OldValue:    fmt.Sprintf("%d rules", len(oldNoUUID)),
-			NewValue:    fmt.Sprintf("%d rules", len(newNoUUID)),
-		})
+	for i, paired := range res.newPaired {
+		if !paired {
+			changes = append(changes, addedRuleChange(newRules[i], i))
+		}
 	}
 
 	return changes
+}
+
+// rulesWithoutUUID returns the subset of rules carrying no UUID, preserving
+// config order.
+func rulesWithoutUUID(rules []common.FirewallRule) []common.FirewallRule {
+	var out []common.FirewallRule
+
+	for _, r := range rules {
+		if r.UUID == "" {
+			out = append(out, r)
+		}
+	}
+
+	return out
+}
+
+// rulePath renders the diff path for a rule without a UUID, falling back from
+// its tracker to its position.
+func rulePath(rule common.FirewallRule, index int) string {
+	if rule.Tracker != "" {
+		return fmt.Sprintf("filter.rule[tracker=%s]", rule.Tracker)
+	}
+
+	return fmt.Sprintf("filter.rule[%d]", index)
+}
+
+// modifiedRuleChange builds the Change for a rule whose content differs.
+func modifiedRuleChange(oldRule, newRule common.FirewallRule, index int) Change {
+	impact := ""
+	if isPermissiveRule(newRule) && !isPermissiveRule(oldRule) {
+		impact = "high"
+	}
+
+	return Change{
+		Type:           ChangeModified,
+		Section:        SectionFirewall,
+		Path:           rulePath(newRule, index),
+		Description:    "Modified rule: " + ruleDescription(newRule),
+		OldValue:       formatRule(oldRule),
+		NewValue:       formatRule(newRule),
+		SecurityImpact: impact,
+	}
+}
+
+// addedRuleChange builds the Change for a rule present only in the new config.
+func addedRuleChange(rule common.FirewallRule, index int) Change {
+	impact := ""
+	if isPermissiveRule(rule) {
+		impact = "high"
+	}
+
+	return Change{
+		Type:           ChangeAdded,
+		Section:        SectionFirewall,
+		Path:           rulePath(rule, index),
+		Description:    "Added rule: " + ruleDescription(rule),
+		NewValue:       formatRule(rule),
+		SecurityImpact: impact,
+	}
+}
+
+// removedRuleChange builds the Change for a rule present only in the old config.
+func removedRuleChange(rule common.FirewallRule, index int) Change {
+	return Change{
+		Type:           ChangeRemoved,
+		Section:        SectionFirewall,
+		Path:           rulePath(rule, index),
+		Description:    "Removed rule: " + ruleDescription(rule),
+		OldValue:       formatRule(rule),
+		SecurityImpact: "medium",
+	}
 }
 
 // ruleDescription returns the rule's description if set, or a synthesized
@@ -169,16 +296,77 @@ func formatEndpoint(ep common.RuleEndpoint) string {
 	return result
 }
 
-// rulesEqual reports whether two firewall rules are semantically equal by comparing
-// their type, description, protocol, disabled state, source, destination, and interfaces.
+// rulesEqual reports whether two firewall rules are semantically identical.
+//
+// Every field that changes what the rule matches, where it sits in pf
+// evaluation order, or whether it is recorded is compared. It previously
+// covered seven of the model's thirty-three, so a diff stayed silent when an
+// operator flipped a rule's direction, made it floating or quick, moved it to
+// another gateway, switched its state type, or turned its logging off -- the
+// last of which is how a rule change hides from the very logs an audit reads.
+//
+// UUID and Tracker are deliberately excluded: they identify the rule and are
+// what CompareFirewallRules pairs on, so comparing them here would report every
+// paired rule as modified.
+//
+// When a field is added to common.FirewallRule it belongs here.
+// TestRulesEqual_ComparesEveryFirewallRuleField fails until it is.
 func rulesEqual(a, b common.FirewallRule) bool {
+	return rulesMatchEqual(a, b) && rulesPrecedenceEqual(a, b) && rulesOptionsEqual(a, b)
+}
+
+// rulesMatchEqual compares the fields deciding which packets the rule matches.
+func rulesMatchEqual(a, b common.FirewallRule) bool {
 	return a.Type == b.Type &&
 		a.Description == b.Description &&
 		a.Protocol == b.Protocol &&
 		a.Disabled == b.Disabled &&
 		a.Source == b.Source &&
 		a.Destination == b.Destination &&
-		slices.Equal(a.Interfaces, b.Interfaces)
+		slices.Equal(a.Interfaces, b.Interfaces) &&
+		a.IPProtocol == b.IPProtocol &&
+		a.ICMPType == b.ICMPType &&
+		a.ICMP6Type == b.ICMP6Type &&
+		a.TCPFlags1 == b.TCPFlags1 &&
+		a.TCPFlags2 == b.TCPFlags2 &&
+		a.TCPFlagsAny == b.TCPFlagsAny
+}
+
+// rulesPrecedenceEqual compares the fields deciding where the rule sits in pf
+// evaluation order and where matched traffic is sent.
+func rulesPrecedenceEqual(a, b common.FirewallRule) bool {
+	return a.Direction == b.Direction &&
+		a.Floating == b.Floating &&
+		a.Quick == b.Quick &&
+		a.Target == b.Target &&
+		objectRefsEqual(a.TargetRef, b.TargetRef) &&
+		a.Gateway == b.Gateway &&
+		a.AssociatedRuleID == b.AssociatedRuleID
+}
+
+// rulesOptionsEqual compares logging, state handling and connection limits.
+func rulesOptionsEqual(a, b common.FirewallRule) bool {
+	return a.Log == b.Log &&
+		a.StateType == b.StateType &&
+		a.StateTimeout == b.StateTimeout &&
+		a.MaxSrcNodes == b.MaxSrcNodes &&
+		a.MaxSrcConn == b.MaxSrcConn &&
+		a.MaxSrcConnRate == b.MaxSrcConnRate &&
+		a.MaxSrcConnRates == b.MaxSrcConnRates &&
+		a.AllowOpts == b.AllowOpts &&
+		a.DisableReplyTo == b.DisableReplyTo &&
+		a.NoPfSync == b.NoPfSync &&
+		a.NoSync == b.NoSync
+}
+
+// objectRefsEqual compares two optional named-object references by value, so a
+// rule that switches from one alias to another is reported as modified.
+func objectRefsEqual(a, b *common.ObjectRef) bool {
+	if a == nil || b == nil {
+		return a == b
+	}
+
+	return *a == *b
 }
 
 // isPermissiveRule reports whether a firewall rule is an unrestricted pass rule
