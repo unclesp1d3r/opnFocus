@@ -79,8 +79,8 @@ type StaticRoute struct {
 
 // IsPlaceholder reports whether r is an empty <route/> marker rather than a
 // configured static route. OPNsense writes that self-closing element inside
-// <staticroutes> when nothing is configured, and it unmarshals into an all-zero
-// entry.
+// <staticroutes> when nothing is configured, and it unmarshals into an entry
+// whose configuration fields are all zero.
 //
 // The check is deliberately conservative: an entry is dropped only when every
 // field is zero. A route carrying any data at all -- even just a description --

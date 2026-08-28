@@ -226,8 +226,8 @@ type VLAN struct {
 // IsPlaceholder reports whether the value is an empty <vlan/> marker rather
 // than a configured VLAN. OPNsense writes that self-closing element inside
 // <vlans> when nothing is configured -- testdata/opnsense-config.dtd
-// declares it as "<!ELEMENT vlan EMPTY>" -- and it unmarshals into an all-zero
-// entry.
+// declares it as "<!ELEMENT vlan EMPTY>" -- and it unmarshals into an entry whose
+// configuration fields are all zero.
 //
 // The check is deliberately conservative: an entry is dropped only when every
 // field is zero. See GOTCHAS.md section 3.4 for why fields are compared by name
@@ -257,7 +257,7 @@ type Bridge struct {
 // configured bridge. OPNsense writes that self-closing element inside <bridges>
 // when nothing is configured -- the shipped testdata/opnsense-config.dtd
 // declares it as "<!ELEMENT bridged EMPTY>" for exactly this reason -- and it
-// unmarshals into an all-zero entry.
+// unmarshals into an entry whose configuration fields are all zero.
 //
 // The check is deliberately conservative: an entry is dropped only when every
 // field is zero. A bridge carrying any data at all -- even just a description --
@@ -296,8 +296,8 @@ type GIF struct {
 // IsPlaceholder reports whether the value is an empty <gif/> marker rather
 // than a configured tunnel. OPNsense writes that self-closing element inside
 // <gifs> when nothing is configured -- testdata/opnsense-config.dtd
-// declares it as "<!ELEMENT gif EMPTY>" -- and it unmarshals into an all-zero
-// entry.
+// declares it as "<!ELEMENT gif EMPTY>" -- and it unmarshals into an entry whose
+// configuration fields are all zero.
 //
 // The check is deliberately conservative: an entry is dropped only when every
 // field is zero. See GOTCHAS.md section 3.4 for why fields are compared by name
@@ -325,8 +325,8 @@ type GRE struct {
 // IsPlaceholder reports whether the value is an empty <gre/> marker rather
 // than a configured tunnel. OPNsense writes that self-closing element inside
 // <gres> when nothing is configured -- testdata/opnsense-config.dtd
-// declares it as "<!ELEMENT gre EMPTY>" -- and it unmarshals into an all-zero
-// entry.
+// declares it as "<!ELEMENT gre EMPTY>" -- and it unmarshals into an entry whose
+// configuration fields are all zero.
 //
 // The check is deliberately conservative: an entry is dropped only when every
 // field is zero. See GOTCHAS.md section 3.4 for why fields are compared by name
@@ -355,8 +355,8 @@ type LAGG struct {
 // IsPlaceholder reports whether the value is an empty <lagg/> marker rather
 // than a configured link aggregation. OPNsense writes that self-closing element inside
 // <laggs> when nothing is configured -- testdata/opnsense-config.dtd
-// declares it as "<!ELEMENT lagg EMPTY>" -- and it unmarshals into an all-zero
-// entry.
+// declares it as "<!ELEMENT lagg EMPTY>" -- and it unmarshals into an entry whose
+// configuration fields are all zero.
 //
 // The check is deliberately conservative: an entry is dropped only when every
 // field is zero. See GOTCHAS.md section 3.4 for why fields are compared by name
@@ -383,8 +383,8 @@ type VIP struct {
 // IsPlaceholder reports whether the value is an empty <vip/> marker rather
 // than a configured virtual IP. OPNsense writes that self-closing element inside
 // <virtualip> when nothing is configured -- testdata/opnsense-config.dtd
-// declares it as "<!ELEMENT vip EMPTY>" -- and it unmarshals into an all-zero
-// entry.
+// declares it as "<!ELEMENT vip EMPTY>" -- and it unmarshals into an entry whose
+// configuration fields are all zero.
 //
 // The check is deliberately conservative: an entry is dropped only when every
 // field is zero. See GOTCHAS.md section 3.4 for why fields are compared by name
@@ -407,7 +407,8 @@ type PPP struct {
 
 // IsPlaceholder reports whether p is an empty <ppp/> marker rather than a
 // configured PPP link. OPNsense writes that self-closing element inside <ppps>
-// when nothing is configured, and it unmarshals into an all-zero entry.
+// when nothing is configured, and it unmarshals into an entry whose
+// configuration fields are all zero.
 //
 // The check is deliberately conservative: an entry is dropped only when every
 // field is zero. A link carrying any data at all -- even just a description --
