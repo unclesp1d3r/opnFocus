@@ -87,6 +87,9 @@ func TestSanitizeXML_RelabelsNonUTF8Declaration(t *testing.T) {
 		// Preserved byte for byte: already UTF-8, or no encoding named.
 		{"utf-8 double quoted", `<?xml version="1.0" encoding="UTF-8"?>`, `<?xml version="1.0" encoding="UTF-8"?>`},
 		{"utf-8 single quoted", `<?xml version='1.0' encoding='UTF-8'?>`, `<?xml version='1.0' encoding='UTF-8'?>`},
+		// CharsetReader normalizes "_" to "-", so this is UTF-8 and its bytes
+		// are passed through untouched; relabelling it would be wrong.
+		{"utf_8 underscore alias", `<?xml version="1.0" encoding="UTF_8"?>`, `<?xml version="1.0" encoding="UTF_8"?>`},
 		{"version only", `<?xml version="1.0"?>`, `<?xml version="1.0"?>`},
 	}
 
@@ -151,6 +154,8 @@ func TestDeclaresNonUTF8Charset(t *testing.T) {
 		{`<?xml version="1.0" encoding="UTF-8"?>`, false},
 		{`<?xml version="1.0" encoding="utf-8"?>`, false},
 		{`<?xml version='1.0' encoding='utf8'?>`, false},
+		{`<?xml version="1.0" encoding="UTF_8"?>`, false},
+		{`<?xml version="1.0" encoding="ISO_8859_1"?>`, true},
 		{`<?xml version='1.0' encoding='us-ascii'?>`, true},
 		{`<?xml version="1.0" encoding="ISO-8859-1"?>`, true},
 		{`<?xml version="1.0" encoding="Windows-1252"?>`, true},
