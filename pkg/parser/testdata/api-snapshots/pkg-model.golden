@@ -666,7 +666,11 @@ type DHCPScope struct {
 func (s *DHCPScope) SetDNSServers(servers []string)
     SetDNSServers records the DNS servers advertised to this scope, keeping the
     deprecated DNSServer field in sync with the first entry so the two cannot
-    drift while it is still published.
+    drift.
+
+    The slice is copied: retaining the caller's would let a later write to
+    servers[0] change DNSServers while DNSServer kept the old value, which is
+    exactly the drift this method exists to prevent.
 
 type DHCPScopeStatistics struct {
 	// Interface is the interface this DHCP scope is bound to.

@@ -31,7 +31,12 @@ func TestDHCPScope_SetDNSServers(t *testing.T) {
 			var scope common.DHCPScope
 			scope.SetDNSServers(tt.servers)
 
-			assert.Equal(t, tt.servers, scope.DNSServers)
+			if len(tt.servers) == 0 {
+				assert.Empty(t, scope.DNSServers)
+			} else {
+				assert.Equal(t, tt.servers, scope.DNSServers)
+			}
+
 			assert.Equal(t, tt.want, scope.DNSServer,
 				"the deprecated field must mirror the first entry")
 		})
@@ -49,4 +54,24 @@ func TestDHCPScope_SetDNSServers_ClearsStaleValue(t *testing.T) {
 
 	assert.Empty(t, scope.DNSServer)
 	assert.Empty(t, scope.DNSServers)
+}
+
+// TestDHCPScope_SetDNSServers_CopiesInput guards the synchronization
+// guarantee. Retaining the caller's slice let a later write to servers[0]
+// change DNSServers while the deprecated scalar kept the old value, which is
+// exactly the drift the setter exists to prevent. Raised in review.
+func TestDHCPScope_SetDNSServers_CopiesInput(t *testing.T) {
+	t.Parallel()
+
+	servers := []string{"10.0.0.1", "10.0.0.2"}
+
+	var scope common.DHCPScope
+	scope.SetDNSServers(servers)
+
+	servers[0] = "192.168.99.99"
+
+	assert.Equal(t, "10.0.0.1", scope.DNSServer, "the scalar must not follow the caller's slice")
+	assert.Equal(t, []string{"10.0.0.1", "10.0.0.2"}, scope.DNSServers,
+		"the stored slice must not alias the caller's")
+	assert.Equal(t, scope.DNSServers[0], scope.DNSServer, "the two must stay in sync")
 }

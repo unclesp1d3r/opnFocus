@@ -1237,7 +1237,7 @@ func parseConfigPfSenseFixture(t *testing.T) (*common.CommonDevice, []common.Con
 // TestParser_ConfigPfSense_DHCPScopesKeepEveryDNSServer guards against silent
 // data loss on repeated <dnsserver> elements (GOTCHAS §3.3).
 //
-// Regression: pfsense.DHCPInterface.Dnsserver was a scalar string, so
+// Regression: pfsense.DhcpdInterface.Dnsserver was a scalar string, so
 // encoding/xml kept only the LAST <dnsserver> of each DHCP scope and every
 // earlier resolver vanished from the parsed model and from the JSON/YAML
 // export, with no error or warning. The shipped fixture configures two

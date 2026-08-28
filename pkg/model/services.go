@@ -1,5 +1,7 @@
 package model
 
+import "slices"
+
 // DHCPAdvancedV4 contains advanced DHCPv4 configuration fields including alias/reject,
 // DNS overrides, protocol timing, send/request/required options, and config overrides.
 type DHCPAdvancedV4 struct {
@@ -190,13 +192,20 @@ type DHCPScope struct {
 
 // SetDNSServers records the DNS servers advertised to this scope, keeping the
 // deprecated DNSServer field in sync with the first entry so the two cannot
-// drift while it is still published.
+// drift.
+//
+// The slice is copied: retaining the caller's would let a later write to
+// servers[0] change DNSServers while DNSServer kept the old value, which is
+// exactly the drift this method exists to prevent.
 func (s *DHCPScope) SetDNSServers(servers []string) {
-	s.DNSServers = servers
+	s.DNSServers = nil
+	if len(servers) > 0 {
+		s.DNSServers = slices.Clone(servers)
+	}
 
 	s.DNSServer = ""
-	if len(servers) > 0 {
-		s.DNSServer = servers[0]
+	if len(s.DNSServers) > 0 {
+		s.DNSServer = s.DNSServers[0]
 	}
 }
 
