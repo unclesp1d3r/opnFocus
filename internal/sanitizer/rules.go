@@ -185,24 +185,45 @@ func (e *RuleEngine) ruleActiveForMode(rule *Rule) bool {
 // exactMatchPatterns lists field patterns that require exact (case-insensitive)
 // matching instead of substring matching. This prevents false positives on
 // compound field names (e.g., "key" would otherwise match "sshkey", "apikey";
-// "from"/"to" would match "timeout", "protocol", "platformfrom").
+// "from"/"to" would match "timeout", "protocol", "platformfrom";
+// "ddnsdomainkey" would match its sibling "ddnsdomainkeyalgorithm", redacting
+// the literal "hmac-md5" the audit engine reads).
 // All entries are stored pre-lowercased to match the pre-lowercased field patterns.
-var exactMatchPatterns = []string{"key", "from", "to"}
+var exactMatchPatterns = []string{"key", "from", "to", "ddnsdomainkey"}
 
 // fieldNameMatches reports whether pattern matches fieldName using a
 // case-insensitive substring check. An empty pattern always matches.
 // Patterns listed in exactMatchPatterns require an exact (case-insensitive)
 // match to prevent false positives on compound field names.
 //
+// "Exact" is anchored on the terminal path segment, not the whole string,
+// because sanitizeCharData looks up the full dotted path before the bare
+// element name and the reflection path only ever passes a dotted path. Without
+// that anchoring an exact pattern can never win the full-path lookup, and a
+// loose substring pattern on a later, less specific rule takes it instead.
+//
 // The pattern argument must be pre-lowercased (see NewRuleEngine).
 func fieldNameMatches(fieldName, pattern string) bool {
 	lowerField := strings.ToLower(fieldName)
 	for _, exact := range exactMatchPatterns {
 		if pattern == exact {
-			return lowerField == exact
+			return terminalSegment(lowerField) == exact
 		}
 	}
 	return strings.Contains(lowerField, pattern)
+}
+
+// terminalSegment returns the last dot-delimited segment of a lowercased field
+// path, dropping any slice index the reflection path appends ("apikeys[0]"
+// becomes "apikeys").
+func terminalSegment(lowerField string) string {
+	if dot := strings.LastIndexByte(lowerField, '.'); dot >= 0 {
+		lowerField = lowerField[dot+1:]
+	}
+	if bracket := strings.IndexByte(lowerField, '['); bracket >= 0 {
+		lowerField = lowerField[:bracket]
+	}
+	return lowerField
 }
 
 // builtinRules returns the default set of redaction rules used by the sanitizer package.
@@ -232,9 +253,10 @@ func builtinRules() []Rule {
 	return []Rule{
 		// NOTE: authserver.ldap_* patterns assume OPNsense XML nesting
 		// (system.authserver.ldap_*). If a device type uses different nesting
-		// (e.g., system.ldap_bindpw without authserver parent), those fields
-		// will fall through to the password rule (flat-redacted, not
-		// pseudonymized).
+		// (e.g., system.ldap_bindpw without authserver parent), only
+		// ldap_bindpw still redacts, via the "bindpw" pattern on the password
+		// rule below. The remaining ldap_* fields are host/DN/port metadata,
+		// not credentials.
 		//
 		// These rules match on field paths from the decoded document, not on a
 		// typed schema: no AuthServer type exists in pkg/schema for either
@@ -274,6 +296,11 @@ func builtinRules() []Rule {
 			FieldPatterns: []string{
 				"password", "passwd", "pass", "pwd",
 				"bcrypt-hash", "bcrypt_hash", "sha512-hash",
+				// "ldap_bindpw" matches none of the patterns above -- "pwd"
+				// does not appear in it -- so without this the value is emitted
+				// verbatim wherever authserver_config's path patterns miss.
+				// Keep in sync with passwordKeywords in patterns.go.
+				"bindpw",
 			},
 			Redactor: func(_ *Mapper, _, _ string) string {
 				return "[REDACTED-PASSWORD]"
@@ -355,6 +382,11 @@ func builtinRules() []Rule {
 				// pattern above is exact-match only (see exactMatchPatterns),
 				// so "enckey" needs its own substring alias. See ADR-0001.
 				"enckey", "enc_key",
+				// pfSense DHCP dynamic-DNS TSIG key: shared HMAC secret,
+				// grouped with the other HMAC material above rather than with
+				// asymmetric keys. Exact-match (see exactMatchPatterns) so it
+				// does not swallow <ddnsdomainkeyname>/<ddnsdomainkeyalgorithm>.
+				"ddnsdomainkey",
 			},
 			ValueDetector: IsPrivateKey,
 			Redactor: func(_ *Mapper, _, _ string) string {
