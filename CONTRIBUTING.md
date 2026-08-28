@@ -61,7 +61,7 @@ just ci-check
 
 It is intentionally **not** wired to a git hook. A prior iteration added a pre-push `just ci-check` hook, but non-interactive push clients (including Copilot agents) could not recover when the hook failed and discarded the session. Developer discipline replaces automation here — CI runs the subset it can host, and `just ci-check` remains the locally-runnable gate.
 
-**Race detector note.** `test-race` (the Go race detector) runs in CI as its own job and locally via `just test-race` or `just ci-check`. It was previously local-only because the suite's wall-clock assertions failed under instrumentation on a shared runner; those now skip or scale under `-race` (GOTCHAS §1.6). If you add a timing bound to a test, decide what it does under the detector before pushing.
+**Race detector note.** `test-race` (the Go race detector) is **local-only** — run it via `just test-race` or `just ci-check`. It is deliberately not a CI job: GitHub's shared runners cannot host the instrumented suite reliably, and the job failed without producing a usable signal (GOTCHAS § 1.7). That makes your local run the only place a data race gets caught, so run `just ci-check` before you push. If you add a timing bound to a test, decide what it does under the detector first (GOTCHAS § 1.6).
 
 ### Known Gotchas
 
