@@ -212,13 +212,17 @@ func (c *converter) convertInterfaces(doc *schema.OpnSenseDocument) []common.Int
 }
 
 // convertVLANs maps doc.VLANs.VLAN to []common.VLAN.
+//
+// Empty <vlan/> placeholders are skipped; see GOTCHAS.md section 3.4. The result
+// is grown on demand rather than preallocated because the loop may skip entries.
 func (c *converter) convertVLANs(doc *schema.OpnSenseDocument) []common.VLAN {
-	if len(doc.VLANs.VLAN) == 0 {
-		return nil
-	}
+	var result []common.VLAN
 
-	result := make([]common.VLAN, 0, len(doc.VLANs.VLAN))
 	for _, v := range doc.VLANs.VLAN {
+		if v.IsPlaceholder() {
+			continue
+		}
+
 		result = append(result, common.VLAN{
 			PhysicalIf:  v.If,
 			Tag:         v.Tag,
