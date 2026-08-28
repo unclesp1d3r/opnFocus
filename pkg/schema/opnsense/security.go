@@ -107,6 +107,7 @@ type NATRule struct {
 	Destination        Destination   `xml:"destination"                      json:"destination"                  yaml:"destination"`
 	Target             string        `xml:"target,omitempty"                 json:"target,omitempty"             yaml:"target,omitempty"`
 	SourcePort         string        `xml:"sourceport,omitempty"             json:"sourcePort,omitempty"         yaml:"sourcePort,omitempty"`
+	DstPort            string        `xml:"dstport,omitempty"                json:"dstPort,omitempty"            yaml:"dstPort,omitempty"`
 	NatPort            string        `xml:"natport,omitempty"                json:"natPort,omitempty"            yaml:"natPort,omitempty"`
 	PoolOpts           string        `xml:"poolopts,omitempty"               json:"poolOpts,omitempty"           yaml:"poolOpts,omitempty"`
 	PoolOptsSrcHashKey string        `xml:"poolopts_sourcehashkey,omitempty" json:"poolOptsSrcHashKey,omitempty" yaml:"poolOptsSrcHashKey,omitempty"`
@@ -121,6 +122,21 @@ type NATRule struct {
 	Updated            *Updated      `xml:"updated,omitempty"                json:"updated,omitempty"            yaml:"updated,omitempty"`
 	Created            *Created      `xml:"created,omitempty"                json:"created,omitempty"            yaml:"created,omitempty"`
 	UUID               string        `xml:"uuid,attr,omitempty"              json:"uuid,omitempty"               yaml:"uuid,omitempty"`
+}
+
+// EffectiveDestinationPort returns the destination port this rule matches on.
+//
+// Outbound NAT rules record the destination port in a <dstport> sibling of
+// <destination> rather than in <destination><port>, so reading only
+// Destination.Port made every port-scoped outbound rule look like it matched
+// all ports. Inbound and filter rules use the nested form, hence the
+// preference order.
+func (r NATRule) EffectiveDestinationPort() string {
+	if r.Destination.Port != "" {
+		return r.Destination.Port
+	}
+
+	return r.DstPort
 }
 
 // InboundRule represents an inbound NAT rule (port forwarding). The InternalIP field specifies
@@ -188,6 +204,8 @@ type Rule struct {
 	DisableReplyTo BoolFlag `xml:"disablereplyto,omitempty"`
 	NoPfSync       BoolFlag `xml:"nopfsync,omitempty"`
 	NoSync         BoolFlag `xml:"nosync,omitempty"`
+	Tag            string   `xml:"tag,omitempty"`
+	Tagged         string   `xml:"tagged,omitempty"`
 	Updated        *Updated `xml:"updated,omitempty"`
 	Created        *Created `xml:"created,omitempty"`
 	UUID           string   `xml:"uuid,attr,omitempty"`

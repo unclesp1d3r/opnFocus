@@ -110,6 +110,7 @@ type DhcpdInterface struct {
 	Range               Range              `xml:"range,omitempty"`
 	Gateway             string             `xml:"gateway,omitempty"`
 	DdnsDomainAlgorithm string             `xml:"ddnsdomainalgorithm,omitempty"`
+	FailoverPeerIP      string             `xml:"failover_peerip,omitempty"`
 	NumberOptions       []DHCPNumberOption `xml:"numberoptions>item,omitempty"`
 	Winsserver          string             `xml:"winsserver,omitempty"`
 	// Dnsserver repeats once per advertised DNS server. A scalar here would

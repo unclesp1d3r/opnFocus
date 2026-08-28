@@ -207,6 +207,12 @@ type FirewallRule struct {
 	NoSync bool `json:"noSync,omitempty" yaml:"noSync,omitempty"`
 	// AssociatedRuleID links this rule to an automatically generated companion rule.
 	AssociatedRuleID string `json:"associatedRuleId,omitempty" yaml:"associatedRuleId,omitempty"`
+	// Tag is the pf tag this rule applies to matching packets.
+	Tag string `json:"tag,omitempty" yaml:"tag,omitempty"`
+	// Tagged is the pf tag this rule matches on. Together with Tag it forms the
+	// mark-then-match pairs that implement egress policy, so a rule read without
+	// them looks unconditional when it is not.
+	Tagged string `json:"tagged,omitempty" yaml:"tagged,omitempty"`
 }
 
 // NATConfig contains all NAT-related configuration.

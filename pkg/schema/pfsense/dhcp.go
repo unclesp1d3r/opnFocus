@@ -14,12 +14,14 @@ import (
 // It is a copy-on-write fork of opnsense.DhcpdInterface with Enable changed from string
 // to BoolFlag, because pfSense uses presence-based <enable/> elements.
 type DhcpdInterface struct {
-	Enable              opnsense.BoolFlag           `xml:"enable,omitempty"              json:"enable,omitempty"              yaml:"enable,omitempty"`
-	Range               opnsense.Range              `xml:"range,omitempty"               json:"range"                         yaml:"range,omitempty"`
-	Gateway             string                      `xml:"gateway,omitempty"             json:"gateway,omitempty"             yaml:"gateway,omitempty"`
-	DdnsDomainAlgorithm string                      `xml:"ddnsdomainalgorithm,omitempty" json:"ddnsdomainalgorithm,omitempty" yaml:"ddnsdomainalgorithm,omitempty"`
-	NumberOptions       []opnsense.DHCPNumberOption `xml:"numberoptions>item,omitempty"  json:"numberOptions,omitempty"       yaml:"numberOptions,omitempty"`
-	Winsserver          string                      `xml:"winsserver,omitempty"          json:"winsserver,omitempty"          yaml:"winsserver,omitempty"`
+	Enable                 opnsense.BoolFlag           `xml:"enable,omitempty"                 json:"enable,omitempty"                 yaml:"enable,omitempty"`
+	Range                  opnsense.Range              `xml:"range,omitempty"                  json:"range"                            yaml:"range,omitempty"`
+	Gateway                string                      `xml:"gateway,omitempty"                json:"gateway,omitempty"                yaml:"gateway,omitempty"`
+	DdnsDomainAlgorithm    string                      `xml:"ddnsdomainalgorithm,omitempty"    json:"ddnsdomainalgorithm,omitempty"    yaml:"ddnsdomainalgorithm,omitempty"`
+	DdnsDomainKeyAlgorithm string                      `xml:"ddnsdomainkeyalgorithm,omitempty" json:"ddnsdomainkeyalgorithm,omitempty" yaml:"ddnsdomainkeyalgorithm,omitempty"`
+	FailoverPeerIP         string                      `xml:"failover_peerip,omitempty"        json:"failoverPeerIP,omitempty"         yaml:"failoverPeerIP,omitempty"`
+	NumberOptions          []opnsense.DHCPNumberOption `xml:"numberoptions>item,omitempty"     json:"numberOptions,omitempty"          yaml:"numberOptions,omitempty"`
+	Winsserver             string                      `xml:"winsserver,omitempty"             json:"winsserver,omitempty"             yaml:"winsserver,omitempty"`
 	// Dnsserver repeats once per advertised DNS server. A scalar here would
 	// silently keep only the last element (GOTCHAS §3.3) -- the repo's own
 	// testdata/pfsense/config-pfSense.xml carries two per scope.

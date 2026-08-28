@@ -231,6 +231,7 @@ func (c *converter) convertUsers(doc *pfsense.Document) []common.User {
 			Scope:       u.Scope,
 			GroupName:   u.Groupname,
 			UID:         u.UID,
+			Privileges:  strings.Join(u.Priv, ", "),
 		})
 	}
 

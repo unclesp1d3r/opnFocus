@@ -14,6 +14,10 @@ type User struct {
 	GroupName string `json:"groupName,omitempty" yaml:"groupName,omitempty"`
 	// UID is the numeric user identifier.
 	UID string `json:"uid,omitempty" yaml:"uid,omitempty"`
+	// Privileges is a comma-separated list of privileges assigned directly to
+	// the user, separate from any inherited via GroupName. Comma-separated to
+	// match Group.Privileges; both vendors store them as repeated elements.
+	Privileges string `json:"privileges,omitempty" yaml:"privileges,omitempty"`
 	// APIKeys contains API key credentials associated with the user.
 	APIKeys []APIKey `json:"apiKeys,omitempty" yaml:"apiKeys,omitempty"`
 }

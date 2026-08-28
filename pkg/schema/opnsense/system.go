@@ -1,6 +1,8 @@
 // Package opnsense defines the data structures for OPNsense configurations.
 package opnsense
 
+import "encoding/xml"
+
 // WebGUIConfig represents the web management interface configuration, including
 // protocol (HTTP/HTTPS), SSL certificate reference, login autocomplete, and process limits.
 type WebGUIConfig struct {
@@ -24,8 +26,8 @@ type SSHConfig struct {
 // SystemConfig groups system-related configuration, combining the core [System] settings
 // with kernel tunables ([SysctlItem] entries).
 type SystemConfig struct {
-	System System       `json:"system"           yaml:"system,omitempty" validate:"required"`
-	Sysctl []SysctlItem `json:"sysctl,omitempty" yaml:"sysctl,omitempty"`
+	System System      `json:"system"           yaml:"system,omitempty" validate:"required"`
+	Sysctl SysctlItems `json:"sysctl,omitempty" yaml:"sysctl,omitempty"`
 }
 
 // SysctlItem represents a single kernel tunable (sysctl) entry with its name, value, and description.
@@ -38,6 +40,67 @@ type SysctlItem struct {
 
 	Secret string `xml:"secret,omitempty" json:"secret,omitempty" yaml:"secret,omitempty"`
 	Item   string `xml:"item,omitempty"   json:"item,omitempty"   yaml:"item,omitempty"`
+}
+
+// SysctlItems is the list of kernel tunables held under <sysctl>.
+//
+// It exists because the vendor shape and the Go shape disagree. OPNsense
+// writes ONE <sysctl> container holding repeated <item> children:
+//
+//	<sysctl>
+//	  <item><descr/><tunable/><value/></item>
+//	  <item>...</item>
+//	</sysctl>
+//
+// Binding a plain []SysctlItem to xml:"sysctl" tells encoding/xml to expect
+// <sysctl> itself to repeat, so every tunable in the file collapsed into a
+// single entry with empty Tunable and Value -- silently, because a config
+// with no tunables and a config with two hundred decoded to the same thing.
+// Decoding the container explicitly is what restores them.
+//
+// Older configs wrote the fields directly under <sysctl> (the "simple
+// format" [SysctlItem] documents), so both shapes are accepted.
+type SysctlItems []SysctlItem
+
+// UnmarshalXML decodes one <sysctl> container into zero or more tunables.
+//
+// It appends rather than assigns: encoding/xml calls this once per <sysctl>
+// element it encounters, and a config carrying more than one container must
+// accumulate across the calls instead of keeping only the last.
+func (s *SysctlItems) UnmarshalXML(d *xml.Decoder, start xml.StartElement) error {
+	// The anonymous struct captures both layouts in a single pass: Items
+	// takes the <item> children, the remaining fields take a tunable
+	// written directly under <sysctl>. Only one of the two is populated by
+	// any given container.
+	var container struct {
+		Items   []SysctlItem `xml:"item"`
+		Descr   string       `xml:"descr"`
+		Tunable string       `xml:"tunable"`
+		Value   string       `xml:"value"`
+		Key     string       `xml:"key"`
+		Secret  string       `xml:"secret"`
+	}
+	if err := d.DecodeElement(&container, &start); err != nil {
+		return err
+	}
+
+	*s = append(*s, container.Items...)
+
+	// Keep a directly-written tunable only when it carries content. An
+	// OPNsense-shaped container leaves these fields empty, and appending
+	// them unconditionally would put a blank entry after every real one.
+	if container.Descr != "" || container.Tunable != "" || container.Value != "" ||
+		container.Key != "" || container.Secret != "" {
+		*s = append(*s, SysctlItem{
+			Descr:   container.Descr,
+			Tunable: container.Tunable,
+			Value:   container.Value,
+			Key:     container.Key,
+			Secret:  container.Secret,
+		})
+	}
+
+	return nil
 }
 
 // System contains the core system configuration including hostname, domain, DNS, users, groups,
@@ -108,12 +171,12 @@ type Widgets struct {
 // Group represents a user group with a name, GID, scope (system or local), member list,
 // and assigned privileges.
 type Group struct {
-	Name        string `xml:"name"        json:"name"                  yaml:"name"                  validate:"required,alphanum"`
-	Description string `xml:"description" json:"description,omitempty" yaml:"description,omitempty"`
-	Scope       string `xml:"scope"       json:"scope"                 yaml:"scope"                 validate:"required,oneof=system local"`
-	Gid         string `xml:"gid"         json:"gid"                   yaml:"gid"                   validate:"required,numeric"` //nolint:staticcheck // Field name matches OPNsense schema
-	Member      string `xml:"member"      json:"member,omitempty"      yaml:"member,omitempty"`
-	Priv        string `xml:"priv"        json:"privileges,omitempty"  yaml:"privileges,omitempty"`
+	Name        string   `xml:"name"        json:"name"                  yaml:"name"                  validate:"required,alphanum"`
+	Description string   `xml:"description" json:"description,omitempty" yaml:"description,omitempty"`
+	Scope       string   `xml:"scope"       json:"scope"                 yaml:"scope"                 validate:"required,oneof=system local"`
+	Gid         string   `xml:"gid"         json:"gid"                   yaml:"gid"                   validate:"required,numeric"` //nolint:staticcheck // Field name matches OPNsense schema
+	Member      []string `xml:"member"      json:"member,omitempty"      yaml:"member,omitempty"`
+	Priv        []string `xml:"priv"        json:"privileges,omitempty"  yaml:"privileges,omitempty"`
 }
 
 // Firmware represents the OPNsense firmware configuration, including the update mirror,
@@ -137,13 +200,14 @@ type User struct {
 	Scope     string   `xml:"scope"     json:"scope"                 yaml:"scope"                 validate:"required,oneof=system local"`
 	Groupname string   `xml:"groupname" json:"groupname"             yaml:"groupname"             validate:"required"`
 
-	Password       string   `xml:"password"       json:"password"          yaml:"password"                 validate:"required"`
-	UID            string   `xml:"uid"            json:"uid"               yaml:"uid"                      validate:"required,numeric"`
-	APIKeys        []APIKey `xml:"apikeys>item"   json:"apiKeys,omitempty" yaml:"apiKeys,omitempty"`
-	Expires        BoolFlag `xml:"expires"        json:"expires"           yaml:"expires,omitempty"`
-	AuthorizedKeys BoolFlag `xml:"authorizedkeys" json:"authorizedKeys"    yaml:"authorizedKeys,omitempty"`
-	IPSecPSK       BoolFlag `xml:"ipsecpsk"       json:"ipsecPsk"          yaml:"ipsecPsk,omitempty"`
-	OTPSeed        BoolFlag `xml:"otp_seed"       json:"otpSeed"           yaml:"otpSeed,omitempty"`
+	Password       string   `xml:"password"       json:"password"             yaml:"password"                 validate:"required"`
+	UID            string   `xml:"uid"            json:"uid"                  yaml:"uid"                      validate:"required,numeric"`
+	Priv           []string `xml:"priv"           json:"privileges,omitempty" yaml:"privileges,omitempty"`
+	APIKeys        []APIKey `xml:"apikeys>item"   json:"apiKeys,omitempty"    yaml:"apiKeys,omitempty"`
+	Expires        BoolFlag `xml:"expires"        json:"expires"              yaml:"expires,omitempty"`
+	AuthorizedKeys BoolFlag `xml:"authorizedkeys" json:"authorizedKeys"       yaml:"authorizedKeys,omitempty"`
+	IPSecPSK       BoolFlag `xml:"ipsecpsk"       json:"ipsecPsk"             yaml:"ipsecPsk,omitempty"`
+	OTPSeed        BoolFlag `xml:"otp_seed"       json:"otpSeed"              yaml:"otpSeed,omitempty"`
 }
 
 // APIKey represents a user API key pair with its key, secret, associated privileges,

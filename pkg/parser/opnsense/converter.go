@@ -254,38 +254,7 @@ func (c *converter) convertFirewallRules(
 
 	result := make([]common.FirewallRule, 0, len(doc.Filter.Rule))
 	for i, rule := range doc.Filter.Rule {
-		if rule.Type == "" {
-			c.addWarning(
-				fmt.Sprintf("FirewallRules[%d].Type", i),
-				rule.UUID,
-				"firewall rule has empty type",
-				common.SeverityHigh,
-			)
-		}
-		if rule.Source.EffectiveAddress() == "" {
-			c.addWarning(
-				fmt.Sprintf("FirewallRules[%d].Source", i),
-				rule.UUID,
-				"firewall rule has no source address",
-				common.SeverityMedium,
-			)
-		}
-		if rule.Destination.EffectiveAddress() == "" {
-			c.addWarning(
-				fmt.Sprintf("FirewallRules[%d].Destination", i),
-				rule.UUID,
-				"firewall rule has no destination address",
-				common.SeverityMedium,
-			)
-		}
-		if rule.Interface.IsEmpty() {
-			c.addWarning(
-				fmt.Sprintf("FirewallRules[%d].Interface", i),
-				rule.UUID,
-				"firewall rule has no interface assigned",
-				common.SeverityMedium,
-			)
-		}
+		c.warnOnIncompleteFirewallRule(i, rule)
 
 		ruleType := common.FirewallRuleType(rule.Type)
 		if rule.Type != "" && !ruleType.IsValid() {
@@ -360,10 +329,51 @@ func (c *converter) convertFirewallRules(
 			DisableReplyTo:  bool(rule.DisableReplyTo),
 			NoPfSync:        bool(rule.NoPfSync),
 			NoSync:          bool(rule.NoSync),
+			Tag:             rule.Tag,
+			Tagged:          rule.Tagged,
 		})
 	}
 
 	return result
+}
+
+// warnOnIncompleteFirewallRule records a conversion warning for each
+// required field rule leaves empty. Split out of convertFirewallRules to
+// keep that function inside the length limit; i is the rule index used to
+// address the warning.
+func (c *converter) warnOnIncompleteFirewallRule(i int, rule schema.Rule) {
+	if rule.Type == "" {
+		c.addWarning(
+			fmt.Sprintf("FirewallRules[%d].Type", i),
+			rule.UUID,
+			"firewall rule has empty type",
+			common.SeverityHigh,
+		)
+	}
+	if rule.Source.EffectiveAddress() == "" {
+		c.addWarning(
+			fmt.Sprintf("FirewallRules[%d].Source", i),
+			rule.UUID,
+			"firewall rule has no source address",
+			common.SeverityMedium,
+		)
+	}
+	if rule.Destination.EffectiveAddress() == "" {
+		c.addWarning(
+			fmt.Sprintf("FirewallRules[%d].Destination", i),
+			rule.UUID,
+			"firewall rule has no destination address",
+			common.SeverityMedium,
+		)
+	}
+	if rule.Interface.IsEmpty() {
+		c.addWarning(
+			fmt.Sprintf("FirewallRules[%d].Interface", i),
+			rule.UUID,
+			"firewall rule has no interface assigned",
+			common.SeverityMedium,
+		)
+	}
 }
 
 // convertNAT maps doc.Nat and system fields to common.NATConfig.
@@ -429,9 +439,9 @@ func (c *converter) convertOutboundNATRules(rules []schema.NATRule) []common.NAT
 			},
 			Destination: common.RuleEndpoint{
 				Address:    r.Destination.EffectiveAddress(),
-				Port:       r.Destination.Port,
+				Port:       r.EffectiveDestinationPort(),
 				AddressRef: c.namedObjects.Ref(r.Destination.AliasAddress()),
-				PortRef:    c.namedObjects.Ref(r.Destination.Port),
+				PortRef:    c.namedObjects.Ref(r.EffectiveDestinationPort()),
 			},
 			Target:        r.Target,
 			TargetRef:     c.namedObjects.Ref(r.Target),

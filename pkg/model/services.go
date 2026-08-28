@@ -50,6 +50,14 @@ type DHCPAdvancedV4 struct {
 	AdvDHCPConfigFileOverride string `json:"advDhcpConfigFileOverride,omitempty" yaml:"advDhcpConfigFileOverride,omitempty"`
 	// AdvDHCPConfigFileOverridePath is the filesystem path for the DHCP config override file.
 	AdvDHCPConfigFileOverridePath string `json:"advDhcpConfigFileOverridePath,omitempty" yaml:"advDhcpConfigFileOverridePath,omitempty"`
+
+	// Dynamic DNS and failover fields.
+
+	// DdnsDomainAlgorithm is the TSIG algorithm used to sign dynamic DNS updates.
+	DdnsDomainAlgorithm string `json:"ddnsDomainAlgorithm,omitempty" yaml:"ddnsDomainAlgorithm,omitempty"`
+	// FailoverPeerIP is the address of the DHCP failover peer, set when the
+	// scope participates in a high-availability pair.
+	FailoverPeerIP string `json:"failoverPeerIp,omitempty" yaml:"failoverPeerIp,omitempty"`
 }
 
 // DHCPAdvancedV6 contains advanced DHCPv6 configuration fields including tracking,

@@ -482,6 +482,10 @@ func (c *converter) convertOpenVPNServers(servers []opnsense.OpenVPNServer) []co
 			NetBIOSEnable:      bool(s.Netbios_enable),
 			NetBIOSNType:       s.Netbios_ntype,
 			NetBIOSScope:       s.Netbios_scope,
+			Crypto:             s.Crypto,
+			Digest:             s.Digest,
+			NCPCiphers:         s.NCPCiphers,
+			CustomOptions:      s.Custom_options,
 		})
 	}
 
@@ -509,6 +513,10 @@ func (c *converter) convertOpenVPNClients(clients []opnsense.OpenVPNClient) []co
 			CARef:          cl.CA_ref,
 			Compression:    cl.Compression,
 			VerbosityLevel: cl.Verbosity_level,
+			Crypto:         cl.Crypto,
+			Digest:         cl.Digest,
+			NCPCiphers:     cl.NCPCiphers,
+			CustomOptions:  cl.Custom_options,
 		})
 	}
 

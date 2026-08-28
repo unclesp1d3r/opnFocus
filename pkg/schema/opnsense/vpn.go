@@ -45,6 +45,9 @@ type OpenVPNServer struct {
 	Local_networkv6   string   `xml:"local_networkv6,omitempty"` //nolint:revive,staticcheck // XML field name requires underscore
 	Maxclients        string   `xml:"maxclients,omitempty"`
 	Compression       string   `xml:"compression,omitempty"`
+	Crypto            string   `xml:"crypto,omitempty"`
+	Digest            string   `xml:"digest,omitempty"`
+	NCPCiphers        string   `xml:"ncp-ciphers,omitempty"`
 	Passtos           BoolFlag `xml:"passtos,omitempty"`
 	Client2client     BoolFlag `xml:"client2client,omitempty"`
 	Dynamic_ip        BoolFlag `xml:"dynamic_ip,omitempty"` //nolint:revive,staticcheck // XML field name requires underscore
@@ -82,6 +85,9 @@ type OpenVPNClient struct {
 	Cert_ref        string   `xml:"certref,omitempty"`        //nolint:revive,staticcheck // XML field name requires underscore
 	CA_ref          string   `xml:"caref,omitempty"`          //nolint:revive,staticcheck // XML field name requires underscore
 	Compression     string   `xml:"compression,omitempty"`
+	Crypto          string   `xml:"crypto,omitempty"`
+	Digest          string   `xml:"digest,omitempty"`
+	NCPCiphers      string   `xml:"ncp-ciphers,omitempty"`
 	Verbosity_level string   `xml:"verbosity_level,omitempty"` //nolint:revive,staticcheck // XML field name requires underscore
 	Created         string   `xml:"created,omitempty"`
 	Updated         string   `xml:"updated,omitempty"`

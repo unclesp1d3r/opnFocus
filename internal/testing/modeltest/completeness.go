@@ -38,8 +38,13 @@ var (
 
 // validateFilePath checks that the provided file path is safe, does not contain unsafe path traversal, resolves to an absolute path, and points to an existing regular file. Returns an error if validation fails.
 func validateFilePath(filePath string) error {
-	// Check for malicious path traversal attempts
-	if strings.Contains(filePath, "..") && !strings.HasPrefix(filePath, "../") {
+	// Check for malicious path traversal attempts. Compare on the
+	// slash-separated form: filepath.Join emits backslashes on Windows, so a
+	// relative fixture path contains ".." without starting with "../" and the
+	// guard rejected every one of them. That made the whole completeness
+	// suite unrunnable there.
+	slashed := filepath.ToSlash(filePath)
+	if strings.Contains(slashed, "..") && !strings.HasPrefix(slashed, "../") {
 		return fmt.Errorf("%w: %s", ErrInvalidFilePath, filePath)
 	}
 
