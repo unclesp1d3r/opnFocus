@@ -555,3 +555,17 @@ Relatedly, the finding's `Recommendation` intentionally hedges ("confirm before 
 ### 23.3 R6 Completeness Is a Manual Surface Audit, Not Automatic
 
 The "no false positive" guarantee holds exactly as far as the typed-`ObjectRef` root sites in `collectRoots` cover every `CommonDevice` field on which a pf-family alias can appear. When a new device parser or a new `CommonDevice` address/port field lands, it must be audited: an alias-capable field needs both an `*ObjectRef` model field (populated by the converter) and a `collectRoots` entry. Traffic-shaper and captive-portal config are modeled as opaque identifier strings (not addresses) and are correctly excluded; DNS/NTP/monitor/LB fields are literal IPs, not firewall aliases. A silently-untracked alias-capable field reintroduces the false-positive class.
+
+## 24. GitHub Action
+
+### 24.1 The Action Must Run As the Workspace Owner
+
+The published image sets `USER 65532:65532`, which is the correct default for a bare `docker run`. A runner workspace is owned by the runner user (uid 1001 on GitHub-hosted runners), so without `--user "$(id -u):$(id -g)"` on the `docker run` line the container **cannot write into the bind mount**. Every invocation using the documented `output` input failed with `permission denied`; stdout-only runs were unaffected.
+
+- **Test the Action with an output file, not just stdout.** The breakage is invisible to any check that only asserts the command exits 0 while printing to stdout, which is why it shipped.
+- **Reproduce it locally** by chowning a scratch workspace to a uid the image does not run as:
+  ```bash
+  docker run --rm -v "$WS:/data" -w /data <image> convert config.xml --format json --output report.json
+  ```
+  Without `--user` that fails; with `--user 1001:1001` it writes `report.json` owned by 1001 at mode 600 (`export.DefaultFilePermissions`).
+- **Do not "fix" this by dropping `USER` from the Dockerfile.** The non-root default protects direct `docker run` users; the Action overrides it only because it has a bind mount to match.
