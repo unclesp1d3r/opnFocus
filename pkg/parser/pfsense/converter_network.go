@@ -54,13 +54,17 @@ func (c *converter) convertInterfaces(doc *pfsense.Document) []common.Interface 
 }
 
 // convertVLANs maps doc.VLANs.VLAN to []common.VLAN.
+//
+// Empty <vlan/> placeholders are skipped; see GOTCHAS.md section 3.4. The result
+// is grown on demand rather than preallocated because the loop may skip entries.
 func (c *converter) convertVLANs(doc *pfsense.Document) []common.VLAN {
-	if len(doc.VLANs.VLAN) == 0 {
-		return nil
-	}
+	var result []common.VLAN
 
-	result := make([]common.VLAN, 0, len(doc.VLANs.VLAN))
 	for _, v := range doc.VLANs.VLAN {
+		if v.IsPlaceholder() {
+			continue
+		}
+
 		result = append(result, common.VLAN{
 			PhysicalIf:  v.If,
 			Tag:         v.Tag,
@@ -75,13 +79,18 @@ func (c *converter) convertVLANs(doc *pfsense.Document) []common.VLAN {
 }
 
 // convertPPPs maps doc.PPPs.Ppp to []common.PPP.
+//
+// Empty <ppp/> placeholders are skipped so they do not surface as blank PPP
+// links in exported output. The result is grown on demand rather than
+// preallocated because the loop may skip entries.
 func (c *converter) convertPPPs(doc *pfsense.Document) []common.PPP {
-	if len(doc.PPPs.Ppp) == 0 {
-		return nil
-	}
+	var result []common.PPP
 
-	result := make([]common.PPP, 0, len(doc.PPPs.Ppp))
 	for _, p := range doc.PPPs.Ppp {
+		if p.IsPlaceholder() {
+			continue
+		}
+
 		result = append(result, common.PPP{
 			Interface:   p.If,
 			Type:        p.Type,
@@ -167,14 +176,21 @@ func (c *converter) convertGatewayGroups(doc *pfsense.Document) []common.Gateway
 }
 
 // convertStaticRoutes maps doc.StaticRoutes.Route to []common.StaticRoute.
+//
+// Empty <route/> placeholders are skipped so they neither surface as blank
+// routes in exported output nor flip CommonDevice.HasRoutes to true for a
+// device with no routing configuration. The result is grown on demand rather
+// than preallocated because the loop may skip entries.
 func (c *converter) convertStaticRoutes(doc *pfsense.Document) []common.StaticRoute {
 	routes := doc.StaticRoutes.Route
-	if len(routes) == 0 {
-		return nil
-	}
 
-	result := make([]common.StaticRoute, 0, len(routes))
+	var result []common.StaticRoute
+
 	for _, r := range routes {
+		if r.IsPlaceholder() {
+			continue
+		}
+
 		result = append(result, common.StaticRoute{
 			Network:     r.Network,
 			NetworkRef:  c.namedObjects.Ref(r.Network),
