@@ -20,7 +20,6 @@ type Mapper struct {
 	privateIPCounter   int
 	hostnameCounter    int
 	usernameCounter    int
-	domainCounter      int
 	macCounter         int
 	emailCounter       int
 	authServerCounters map[string]int
@@ -29,7 +28,6 @@ type Mapper struct {
 	ipMappings         map[string]string
 	hostnameMappings   map[string]string
 	usernameMappings   map[string]string
-	domainMappings     map[string]string
 	macMappings        map[string]string
 	emailMappings      map[string]string
 	authServerMappings map[string]map[string]string
@@ -51,7 +49,6 @@ type MappingCategories struct {
 	IPAddresses  map[string]string   `json:"ip_addresses,omitempty"`
 	Hostnames    map[string]string   `json:"hostnames,omitempty"`
 	Usernames    map[string]string   `json:"usernames,omitempty"`
-	Domains      map[string]string   `json:"domains,omitempty"`
 	MACAddresses map[string]string   `json:"mac_addresses,omitempty"`
 	Emails       map[string]string   `json:"emails,omitempty"`
 	AuthServer   *AuthServerMappings `json:"authserver,omitempty"`
@@ -80,7 +77,6 @@ func NewMapper() *Mapper {
 		ipMappings:         make(map[string]string),
 		hostnameMappings:   make(map[string]string),
 		usernameMappings:   make(map[string]string),
-		domainMappings:     make(map[string]string),
 		macMappings:        make(map[string]string),
 		emailMappings:      make(map[string]string),
 		authServerCounters: make(map[string]int),
@@ -169,30 +165,6 @@ func (m *Mapper) MapUsername(original string) string {
 	return replacement
 }
 
-// Domain redaction constants.
-const (
-	defaultRedactedDomain = "example.com"
-)
-
-// MapDomain returns a consistent replacement for a domain name.
-func (m *Mapper) MapDomain(original string) string {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-
-	if replacement, exists := m.domainMappings[original]; exists {
-		return replacement
-	}
-
-	m.domainCounter++
-	if m.domainCounter == 1 {
-		m.domainMappings[original] = defaultRedactedDomain
-		return defaultRedactedDomain
-	}
-	replacement := fmt.Sprintf("example%d.com", m.domainCounter)
-	m.domainMappings[original] = replacement
-	return replacement
-}
-
 // MapMAC returns a consistent replacement for a MAC address.
 func (m *Mapper) MapMAC(original string) string {
 	m.mu.Lock()
@@ -272,7 +244,6 @@ func (m *Mapper) GenerateReport(mode string) *MappingReport {
 			IPAddresses:  copyMap(m.ipMappings),
 			Hostnames:    copyMap(m.hostnameMappings),
 			Usernames:    copyMap(m.usernameMappings),
-			Domains:      copyMap(m.domainMappings),
 			MACAddresses: copyMap(m.macMappings),
 			Emails:       copyMap(m.emailMappings),
 			AuthServer:   authServerReport(m.authServerMappings),
@@ -296,7 +267,6 @@ func (m *Mapper) Reset() {
 	m.privateIPCounter = 0
 	m.hostnameCounter = 0
 	m.usernameCounter = 0
-	m.domainCounter = 0
 	m.macCounter = 0
 	m.emailCounter = 0
 	m.authServerCounters = make(map[string]int)
@@ -304,7 +274,6 @@ func (m *Mapper) Reset() {
 	m.ipMappings = make(map[string]string)
 	m.hostnameMappings = make(map[string]string)
 	m.usernameMappings = make(map[string]string)
-	m.domainMappings = make(map[string]string)
 	m.macMappings = make(map[string]string)
 	m.emailMappings = make(map[string]string)
 	m.authServerMappings = make(map[string]map[string]string)
