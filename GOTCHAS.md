@@ -61,6 +61,7 @@ GitHub's shared runners cannot host it reliably. The instrumented suite is slow 
 - **Where the protection actually comes from:** the `forbidigo` rule in `.golangci.yml` forbids `t.Parallel()` in `cmd/` at lint time (§ 1.1), and `just ci-check` runs the detector before you push.
 - **If you re-add the job, you must also re-add its Mergify gates.** `.mergify.yml` lists `check-success` conditions in three places (the dependabot queue, the `default` queue, and the `Full CI must pass` rule). Removing a job without removing its gates deadlocks every PR on a check that never reports; adding a job without adding its gates means nothing enforces it.
 - **The `-race` accommodations in the test suite stay.** `internal/testing/racedetect.Enabled` and the skips it drives (§ 1.6) exist for the local run and are still load-bearing.
+- **The PR that removes a gated check cannot pass its own gate.** Mergify evaluates `.mergify.yml` from the **base** branch, so a PR deleting a job is still judged against `main`'s copy, which still requires it — `Full CI must pass` sits at "Waiting checks: `<job>`" indefinitely. This is not a misconfiguration and cannot be fixed from inside the PR; a maintainer merges it manually, and every PR afterwards uses the new config. The repo already routes workflow changes this way: the `Auto-queue` protection excludes any PR touching `.github/workflows/`.
 
 ## 2. Plugin Architecture
 
