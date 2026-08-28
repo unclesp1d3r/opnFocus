@@ -86,9 +86,9 @@ func TestHasAdvancedDHCPConfig(t *testing.T) {
 		{
 			name: "basic config only",
 			dhcp: common.DHCPScope{
-				Enabled:   true,
-				Gateway:   "192.168.1.1",
-				DNSServer: "8.8.8.8",
+				Enabled:    true,
+				Gateway:    "192.168.1.1",
+				DNSServers: []string{"8.8.8.8"},
 			},
 			want: false,
 		},
@@ -241,9 +241,9 @@ func TestHasDHCPv6Config(t *testing.T) {
 		{
 			name: "basic ipv4 config only",
 			dhcp: common.DHCPScope{
-				Enabled:   true,
-				Gateway:   "192.168.1.1",
-				DNSServer: "8.8.8.8",
+				Enabled:    true,
+				Gateway:    "192.168.1.1",
+				DNSServers: []string{"8.8.8.8"},
 			},
 			want: false,
 		},
@@ -503,11 +503,11 @@ func TestBuildDHCPSummaryTableSet(t *testing.T) {
 			name: "single interface with basic config",
 			scopes: []common.DHCPScope{
 				{
-					Interface: "lan",
-					Enabled:   true,
-					Gateway:   "192.168.1.1",
-					Range:     common.DHCPRange{From: "192.168.1.100", To: "192.168.1.200"},
-					DNSServer: "8.8.8.8",
+					Interface:  "lan",
+					Enabled:    true,
+					Gateway:    "192.168.1.1",
+					Range:      common.DHCPRange{From: "192.168.1.100", To: "192.168.1.200"},
+					DNSServers: []string{"8.8.8.8"},
 				},
 			},
 			wantContains: []string{"lan", "192.168.1.1", "192.168.1.100", "192.168.1.200", "8.8.8.8"},
@@ -544,7 +544,7 @@ func TestBuildDHCPSummaryTableSet(t *testing.T) {
 					Enabled:    true,
 					Gateway:    "192.168.1.1",
 					Range:      common.DHCPRange{From: "192.168.1.100", To: "192.168.1.200"},
-					DNSServer:  "8.8.8.8",
+					DNSServers: []string{"8.8.8.8"},
 					WINSServer: "192.168.1.5",
 					NTPServer:  "pool.ntp.org",
 				},

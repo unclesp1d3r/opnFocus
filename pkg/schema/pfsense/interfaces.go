@@ -44,8 +44,10 @@ type Interface struct {
 	NumberOptions       []opnsense.DhcpOption `xml:"numberoptions,omitempty"       json:"numberoptions,omitempty"       yaml:"numberoptions,omitempty"`
 	Range               opnsense.DhcpRange    `xml:"range,omitempty"               json:"range"                         yaml:"range,omitempty"`
 	Winsserver          string                `xml:"winsserver,omitempty"          json:"winsserver,omitempty"          yaml:"winsserver,omitempty"`
-	Dnsserver           string                `xml:"dnsserver,omitempty"           json:"dnsserver,omitempty"           yaml:"dnsserver,omitempty"`
-	Ntpserver           string                `xml:"ntpserver,omitempty"           json:"ntpserver,omitempty"           yaml:"ntpserver,omitempty"`
+	// Not mapped into the common model, so a scalar is accurate today. Make it
+	// []string before mapping it: <dnsserver> repeats (GOTCHAS 3.3).
+	Dnsserver string `xml:"dnsserver,omitempty" json:"dnsserver,omitempty" yaml:"dnsserver,omitempty"`
+	Ntpserver string `xml:"ntpserver,omitempty" json:"ntpserver,omitempty" yaml:"ntpserver,omitempty"`
 
 	// Advanced DHCP fields for interfaces
 	AdvDHCPRequestOptions                    string `xml:"adv_dhcp_request_options,omitempty"                      json:"advDhcpRequestOptions,omitempty"                    yaml:"advDhcpRequestOptions,omitempty"`

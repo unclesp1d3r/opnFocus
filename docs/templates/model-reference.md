@@ -1,6 +1,6 @@
 # Model Reference
 
-> **Auto-generated documentation** - Do not edit manually. Generated: 2026-07-20 02:11:51
+> **Auto-generated documentation** - Do not edit manually. Generated: 2026-08-28 12:00:06
 
 This document provides a complete reference of all data fields available in the opnDossier configuration model. Use this reference when working with JSON/YAML exports or building custom integrations.
 
@@ -72,7 +72,7 @@ Core system settings including hostname, users, and SSH configuration.
 | `Hostname`                      | `string`       | `system.hostname`                      | Required        |
 | `Domain`                        | `string`       | `system.domain`                        | Required        |
 | `DNSAllowOverride`              | `BoolFlag`     | `system.dnsAllowOverride`              | Optional        |
-| `DNSServer`                     | `string`       | `system.dnsServer`                     | Optional        |
+| `DNSServers`                    | `[]string`     | `system.dnsServers`                    | Optional        |
 | `Language`                      | `string`       | `system.language`                      | Optional        |
 | `Firmware`                      | `Firmware`     | `system.firmware`                      | -               |
 | `Group`                         | `[]Group`      | `system.groups`                        | Optional        |
@@ -299,7 +299,7 @@ System services configuration.
 | `DdnsDomainAlgorithm`                             | `string`             | `dhcpd.<interface>.ddnsdomainalgorithm`                             | -           |
 | `NumberOptions`                                   | `[]DHCPNumberOption` | `dhcpd.<interface>.numberoptions`                                   | -           |
 | `Winsserver`                                      | `string`             | `dhcpd.<interface>.winsserver`                                      | -           |
-| `Dnsserver`                                       | `string`             | `dhcpd.<interface>.dnsserver`                                       | -           |
+| `Dnsserver`                                       | `[]string`           | `dhcpd.<interface>.dnsserver`                                       | -           |
 | `Ntpserver`                                       | `string`             | `dhcpd.<interface>.ntpserver`                                       | -           |
 | `Staticmap`                                       | `[]DHCPStaticLease`  | `dhcpd.<interface>.staticmap`                                       | -           |
 | `AliasAddress`                                    | `string`             | `dhcpd.<interface>.aliasaddress`                                    | -           |

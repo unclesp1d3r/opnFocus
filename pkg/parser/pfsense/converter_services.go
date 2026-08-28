@@ -33,10 +33,10 @@ func (c *converter) convertDHCP(doc *pfsense.Document) []common.DHCPScope {
 			Enabled:    d.Enable.Bool(),
 			Range:      common.DHCPRange{From: d.Range.From, To: d.Range.To},
 			Gateway:    d.Gateway,
-			DNSServer:  d.Dnsserver,
 			NTPServer:  d.Ntpserver,
 			WINSServer: d.Winsserver,
 		}
+		scope.SetDNSServers(d.Dnsserver)
 
 		scope.StaticLeases = c.convertStaticLeases(d.Staticmap)
 		scope.NumberOptions = c.convertNumberOptions(d.NumberOptions)

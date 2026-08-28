@@ -45,10 +45,10 @@ func (c *converter) convertDHCP(doc *schema.OpnSenseDocument) []common.DHCPScope
 			Enabled:    d.Enable == xmlBoolTrue,
 			Range:      common.DHCPRange{From: d.Range.From, To: d.Range.To},
 			Gateway:    d.Gateway,
-			DNSServer:  d.Dnsserver,
 			NTPServer:  d.Ntpserver,
 			WINSServer: d.Winsserver,
 		}
+		scope.SetDNSServers(d.Dnsserver)
 
 		scope.AdvancedV4 = c.buildDHCPAdvancedV4(d)
 		scope.AdvancedV6 = c.buildDHCPAdvancedV6(d)
@@ -202,7 +202,7 @@ func (c *converter) convertDNS(doc *schema.OpnSenseDocument) common.DNSConfig {
 		privateAddress = c.splitPrivateAddress(*advanced.Privateaddress)
 	}
 	return common.DNSConfig{
-		Servers: strings.Fields(doc.System.DNSServer),
+		Servers: fieldsOfEach(doc.System.DNSServers),
 		Unbound: common.UnboundConfig{
 			Enabled:                  doc.Unbound.Enable == xmlBoolTrue,
 			DNSSEC:                   doc.Unbound.Dnssec == xmlBoolTrue,
@@ -883,4 +883,18 @@ func collectNonEmpty(values ...string) []string {
 	}
 
 	return result
+}
+
+// fieldsOfEach flattens whitespace-separated members inside each element of
+// vals, preserving the tolerance this value had when it was a single
+// space-separated string.
+func fieldsOfEach(vals []string) []string {
+	out := make([]string, 0, len(vals))
+	for _, v := range vals {
+		out = append(out, strings.Fields(v)...)
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
 }

@@ -1234,6 +1234,36 @@ func parseConfigPfSenseFixture(t *testing.T) (*common.CommonDevice, []common.Con
 	return device, warnings
 }
 
+// TestParser_ConfigPfSense_DHCPScopesKeepEveryDNSServer guards against silent
+// data loss on repeated <dnsserver> elements (GOTCHAS §3.3).
+//
+// Regression: pfsense.DHCPInterface.Dnsserver was a scalar string, so
+// encoding/xml kept only the LAST <dnsserver> of each DHCP scope and every
+// earlier resolver vanished from the parsed model and from the JSON/YAML
+// export, with no error or warning. The shipped fixture configures two
+// resolvers on the lan, opt1 and opt5 scopes, so it reproduces the loss
+// directly.
+func TestParser_ConfigPfSense_DHCPScopesKeepEveryDNSServer(t *testing.T) {
+	t.Parallel()
+
+	device, _ := parseConfigPfSenseFixture(t)
+
+	// Every scope the fixture configures with two resolvers must report both,
+	// in config order.
+	want := []string{"91.239.100.100", "89.233.43.71"}
+	found := map[string][]string{}
+	for _, scope := range device.DHCP {
+		found[scope.Interface] = scope.DNSServers
+	}
+
+	for _, iface := range []string{"lan", "opt1", "opt5"} {
+		got, ok := found[iface]
+		require.True(t, ok, "fixture should produce a DHCP scope for %q", iface)
+		assert.Equal(t, want, got,
+			"scope %q dropped a DNS server: repeated <dnsserver> elements must all be retained", iface)
+	}
+}
+
 // TestParser_ParseFixture_ConfigPfSense verifies comprehensive parsing of a real-world pfSense 19.1 config.
 func TestParser_ParseFixture_ConfigPfSense(t *testing.T) {
 	t.Parallel()

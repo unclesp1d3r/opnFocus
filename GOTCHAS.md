@@ -137,8 +137,9 @@ The `encoding/xml` package treats self-closing tags (e.g., `<disabled/>`) and mi
 When an XML element appears multiple times (e.g., `<priv>a</priv><priv>b</priv>`), a `string` field only captures the last occurrence — all others are silently dropped. Use `[]string` for elements that can repeat.
 
 - **Symptom:** Only the last value is retained; no error is raised.
-- **Detection:** Compare parsed struct against raw XML — earlier occurrences are silently overwritten by later ones.
+- **Detection:** Compare parsed struct against raw XML — earlier occurrences are silently overwritten by later ones. A quick sweep: walk each fixture in `testdata/` and report every `(parent, child)` pair where `child` appears more than once under one parent instance, then check that the matching schema field is a slice.
 - **Fix:** Change the field type from `string` to `[]string` with the same `xml` tag.
+- **Known instance (fixed):** `<dnsserver>` repeats once per resolver in both `<system>` and each `<dhcpd><interface>` scope. `pfsense.System.DNSServers` was already `[]string`, but `DHCPInterface.Dnsserver` was a scalar on both vendors, so every DHCP scope silently reported only its last resolver — including in `testdata/pfsense/config-pfSense.xml`, which configures two on `lan`, `opt1` and `opt5`. This reached the JSON/YAML export. `common.DHCPScope` gained `DNSServers` (`dhcp[].dnsServers`, an array); the old scalar `DNSServer` is retained and deprecated per the public-API deprecation policy, and `SetDNSServers` keeps it mirroring the first entry so the two cannot drift. `TestParser_ConfigPfSense_DHCPScopesKeepEveryDNSServer` guards the parse, `TestDHCPScope_SetDNSServers` the invariant.
 
 ### 3.4 Empty Placeholder Elements Become Phantom Entries
 

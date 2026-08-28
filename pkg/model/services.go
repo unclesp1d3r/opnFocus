@@ -161,8 +161,16 @@ type DHCPScope struct {
 	Range DHCPRange `json:"range" yaml:"range,omitempty"`
 	// Gateway is the default gateway advertised to DHCP clients.
 	Gateway string `json:"gateway,omitempty" yaml:"gateway,omitempty"`
-	// DNSServer is the DNS server advertised to DHCP clients.
+	// DNSServer is the first DNS server advertised to DHCP clients.
+	//
+	// Deprecated: a scope can advertise more than one and this reports only the
+	// first. Use DNSServers. Retained through at least one minor release per
+	// the deprecation policy in docs/development/public-api.md.
 	DNSServer string `json:"dnsServer,omitempty" yaml:"dnsServer,omitempty"`
+	// DNSServers lists the DNS servers advertised to DHCP clients, in config
+	// order. ISC repeats <dnsserver> per server and Kea uses a comma-separated
+	// domain-name-servers option, so both can name more than one.
+	DNSServers []string `json:"dnsServers,omitempty" yaml:"dnsServers,omitempty"`
 	// NTPServer is the NTP server advertised to DHCP clients.
 	NTPServer string `json:"ntpServer,omitempty" yaml:"ntpServer,omitempty"`
 	// WINSServer is the WINS/NetBIOS name server advertised to DHCP clients.
@@ -178,6 +186,18 @@ type DHCPScope struct {
 	// AdvancedV6 contains advanced DHCPv6 configuration (tracking, identity association, auth, overrides).
 	// Nil when no advanced DHCPv6 config is present.
 	AdvancedV6 *DHCPAdvancedV6 `json:"advancedV6,omitempty" yaml:"advancedV6,omitempty"`
+}
+
+// SetDNSServers records the DNS servers advertised to this scope, keeping the
+// deprecated DNSServer field in sync with the first entry so the two cannot
+// drift while it is still published.
+func (s *DHCPScope) SetDNSServers(servers []string) {
+	s.DNSServers = servers
+
+	s.DNSServer = ""
+	if len(servers) > 0 {
+		s.DNSServer = servers[0]
+	}
 }
 
 // DHCPRange represents the start and end of a DHCP address range.

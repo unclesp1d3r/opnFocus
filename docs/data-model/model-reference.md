@@ -304,7 +304,8 @@ DHCP scopes are a flat array with one entry per interface.
 | `Enabled`      | `bool`              | `dhcp[].enabled`      | DHCP server active on interface |
 | `Range`        | `DHCPRange`         | `dhcp[].range`        | Address pool range              |
 | `Gateway`      | `string`            | `dhcp[].gateway`      | Default gateway for clients     |
-| `DNSServer`    | `string`            | `dhcp[].dnsServer`    | DNS server for clients          |
+| `DNSServer`    | `string`            | `dhcp[].dnsServer`    | First DNS server (deprecated)   |
+| `DNSServers`   | `[]string`          | `dhcp[].dnsServers`   | DNS servers for clients         |
 | `NTPServer`    | `string`            | `dhcp[].ntpServer`    | NTP server for clients          |
 | `WINSServer`   | `string`            | `dhcp[].winsServer`   | WINS server for clients         |
 | `StaticLeases` | `[]DHCPStaticLease` | `dhcp[].staticLeases` | Fixed MAC-to-IP mappings        |

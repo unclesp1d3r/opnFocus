@@ -47,7 +47,7 @@ type System struct {
 	Hostname                      string       `xml:"hostname"                      json:"hostname"                                yaml:"hostname"                                validate:"required,hostname"`
 	Domain                        string       `xml:"domain"                        json:"domain"                                  yaml:"domain"                                  validate:"required,fqdn"`
 	DNSAllowOverride              BoolFlag     `xml:"dnsallowoverride"              json:"dnsAllowOverride,omitempty"              yaml:"dnsAllowOverride,omitempty"`
-	DNSServer                     string       `xml:"dnsserver"                     json:"dnsServer,omitempty"                     yaml:"dnsServer,omitempty"`
+	DNSServers                    []string     `xml:"dnsserver"                     json:"dnsServers,omitempty"                    yaml:"dnsServers,omitempty"`
 	Language                      string       `xml:"language"                      json:"language,omitempty"                      yaml:"language,omitempty"`
 	Firmware                      Firmware     `xml:"firmware"                      json:"firmware"                                yaml:"firmware,omitempty"`
 	Group                         []Group      `xml:"group"                         json:"groups,omitempty"                        yaml:"groups,omitempty"                        validate:"dive"`

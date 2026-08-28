@@ -156,7 +156,7 @@ func BuildDHCPSummaryTableSet(scopes []common.DHCPScope) *markdown.TableSet {
 				formatters.EscapeTableContent(scope.Gateway),
 				formatters.EscapeTableContent(scope.Range.From),
 				formatters.EscapeTableContent(scope.Range.To),
-				formatters.EscapeTableContent(scope.DNSServer),
+				formatters.EscapeTableContent(strings.Join(scope.DNSServers, ", ")),
 				formatters.EscapeTableContent(scope.WINSServer),
 				formatters.EscapeTableContent(scope.NTPServer),
 			})
