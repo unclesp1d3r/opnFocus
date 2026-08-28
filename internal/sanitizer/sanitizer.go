@@ -16,6 +16,7 @@ import (
 
 	"github.com/EvilBit-Labs/opnDossier/internal/logging"
 	"github.com/EvilBit-Labs/opnDossier/internal/pool"
+	"github.com/EvilBit-Labs/opnDossier/pkg/parser"
 )
 
 // Sanitizer orchestrates the redaction of sensitive data from OPNsense configuration.
@@ -127,6 +128,10 @@ func (s *Sanitizer) sanitizeXMLContent(data []byte) ([]byte, error) {
 	decoder.Strict = false
 	// Prevent XXE attacks by disabling entity expansion
 	decoder.Entity = map[string]string{}
+	// The same charset reader the device parsers use. Without it encoding/xml
+	// refuses any declaration other than UTF-8, so sanitize failed outright on
+	// a real OPNsense config.xml, which declares us-ascii.
+	decoder.CharsetReader = parser.CharsetReader
 
 	var output strings.Builder
 	output.Grow(len(data))
@@ -137,14 +142,7 @@ func (s *Sanitizer) sanitizeXMLContent(data []byte) ([]byte, error) {
 	// O(depth) string allocation per StartElement. See issue #148.
 	var pathStack []string
 
-	// Write XML declaration if present
-	if bytes.HasPrefix(bytes.TrimSpace(data), []byte("<?xml")) {
-		idx := bytes.Index(data, []byte("?>"))
-		if idx > 0 {
-			output.Write(data[:idx+2])
-			output.WriteString("\n")
-		}
-	}
+	writeXMLDeclaration(&output, data)
 
 	for {
 		token, err := decoder.Token()
@@ -543,6 +541,72 @@ func joinReflectPath(pathStack []string, sliceIdx int) string {
 		return last
 	}
 	return strings.Join(pathStack[:len(pathStack)-1], ".") + "." + last
+}
+
+// canonicalXMLDeclaration is the declaration written when the input's charset
+// had to be re-labelled.
+const canonicalXMLDeclaration = `<?xml version="1.0" encoding="UTF-8"?>`
+
+// writeXMLDeclaration emits the sanitized document's XML declaration.
+//
+// A declaration naming UTF-8, or naming no encoding at all, is copied verbatim
+// so output stays byte-identical for those inputs. Any other declared charset
+// is replaced with a canonical UTF-8 declaration, because CharsetReader has
+// already decoded the document and every byte written from here is UTF-8.
+// Copying the original would label the output with an encoding it is not in,
+// which re-parses as mojibake for anything outside ASCII.
+func writeXMLDeclaration(output *strings.Builder, data []byte) {
+	if !bytes.HasPrefix(bytes.TrimSpace(data), []byte("<?xml")) {
+		return
+	}
+
+	idx := bytes.Index(data, []byte("?>"))
+	if idx <= 0 {
+		return
+	}
+
+	decl := data[:idx+2]
+	if declaresNonUTF8Charset(decl) {
+		output.WriteString(canonicalXMLDeclaration)
+	} else {
+		output.Write(decl)
+	}
+
+	output.WriteString("\n")
+}
+
+// declaresNonUTF8Charset reports whether decl names an encoding that is not
+// UTF-8. A declaration with no encoding attribute is treated as UTF-8, the XML
+// default and what the sanitizer emits.
+func declaresNonUTF8Charset(decl []byte) bool {
+	lower := strings.ToLower(string(decl))
+
+	idx := strings.Index(lower, "encoding")
+	if idx < 0 {
+		return false
+	}
+
+	value := strings.TrimLeft(lower[idx+len("encoding"):], " \t=")
+
+	var quote byte
+	if value != "" && (value[0] == '"' || value[0] == '\'') {
+		quote = value[0]
+		value = value[1:]
+	} else {
+		return false
+	}
+
+	end := strings.IndexByte(value, quote)
+	if end < 0 {
+		return false
+	}
+
+	switch strings.TrimSpace(value[:end]) {
+	case "utf-8", "utf8", "":
+		return false
+	default:
+		return true
+	}
 }
 
 // escapeXMLText uses the stdlib xml.EscapeText to properly escape XML character data.
