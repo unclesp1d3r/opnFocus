@@ -528,6 +528,12 @@ type DHCPAdvancedV4 struct {
 
 	// DdnsDomainAlgorithm is the TSIG algorithm used to sign dynamic DNS updates.
 	DdnsDomainAlgorithm string `json:"ddnsDomainAlgorithm,omitempty" yaml:"ddnsDomainAlgorithm,omitempty"`
+	// DdnsDomainKeyAlgorithm is the algorithm of the TSIG key itself. Only the
+	// pfSense schema models it: it is declared nowhere in testdata/opnsense-config.dtd
+	// and no OPNsense fixture carries the element, so the pfSense converter is its
+	// only populating path. Vendors still default it to hmac-md5, so surfacing it is
+	// what lets a report call out a deprecated MAC rather than omitting the field.
+	DdnsDomainKeyAlgorithm string `json:"ddnsDomainKeyAlgorithm,omitempty" yaml:"ddnsDomainKeyAlgorithm,omitempty"`
 	// FailoverPeerIP is the address of the DHCP failover peer, set when the
 	// scope participates in a high-availability pair.
 	FailoverPeerIP string `json:"failoverPeerIp,omitempty" yaml:"failoverPeerIp,omitempty"`

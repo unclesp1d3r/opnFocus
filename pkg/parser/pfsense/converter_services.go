@@ -38,6 +38,9 @@ func (c *converter) convertDHCP(doc *pfsense.Document) []common.DHCPScope {
 		}
 		scope.SetDNSServers(d.Dnsserver)
 
+		scope.AdvancedV4 = c.buildDHCPAdvancedV4(d)
+		scope.AdvancedV6 = c.buildDHCPAdvancedV6(d)
+
 		scope.StaticLeases = c.convertStaticLeases(d.Staticmap)
 		scope.NumberOptions = c.convertNumberOptions(d.NumberOptions)
 
@@ -87,6 +90,81 @@ func (c *converter) convertNumberOptions(opts []opnsense.DHCPNumberOption) []com
 	}
 
 	return result
+}
+
+// buildDHCPAdvancedV4 constructs a DHCPAdvancedV4 from schema fields.
+// Returns nil when all fields are empty, so the pointer is omitted during serialization.
+func (c *converter) buildDHCPAdvancedV4(d pfsense.DhcpdInterface) *common.DHCPAdvancedV4 {
+	v4 := common.DHCPAdvancedV4{
+		AliasAddress:                  d.AliasAddress,
+		AliasSubnet:                   d.AliasSubnet,
+		DHCPRejectFrom:                d.DHCPRejectFrom,
+		AdvDHCPPTTimeout:              d.AdvDHCPPTTimeout,
+		AdvDHCPPTRetry:                d.AdvDHCPPTRetry,
+		AdvDHCPPTSelectTimeout:        d.AdvDHCPPTSelectTimeout,
+		AdvDHCPPTReboot:               d.AdvDHCPPTReboot,
+		AdvDHCPPTBackoffCutoff:        d.AdvDHCPPTBackoffCutoff,
+		AdvDHCPPTInitialInterval:      d.AdvDHCPPTInitialInterval,
+		AdvDHCPPTValues:               d.AdvDHCPPTValues,
+		AdvDHCPSendOptions:            d.AdvDHCPSendOptions,
+		AdvDHCPRequestOptions:         d.AdvDHCPRequestOptions,
+		AdvDHCPRequiredOptions:        d.AdvDHCPRequiredOptions,
+		AdvDHCPOptionModifiers:        d.AdvDHCPOptionModifiers,
+		AdvDHCPConfigAdvanced:         d.AdvDHCPConfigAdvanced,
+		AdvDHCPConfigFileOverride:     d.AdvDHCPConfigFileOverride,
+		AdvDHCPConfigFileOverridePath: d.AdvDHCPConfigFileOverridePath,
+		DdnsDomainAlgorithm:           d.DdnsDomainAlgorithm,
+		DdnsDomainKeyAlgorithm:        d.DdnsDomainKeyAlgorithm,
+		FailoverPeerIP:                d.FailoverPeerIP,
+	}
+
+	if (v4 == common.DHCPAdvancedV4{}) {
+		return nil
+	}
+
+	return &v4
+}
+
+// buildDHCPAdvancedV6 constructs a DHCPAdvancedV6 from schema fields.
+// Returns nil when all fields are empty, so the pointer is omitted during serialization.
+func (c *converter) buildDHCPAdvancedV6(d pfsense.DhcpdInterface) *common.DHCPAdvancedV6 {
+	v6 := common.DHCPAdvancedV6{
+		Track6Interface:                                 d.Track6Interface,
+		Track6PrefixID:                                  d.Track6PrefixID,
+		AdvDHCP6InterfaceStatementSendOptions:           d.AdvDHCP6InterfaceStatementSendOptions,
+		AdvDHCP6InterfaceStatementRequestOptions:        d.AdvDHCP6InterfaceStatementRequestOptions,
+		AdvDHCP6InterfaceStatementInformationOnlyEnable: d.AdvDHCP6InterfaceStatementInformationOnlyEnable,
+		AdvDHCP6InterfaceStatementScript:                d.AdvDHCP6InterfaceStatementScript,
+		AdvDHCP6IDAssocStatementAddressEnable:           d.AdvDHCP6IDAssocStatementAddressEnable,
+		AdvDHCP6IDAssocStatementAddress:                 d.AdvDHCP6IDAssocStatementAddress,
+		AdvDHCP6IDAssocStatementAddressID:               d.AdvDHCP6IDAssocStatementAddressID,
+		AdvDHCP6IDAssocStatementAddressPLTime:           d.AdvDHCP6IDAssocStatementAddressPLTime,
+		AdvDHCP6IDAssocStatementAddressVLTime:           d.AdvDHCP6IDAssocStatementAddressVLTime,
+		AdvDHCP6IDAssocStatementPrefixEnable:            d.AdvDHCP6IDAssocStatementPrefixEnable,
+		AdvDHCP6IDAssocStatementPrefix:                  d.AdvDHCP6IDAssocStatementPrefix,
+		AdvDHCP6IDAssocStatementPrefixID:                d.AdvDHCP6IDAssocStatementPrefixID,
+		AdvDHCP6IDAssocStatementPrefixPLTime:            d.AdvDHCP6IDAssocStatementPrefixPLTime,
+		AdvDHCP6IDAssocStatementPrefixVLTime:            d.AdvDHCP6IDAssocStatementPrefixVLTime,
+		AdvDHCP6PrefixInterfaceStatementSLALen:          d.AdvDHCP6PrefixInterfaceStatementSLALen,
+		AdvDHCP6AuthenticationStatementAuthName:         d.AdvDHCP6AuthenticationStatementAuthName,
+		AdvDHCP6AuthenticationStatementProtocol:         d.AdvDHCP6AuthenticationStatementProtocol,
+		AdvDHCP6AuthenticationStatementAlgorithm:        d.AdvDHCP6AuthenticationStatementAlgorithm,
+		AdvDHCP6AuthenticationStatementRDM:              d.AdvDHCP6AuthenticationStatementRDM,
+		AdvDHCP6KeyInfoStatementKeyName:                 d.AdvDHCP6KeyInfoStatementKeyName,
+		AdvDHCP6KeyInfoStatementRealm:                   d.AdvDHCP6KeyInfoStatementRealm,
+		AdvDHCP6KeyInfoStatementKeyID:                   d.AdvDHCP6KeyInfoStatementKeyID,
+		AdvDHCP6KeyInfoStatementSecret:                  d.AdvDHCP6KeyInfoStatementSecret,
+		AdvDHCP6KeyInfoStatementExpire:                  d.AdvDHCP6KeyInfoStatementExpire,
+		AdvDHCP6ConfigAdvanced:                          d.AdvDHCP6ConfigAdvanced,
+		AdvDHCP6ConfigFileOverride:                      d.AdvDHCP6ConfigFileOverride,
+		AdvDHCP6ConfigFileOverridePath:                  d.AdvDHCP6ConfigFileOverridePath,
+	}
+
+	if (v6 == common.DHCPAdvancedV6{}) {
+		return nil
+	}
+
+	return &v6
 }
 
 // convertDNS maps pfSense Unbound and system DNS to common.DNSConfig.
