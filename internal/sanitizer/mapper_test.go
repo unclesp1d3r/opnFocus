@@ -45,9 +45,6 @@ func TestNewMapper(t *testing.T) {
 	if m.usernameMappings == nil {
 		t.Error("usernameMappings map not initialized")
 	}
-	if m.domainMappings == nil {
-		t.Error("domainMappings map not initialized")
-	}
 	if m.macMappings == nil {
 		t.Error("macMappings map not initialized")
 	}
@@ -215,28 +212,6 @@ func TestMapUsername(t *testing.T) {
 	}
 }
 
-func TestMapDomain(t *testing.T) {
-	m := NewMapper()
-
-	// First domain gets example.com
-	result1 := m.MapDomain("mycompany.com")
-	if result1 != "example.com" {
-		t.Errorf("MapDomain first = %q, want %q", result1, "example.com")
-	}
-
-	// Same domain should return same mapping
-	result2 := m.MapDomain("mycompany.com")
-	if result2 != result1 {
-		t.Errorf("MapDomain second call = %q, want %q", result2, result1)
-	}
-
-	// Second unique domain
-	result3 := m.MapDomain("othercompany.org")
-	if result3 != "example2.com" {
-		t.Errorf("MapDomain second = %q, want %q", result3, "example2.com")
-	}
-}
-
 func TestMapMAC(t *testing.T) {
 	m := NewMapper()
 
@@ -380,7 +355,6 @@ func TestGenerateReport(t *testing.T) {
 	m.MapPrivateIP("192.168.1.1")
 	m.MapHostname("firewall.example.com")
 	m.MapUsername("admin")
-	m.MapDomain("mycompany.com")
 	m.MapMAC("00:11:22:33:44:55")
 	m.MapEmail("admin@mycompany.com")
 	m.MapAuthServerValue(authServerFieldHost, "ldap.example.com")
