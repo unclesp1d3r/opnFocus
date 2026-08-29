@@ -77,6 +77,16 @@ func (t *truncatingReader) Read(p []byte) (int, error) {
 	n, err := t.r.Read(p)
 	t.remaining -= int64(n)
 
+	// Probe as soon as the budget is exhausted rather than waiting for the
+	// next Read. Today encoding/xml always issues one more read after the root
+	// element closes, so the branch above would fire anyway -- this removes the
+	// dependency on that read-ahead. Without it, a decoder that stopped reading
+	// the moment it had a complete document would accept an oversized input
+	// with truncated() still false.
+	if t.remaining <= 0 {
+		t.probeForMore()
+	}
+
 	return n, err
 }
 

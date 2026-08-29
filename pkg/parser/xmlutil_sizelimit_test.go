@@ -2,6 +2,7 @@ package parser_test
 
 import (
 	"bytes"
+	"encoding/xml"
 	"errors"
 	"io"
 	"strings"
@@ -44,6 +45,40 @@ func TestTruncationTracker_ReportsCapReached(t *testing.T) {
 			assert.Equal(t, tt.truncated, tracker.Truncated())
 		})
 	}
+}
+
+// TestTruncationTracker_CompleteDocumentAtCapWithTrailingBytes pins the
+// invariant that a well-formed document exactly filling the cap, with bytes
+// still behind it, is reported as truncated.
+//
+// This is a characterization test, not a regression test: it passes with or
+// without the explicit probe in Read, because encoding/xml always issues one
+// more Read after the root element closes and that read reaches the
+// budget-exhausted branch. The probe on budget exhaustion exists so the
+// invariant does not depend on that read-ahead behaviour; if a future
+// encoding/xml stops issuing it, this test is what catches the change.
+//
+// Note it must use Decode rather than a Token loop: a Token loop asks for one
+// more token after the root closes, which forces the extra read unconditionally
+// and so cannot observe the difference at all.
+func TestTruncationTracker_CompleteDocumentAtCapWithTrailingBytes(t *testing.T) {
+	t.Parallel()
+
+	const body = "<a>0123456789</a>"
+
+	var doc struct {
+		XMLName xml.Name `xml:"a"`
+		Value   string   `xml:",chardata"`
+	}
+
+	dec, tracker := parser.NewSecureXMLDecoderTracked(
+		strings.NewReader(body+"<trailing/>"),
+		int64(len(body)),
+	)
+
+	require.NoError(t, dec.Decode(&doc), "a well-formed document filling the cap must still decode")
+	assert.True(t, tracker.Truncated(),
+		"bytes remained past the cap, so the input was oversized and must report truncated")
 }
 
 // countingReader records how many bytes the reader under test actually
