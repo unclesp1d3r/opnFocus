@@ -13,6 +13,7 @@ import (
 	"reflect"
 	"strconv"
 	"strings"
+	"unicode"
 
 	"github.com/EvilBit-Labs/opnDossier/internal/logging"
 	"github.com/EvilBit-Labs/opnDossier/internal/pool"
@@ -194,16 +195,16 @@ func (s *Sanitizer) sanitizeXMLContent(data []byte) ([]byte, error) {
 			commentContent := string(t)
 			sanitizedComment := s.sanitizeCommentContent(commentContent)
 			output.WriteString("<!--")
-			output.WriteString(sanitizedComment)
+			output.WriteString(replaceXMLIllegalChars(sanitizedComment))
 			output.WriteString("-->")
 
 		case xml.ProcInst:
 			// Skip processing instructions (already handled XML declaration)
 			if t.Target != "xml" {
 				output.WriteString("<?")
-				output.WriteString(t.Target)
+				output.WriteString(replaceXMLIllegalChars(t.Target))
 				output.WriteString(" ")
-				output.Write(t.Inst)
+				output.WriteString(replaceXMLIllegalChars(string(t.Inst)))
 				output.WriteString("?>")
 			}
 
@@ -275,6 +276,54 @@ func (s *Sanitizer) redactWholeValue(rule Rule, fieldName, content string) strin
 	return redacted
 }
 
+// replaceTokens applies fn to each run of non-space runes in s and copies the
+// whitespace between them verbatim, so the caller's spacing survives redaction.
+//
+// Splitting a value into whitespace tokens before consulting any rule is what
+// lets every member of a delimiter-separated multi-value field -- a
+// newline-separated OPNsense alias <content>, a space-separated pfSense alias
+// <address> -- be matched against the full rule set independently. It is
+// deliberately not a bare substring scan: a token such as
+// "203.0.113.1:51820" (a host:port endpoint) must not match as an IP, because
+// IsPublicIP("203.0.113.1:51820") is false even though an unanchored IPv4
+// regex would match the substring. Validating whole tokens preserves that.
+//
+// Space is unicode.IsSpace, matching what strings.Fields recognizes. A regexp
+// \S+ is not equivalent: RE2 defines \s as ASCII-only ([\t\n\f\r ]), so a
+// value separated by a no-break space or any other Unicode separator arrives
+// at the detectors glued to its neighbour, fails every whole-token check, and
+// is emitted verbatim.
+func replaceTokens(s string, fn func(string) string) string {
+	var b strings.Builder
+
+	b.Grow(len(s))
+
+	start := -1
+
+	for i, r := range s {
+		if !unicode.IsSpace(r) {
+			if start < 0 {
+				start = i
+			}
+
+			continue
+		}
+
+		if start >= 0 {
+			b.WriteString(fn(s[start:i]))
+			start = -1
+		}
+
+		b.WriteRune(r)
+	}
+
+	if start >= 0 {
+		b.WriteString(fn(s[start:]))
+	}
+
+	return b.String()
+}
+
 // redactValueTokens splits content into whitespace-delimited tokens
 // (preserving all original whitespace/newlines exactly — alias content is
 // newline-structured, one member per line) and independently matches and
@@ -288,7 +337,7 @@ func (s *Sanitizer) redactWholeValue(rule Rule, fieldName, content string) strin
 func (s *Sanitizer) redactValueTokens(fieldName, content string) string {
 	anyRedacted := false
 
-	result := whitespaceTokenPattern.ReplaceAllStringFunc(content, func(token string) string {
+	result := replaceTokens(content, func(token string) string {
 		should, rule := s.engine.ShouldRedactValue(fieldName, token)
 		if !should {
 			return token
@@ -342,34 +391,58 @@ func (s *Sanitizer) sanitizeValue(fieldName, value string) string {
 
 // sanitizeCommentContent applies redaction to XML comment content.
 // Comments can contain sensitive data like IPs, hostnames, and credentials.
-// Each word is checked independently and tracked in statistics.
+// Each whitespace-delimited token is checked independently. Surrounding
+// whitespace is preserved verbatim, so a multi-line comment stays multi-line,
+// and the result goes through escapeXMLComment before it is emitted.
 func (s *Sanitizer) sanitizeCommentContent(content string) string {
 	if content == "" {
 		return content
 	}
 
-	// Split comment into words and sanitize each potential sensitive value
-	words := strings.Fields(content)
-	for i, word := range words {
+	redacted := replaceTokens(content, func(token string) string {
 		s.stats.TotalFields++
-		should, rule := s.engine.ShouldRedactValue("comment", word)
-		if should {
-			redacted := s.engine.RedactWithRule(rule, "comment", word)
-			if redacted != word {
-				s.stats.RedactedFields++
-				if rule.Name != "" {
-					s.stats.RedactionsByType[rule.Name]++
-				}
-				words[i] = redacted
-			} else {
-				s.stats.SkippedFields++
-			}
-		} else {
+
+		should, rule := s.engine.ShouldRedactValue("comment", token)
+		if !should {
 			s.stats.SkippedFields++
+			return token
 		}
+
+		out := s.engine.RedactWithRule(rule, "comment", token)
+		if out == token {
+			s.stats.SkippedFields++
+			return token
+		}
+
+		s.stats.RedactedFields++
+		if rule.Name != "" {
+			s.stats.RedactionsByType[rule.Name]++
+		}
+		return out
+	})
+
+	return escapeXMLComment(redacted)
+}
+
+// escapeXMLComment makes s safe to emit between the "<!--" and "-->"
+// delimiters. XML 1.0 §2.5 forbids "--" inside a comment and forbids the
+// content from ending in "-", which would fuse with the delimiter into "--->".
+// A config carrying "<!-- migrated 2024- -->" is enough to hit it.
+//
+// A space neutralizes both. One ReplaceAll pass handles any run of dashes,
+// since "--" becomes "- " and cannot recombine.
+func escapeXMLComment(s string) string {
+	if s == "" {
+		return s
 	}
 
-	return strings.Join(words, " ")
+	s = strings.ReplaceAll(s, "--", "- ")
+
+	if strings.HasSuffix(s, "-") {
+		s += " "
+	}
+
+	return s
 }
 
 // SanitizeStruct uses reflection to sanitize a struct in place.
@@ -609,18 +682,69 @@ func declaresNonUTF8Charset(decl []byte) bool {
 		}
 	}
 
-	end := strings.IndexByte(value, quote)
-	if end < 0 {
+	raw, _, ok := strings.Cut(value, string(quote))
+	if !ok {
 		return false
 	}
 
 	// Mirror CharsetReader's normalization: it treats UTF_8 as UTF-8 and passes
 	// those bytes through untouched, so relabelling that declaration would
 	// rewrite a document the sanitizer never transcoded.
-	charset := strings.ReplaceAll(strings.TrimSpace(value[:end]), "_", "-")
+	charset := strings.ReplaceAll(strings.TrimSpace(raw), "_", "-")
 
 	switch charset {
 	case "utf-8", "utf8", "":
+		return false
+	default:
+		return true
+	}
+}
+
+// replaceXMLIllegalChars substitutes U+FFFD for every rune outside the XML 1.0
+// Char production, matching what xml.EscapeText already does for character
+// data.
+//
+// Comment and processing-instruction content cannot be routed through
+// xml.EscapeText: neither construct interprets markup, so escaping "<" and "&"
+// inside them would corrupt the text. They are still bound by the Char
+// production, and encoding/xml does not enforce it for either one — it rejects
+// an illegal character inside CharData or an attribute value at parse time, but
+// hands back Comment and ProcInst content verbatim. Emitting that unchanged
+// yields a document Go re-reads happily while libxml2 ("invalid xmlChar value")
+// and expat ("not well-formed") both reject it, breaking the config.xml-in,
+// config.xml-out contract at exit 0.
+//
+// XML 1.0 provides no escape for these characters — not even a numeric
+// reference — so substitution is the only way to emit a loadable document.
+func replaceXMLIllegalChars(s string) string {
+	if !strings.ContainsFunc(s, isXMLIllegalRune) {
+		return s
+	}
+
+	return strings.Map(func(r rune) rune {
+		if isXMLIllegalRune(r) {
+			return '�'
+		}
+
+		return r
+	}, s)
+}
+
+// isXMLIllegalRune reports whether r falls outside the XML 1.0 §2.2 Char
+// production:
+//
+//	Char ::= #x9 | #xA | #xD | [#x20-#xD7FF] | [#xE000-#xFFFD] | [#x10000-#x10FFFF]
+//
+
+func isXMLIllegalRune(r rune) bool {
+	switch {
+	case r == '\t' || r == '\n' || r == '\r':
+		return false
+	case r >= 0x20 && r <= 0xD7FF:
+		return false
+	case r >= 0xE000 && r <= 0xFFFD:
+		return false
+	case r >= 0x10000 && r <= 0x10FFFF:
 		return false
 	default:
 		return true
