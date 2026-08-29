@@ -2,6 +2,9 @@ package sanitizer
 
 import (
 	"bytes"
+	"encoding/xml"
+	"errors"
+	"io"
 	"strings"
 	"testing"
 )
@@ -14,16 +17,41 @@ func FuzzSanitizeXML(f *testing.F) {
 	f.Add([]byte(`<config><mac>00:11:22:33:44:55</mac></config>`))
 	f.Add([]byte(`<config><host>fw.example.com</host></config>`))
 	f.Add([]byte(`<!-- admin password: test123 --><config></config>`))
+	f.Add([]byte(`<config><!-- migrated 2024- --></config>`))
+	f.Add([]byte(`<config><!-- line one
+line two --></config>`))
 	f.Add([]byte(`<config attr="192.168.0.1"><value>test</value></config>`))
 	f.Add([]byte(`not xml`))
 	f.Add([]byte{})
 
-	f.Fuzz(func(_ *testing.T, data []byte) {
+	f.Fuzz(func(t *testing.T, data []byte) {
 		s := NewSanitizer(ModeAggressive)
 		var out bytes.Buffer
-		// Must not panic; parse errors on malformed XML are expected
-		//nolint:errcheck,gosec // fuzz tests intentionally discard errors
-		s.SanitizeXML(bytes.NewReader(data), &out)
+		// Must not panic; parse errors on malformed XML are expected.
+		if err := s.SanitizeXML(bytes.NewReader(data), &out); err != nil {
+			return
+		}
+
+		// Round-trip invariant: when the sanitizer accepts an input it has
+		// re-serialized every token itself, so the result must be a
+		// well-formed XML document. A sanitized config that no longer parses
+		// is a defect even when every secret was correctly redacted — the
+		// output is meant to be loadable/inspectable config.xml, not prose.
+		// Strict stays on: this is validating emitted output, not tolerating
+		// vendor input. A lenient decoder accepts malformed nesting and unknown
+		// entities, which would let the invariant pass on output a downstream
+		// strict parser rejects. Raised in review.
+		decoder := xml.NewDecoder(bytes.NewReader(out.Bytes()))
+		decoder.Entity = map[string]string{}
+		for {
+			_, err := decoder.Token()
+			if errors.Is(err, io.EOF) {
+				return
+			}
+			if err != nil {
+				t.Fatalf("sanitized output is not well-formed XML: %v\ninput:  %q\noutput: %q", err, data, out.String())
+			}
+		}
 	})
 }
 
