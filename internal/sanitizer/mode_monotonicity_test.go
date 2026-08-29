@@ -39,9 +39,13 @@ func leafValues(t *testing.T, doc string) map[string]string {
 	var stack []string
 
 	dec := xml.NewDecoder(strings.NewReader(doc))
-	dec.Strict = false
-	// Fixtures declare us-ascii; without this the walk fails on them and the
-	// invariant would go unchecked on exactly the real-world-shaped inputs.
+	// Strict, deliberately: this walk is the oracle the invariant is measured
+	// against, so malformed sanitizer output must fail the test rather than be
+	// silently tolerated and compared anyway.
+	dec.Strict = true
+	// Fixtures declare us-ascii, which the decoder cannot resolve on its own.
+	// Without this the walk fails on them and the invariant would go unchecked
+	// on exactly the real-world-shaped inputs.
 	dec.CharsetReader = parser.CharsetReader
 
 	for {
