@@ -146,10 +146,35 @@ func TestShouldRedactField_DDNSDomainKeySiblings(t *testing.T) {
 				if rule.Name == "private_key" {
 					t.Errorf("ShouldRedactField(%q) matched private_key, want the exact-match guard to hold", field)
 				}
+
+				// Assert on the emitted value, not just the rule name. The
+				// exact-match guard is what this test is for, but a weaker
+				// assertion would also pass if some other rule rewrote the
+				// value, which is exactly what happens in aggressive mode:
+				// both siblings contain "domain" and so match the hostname
+				// rule, and a field-name match redacts unconditionally
+				// (GOTCHAS 14.2), turning the literal algorithm name into a
+				// pseudonymised host. That is pre-existing behaviour of the
+				// hostname rule rather than anything this change introduces,
+				// so it is pinned here rather than altered.
+				got := engine.Redact(field, siblingProbeValue)
+				want := siblingProbeValue
+				if mode == ModeAggressive {
+					want = "host-001.example.com"
+				}
+
+				if got != want {
+					t.Errorf("Redact(%q, %q) in %s = %q, want %q",
+						field, siblingProbeValue, mode, got, want)
+				}
 			})
 		}
 	}
 }
+
+// siblingProbeValue is the literal TSIG algorithm name the audit engine reads
+// from <ddnsdomainkeyalgorithm>. It is deliberately not hostname-shaped.
+const siblingProbeValue = "hmac-md5"
 
 // TestTerminalSegment covers the anchoring helper directly, including the
 // slice index the reflection path appends.

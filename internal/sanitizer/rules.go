@@ -290,8 +290,12 @@ func terminalSegment(lowerField string) string {
 //     "[REDACTED-PASSWORD]". If reordered, LDAP bind passwords silently switch from
 //     pseudonymized to flat-redacted with no error or warning.
 //
-//   - email MUST precede hostname. Email addresses contain dots that match hostname
-//     patterns. The ordering ensures emails are mapped via MapEmail, not MapHostname.
+//   - email SHOULD precede hostname, but nothing currently depends on it. Their
+//     FieldPatterns are disjoint ("email" vs "hostname"/"domain"/"althostnames"/
+//     "hostnames"), and hostname's ValueDetector returns early on IsEmail, so it
+//     declines an email-looking value on the value path whatever the order. Keep
+//     the ordering as insurance against a future overlapping pattern; do not cite
+//     it as a live guard. See GOTCHAS 19.1.
 //
 //nolint:funlen // declarative rule table; order is load-bearing (see above)
 func builtinRules() []Rule {
