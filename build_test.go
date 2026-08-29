@@ -246,3 +246,67 @@ func TestBinaryConvert_Standalone(t *testing.T) {
 		require.NoError(t, err, "convert should succeed, output: %s", outputStr)
 	})
 }
+
+// TestBinaryVersionSurfacesAgree builds with the same -X ldflags GoReleaser
+// uses and asserts that both version surfaces report the injected build.
+//
+// Regression: fang owns --version and, without fang.WithVersion, answered from
+// module build info — so a tagged release binary printed
+// "unknown (built from source)" for --version while `version` printed the real
+// tag. --version is the surface automation and package managers read.
+func TestBinaryVersionSurfacesAgree(t *testing.T) {
+	skipIfRaceBuild(t)
+
+	if testing.Short() {
+		t.Skip("Skipping build test in short mode")
+	}
+
+	const (
+		wantVersion = "9.9.9-test"
+		wantCommit  = "deadbee"
+	)
+
+	tempDir := t.TempDir()
+	binaryName := testBinaryName
+	if runtime.GOOS == windowsOS {
+		binaryName += exeExtension
+	}
+	binaryPath := filepath.Join(tempDir, binaryName)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	defer cancel()
+
+	ldflags := "-X main.version=" + wantVersion +
+		" -X github.com/EvilBit-Labs/opnDossier/cmd.gitCommit=" + wantCommit
+
+	build := exec.CommandContext(ctx, "go", "build", "-ldflags", ldflags, "-o", binaryPath, ".")
+	build.Dir = "."
+	buildOut, err := build.CombinedOutput()
+	require.NoError(t, err, "failed to build binary: %s", string(buildOut))
+
+	run := func(args ...string) string {
+		t.Helper()
+
+		runCtx, runCancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer runCancel()
+
+		cmd := exec.CommandContext(runCtx, binaryPath, args...)
+		cmd.Dir = tempDir
+		out, runErr := cmd.CombinedOutput()
+		require.NoError(t, runErr, "%v failed: %s", args, string(out))
+		return string(out)
+	}
+
+	flagOut := run("--version")
+	subOut := run("version")
+
+	assert.Contains(t, flagOut, wantVersion, "--version must report the injected version")
+	// fang.WithCommit is what puts the commit on this surface. Without this
+	// assertion the option can be dropped and every other check here still
+	// passes, since --version keeps reporting the injected version alone.
+	assert.Contains(t, flagOut, wantCommit, "--version must report the injected commit")
+	assert.Contains(t, subOut, wantVersion, "version subcommand must report the injected version")
+	assert.Contains(t, subOut, wantCommit, "version subcommand must report the injected commit")
+	assert.NotContains(t, flagOut, "built from source",
+		"--version fell back to module build info instead of the injected version")
+}
