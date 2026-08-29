@@ -15,6 +15,7 @@ func TestGetCommandContext_ValidContext(t *testing.T) {
 	cmd := &cobra.Command{Use: "test"}
 	cmd.SetContext(context.Background())
 
+	//nolint:staticcheck // SA1019: exercising deprecated flat field for backward-compat coverage.
 	expectedCfg := &config.Config{
 		Verbose: true,
 	}
@@ -101,6 +102,7 @@ func TestSetCommandContext_ExistingContext(t *testing.T) {
 	cmd.SetContext(existingCtx)
 
 	cmdCtx := &CommandContext{
+		//nolint:staticcheck // SA1019: exercising deprecated flat field for backward-compat coverage.
 		Config: &config.Config{
 			Verbose: true,
 		},
@@ -119,8 +121,10 @@ func TestSetCommandContext_ExistingContext(t *testing.T) {
 }
 
 func TestCommandContext_FieldAccess(t *testing.T) {
+	//nolint:staticcheck // SA1019: exercising deprecated flat field for backward-compat coverage.
 	cfg := &config.Config{
-		Verbose:    true,
+		Verbose: true,
+
 		Quiet:      false,
 		OutputFile: "test.md",
 	}
