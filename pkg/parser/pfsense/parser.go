@@ -204,6 +204,13 @@ func (p *Parser) decode(ctx context.Context, r io.Reader) (*pfsense.Document, er
 		return nil, errMissingRoot
 	}
 
+	// A decode can succeed with input still beyond the cap, since the decoder
+	// stops at the closing root tag and never asks for another byte. Returning
+	// success there silently accepts an oversized config.
+	if tracker != nil && tracker.Truncated() {
+		return nil, fmt.Errorf("%w (limit %d bytes)", parser.ErrInputTooLarge, p.maxInputSize)
+	}
+
 	return &doc, nil
 }
 

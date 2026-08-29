@@ -226,14 +226,14 @@ type OPNsenseXMLDecoder interface {
     provides the default implementation used by the CLI.
 
 type TruncationTracker interface {
-	// Truncated reports whether the cap was reached.
+	// Truncated reports whether input remained beyond the cap. A document
+	// that ends exactly at the cap is not truncated: nothing was lost.
 	Truncated() bool
 }
-    TruncationTracker reports whether a size-capped reader stopped because it
-    hit its cap. A decode error alone cannot distinguish an oversized document
-    from a corrupt one: both surface from encoding/xml as "unexpected EOF",
-    because the cap simply ends the stream early. Callers consult this to say
-    which happened.
+    TruncationTracker reports whether input remained beyond a reader's size cap.
+    A decode error alone cannot distinguish an oversized document from a corrupt
+    one: both surface from encoding/xml as "unexpected EOF", because the cap
+    simply ends the stream early. Callers consult this to say which happened.
 
 func NewSecureXMLDecoderTracked(r io.Reader, maxSize int64) (*xml.Decoder, TruncationTracker)
     NewSecureXMLDecoderTracked is NewSecureXMLDecoder plus a tracker reporting

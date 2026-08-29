@@ -38,12 +38,12 @@ func NewSecureXMLDecoder(r io.Reader, maxSize int64) *xml.Decoder {
 // and was truncated before the decoder saw the end of the document.
 var ErrInputTooLarge = errors.New("input exceeds maximum allowed size")
 
-// TruncationTracker reports whether a size-capped reader stopped because it hit
-// its cap. A decode error alone cannot distinguish an oversized document from a
+// TruncationTracker reports whether input remained beyond a reader's size cap. A decode error alone cannot distinguish an oversized document from a
 // corrupt one: both surface from encoding/xml as "unexpected EOF", because the
 // cap simply ends the stream early. Callers consult this to say which happened.
 type TruncationTracker interface {
-	// Truncated reports whether the cap was reached.
+	// Truncated reports whether input remained beyond the cap. A document
+	// that ends exactly at the cap is not truncated: nothing was lost.
 	Truncated() bool
 }
 
@@ -102,7 +102,20 @@ func (t *truncatingReader) probeForMore() {
 	}
 }
 
-func (t *truncatingReader) Truncated() bool { return t.truncated }
+// Truncated reports whether input remained beyond the cap.
+//
+// A decoder that stops on the closing root tag never asks for another byte, so
+// the budget can be spent without anything having looked past it. The first
+// call probes the source once in that state, which makes the answer
+// authoritative wherever decoding happened to stop rather than only after the
+// reader was driven to EOF.
+func (t *truncatingReader) Truncated() bool {
+	if t.remaining <= 0 {
+		t.probeForMore()
+	}
+
+	return t.truncated
+}
 
 // NewSecureXMLDecoderTracked is [NewSecureXMLDecoder] plus a tracker reporting
 // whether the size cap truncated the input.

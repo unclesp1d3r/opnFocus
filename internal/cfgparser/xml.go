@@ -89,6 +89,14 @@ func (p *XMLParser) Parse(ctx context.Context, r io.Reader) (*schema.OpnSenseDoc
 		return nil, ErrMissingOpnSenseDocumentRoot
 	}
 
+	// A decode can succeed with input still beyond the cap: the loop stops on
+	// the closing root tag and never asks for another byte. Returning success
+	// there silently accepts an oversized config and discards whatever
+	// followed, which is the opposite of what the limit is for.
+	if tracker != nil && tracker.Truncated() {
+		return nil, fmt.Errorf("%w (limit %d bytes)", parser.ErrInputTooLarge, p.MaxInputSize)
+	}
+
 	return &doc, nil
 }
 

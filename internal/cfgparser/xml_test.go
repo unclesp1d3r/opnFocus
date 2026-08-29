@@ -12,6 +12,7 @@ import (
 	"testing"
 	"time"
 
+	pkgparser "github.com/EvilBit-Labs/opnDossier/pkg/parser"
 	schema "github.com/EvilBit-Labs/opnDossier/pkg/schema/opnsense"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -817,4 +818,53 @@ func BenchmarkXMLParser_LargeConfig(b *testing.B) {
 	// Report performance metrics
 	b.ReportMetric(fileSizeMB, "file_size_MB")
 	b.ReportMetric(memUsedMB, "memory_MB")
+}
+
+// TestParse_OversizedInputIsRejectedOnTheSuccessPath guards the size cap where
+// it was not being enforced. The parse loop stops on the closing </opnsense>
+// tag and never asks for another byte, so a decode could succeed with input
+// still beyond the cap. Parse then returned the document with no error,
+// silently accepting an oversized config and discarding whatever followed.
+//
+// The boundary matters in both directions: a document ending exactly at the
+// cap lost nothing and must be accepted, while one byte past it must not be.
+func TestParse_OversizedInputIsRejectedOnTheSuccessPath(t *testing.T) {
+	t.Parallel()
+
+	const doc = `<opnsense><system><hostname>fw</hostname></system></opnsense>`
+
+	tests := []struct {
+		name       string
+		input      string
+		limit      int64
+		wantTooBig bool
+	}{
+		{"fits comfortably", doc, int64(len(doc)) + 100, false},
+		{"ends exactly at the cap", doc, int64(len(doc)), false},
+		{"one byte beyond the cap", doc + "X", int64(len(doc)), true},
+		{"trailing content beyond the cap", doc + strings.Repeat("X", 50), int64(len(doc)), true},
+		{"cap cuts the document short", doc, int64(len(doc)) - 20, true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			p := NewXMLParser()
+			p.MaxInputSize = tt.limit
+
+			got, err := p.Parse(context.Background(), strings.NewReader(tt.input))
+
+			if tt.wantTooBig {
+				require.Error(t, err)
+				assert.ErrorIs(t, err, pkgparser.ErrInputTooLarge,
+					"an input exceeding the cap must be reported as oversized")
+
+				return
+			}
+
+			require.NoError(t, err)
+			assert.NotNil(t, got)
+		})
+	}
 }
