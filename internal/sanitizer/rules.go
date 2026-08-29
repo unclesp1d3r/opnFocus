@@ -624,7 +624,9 @@ func builtinRules() []Rule {
 				"subnet", "subnetv6",
 			},
 			// ValueDetector enables CIDR detection on unrecognized field names;
-			// the Redactor guard handles the field-pattern match path separately.
+			// FieldGuard below qualifies the field-pattern match path. The
+			// Redactor no longer guards anything -- it used to return the value
+			// unchanged for non-CIDRs, which consumed the match (GOTCHAS 19.2).
 			// IsSubnet (net.ParseCIDR) covers both IPv4 and IPv6 CIDR literals.
 			// Multi-value alias fields (newline- or space-separated CIDR lists)
 			// are split into individual tokens before reaching the rule engine —
