@@ -195,16 +195,16 @@ func (s *Sanitizer) sanitizeXMLContent(data []byte) ([]byte, error) {
 			commentContent := string(t)
 			sanitizedComment := s.sanitizeCommentContent(commentContent)
 			output.WriteString("<!--")
-			output.WriteString(sanitizedComment)
+			output.WriteString(replaceXMLIllegalChars(sanitizedComment))
 			output.WriteString("-->")
 
 		case xml.ProcInst:
 			// Skip processing instructions (already handled XML declaration)
 			if t.Target != "xml" {
 				output.WriteString("<?")
-				output.WriteString(t.Target)
+				output.WriteString(replaceXMLIllegalChars(t.Target))
 				output.WriteString(" ")
-				output.Write(t.Inst)
+				output.WriteString(replaceXMLIllegalChars(string(t.Inst)))
 				output.WriteString("?>")
 			}
 
@@ -694,6 +694,57 @@ func declaresNonUTF8Charset(decl []byte) bool {
 
 	switch charset {
 	case "utf-8", "utf8", "":
+		return false
+	default:
+		return true
+	}
+}
+
+// replaceXMLIllegalChars substitutes U+FFFD for every rune outside the XML 1.0
+// Char production, matching what xml.EscapeText already does for character
+// data.
+//
+// Comment and processing-instruction content cannot be routed through
+// xml.EscapeText: neither construct interprets markup, so escaping "<" and "&"
+// inside them would corrupt the text. They are still bound by the Char
+// production, and encoding/xml does not enforce it for either one — it rejects
+// an illegal character inside CharData or an attribute value at parse time, but
+// hands back Comment and ProcInst content verbatim. Emitting that unchanged
+// yields a document Go re-reads happily while libxml2 ("invalid xmlChar value")
+// and expat ("not well-formed") both reject it, breaking the config.xml-in,
+// config.xml-out contract at exit 0.
+//
+// XML 1.0 provides no escape for these characters — not even a numeric
+// reference — so substitution is the only way to emit a loadable document.
+func replaceXMLIllegalChars(s string) string {
+	if !strings.ContainsFunc(s, isXMLIllegalRune) {
+		return s
+	}
+
+	return strings.Map(func(r rune) rune {
+		if isXMLIllegalRune(r) {
+			return '�'
+		}
+
+		return r
+	}, s)
+}
+
+// isXMLIllegalRune reports whether r falls outside the XML 1.0 §2.2 Char
+// production:
+//
+//	Char ::= #x9 | #xA | #xD | [#x20-#xD7FF] | [#xE000-#xFFFD] | [#x10000-#x10FFFF]
+//
+
+func isXMLIllegalRune(r rune) bool {
+	switch {
+	case r == '\t' || r == '\n' || r == '\r':
+		return false
+	case r >= 0x20 && r <= 0xD7FF:
+		return false
+	case r >= 0xE000 && r <= 0xFFFD:
+		return false
+	case r >= 0x10000 && r <= 0x10FFFF:
 		return false
 	default:
 		return true

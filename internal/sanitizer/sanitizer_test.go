@@ -1014,6 +1014,87 @@ func TestEscapeXMLComment(t *testing.T) {
 	}
 }
 
+func TestReplaceXMLIllegalChars(t *testing.T) {
+	t.Parallel()
+
+	// Boundaries below were checked against libxml2: it accepts a raw 0x7F in a
+	// comment and rejects U+FFFE with "Char 0xFFFE out of allowed range".
+	tests := []struct {
+		name  string
+		input string
+		want  string
+	}{
+		{"empty", "", ""},
+		{"plain", "hello world", "hello world"},
+		{"tab lf cr stay", "a\tb\nc\rd", "a\tb\nc\rd"},
+		{"nul", "a\x00b", "a�b"},
+		{"start of heading", "a\x01b", "a�b"},
+		{"vertical tab", "a\x0bb", "a�b"},
+		{"form feed", "a\x0cb", "a�b"},
+		{"unit separator", "a\x1fb", "a�b"},
+		{"del is legal in xml 1.0", "a\x7fb", "a\x7fb"},
+		{"noncharacter fffe", "a￾b", "a�b"},
+		{"replacement char is legal", "a�b", "a�b"},
+		{"multibyte preserved", "a→b", "a→b"},
+		{"astral plane preserved", "a\U0001F600b", "a\U0001F600b"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			got := replaceXMLIllegalChars(tt.input)
+			if got != tt.want {
+				t.Errorf("replaceXMLIllegalChars(%q) = %q, want %q", tt.input, got, tt.want)
+			}
+			for _, r := range got {
+				if isXMLIllegalRune(r) {
+					t.Errorf("replaceXMLIllegalChars(%q) = %q still contains illegal rune %U", tt.input, got, r)
+				}
+			}
+		})
+	}
+}
+
+// TestSanitizeXML_IllegalCharsInCommentAndProcInst pins the emission sites that
+// bypass xml.EscapeText. encoding/xml rejects an illegal character inside
+// CharData or an attribute at parse time, but hands Comment and ProcInst content
+// back verbatim, so neither the production decoder nor mustReparse can catch a
+// regression here — the assertion has to scan the bytes directly.
+func TestSanitizeXML_IllegalCharsInCommentAndProcInst(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name  string
+		input string
+	}{
+		{"comment", "<opnsense><!-- migrated\x01note --><a>x</a></opnsense>"},
+		{"procinst", "<opnsense><?target inst\x01ruction?><a>x</a></opnsense>"},
+		{"comment noncharacter", "<opnsense><!-- a￾b --><a>x</a></opnsense>"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			s := NewSanitizer(ModeAggressive)
+			var output bytes.Buffer
+			if err := s.SanitizeXML(strings.NewReader(tt.input), &output); err != nil {
+				t.Fatalf("SanitizeXML() error = %v", err)
+			}
+
+			result := output.String()
+			mustReparse(t, result)
+
+			for i, r := range result {
+				if isXMLIllegalRune(r) {
+					t.Errorf("output byte %d is illegal rune %U, not valid XML: %q", i, r, result)
+				}
+			}
+		})
+	}
+}
+
 func TestEscapeXMLAttr(t *testing.T) {
 	tests := []struct {
 		input string
