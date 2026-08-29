@@ -391,6 +391,7 @@ func TestRedMode_RegressionBattery(t *testing.T) {
 					{
 						Type:        common.RuleTypePass,
 						Interfaces:  []string{"wan"},
+						Source:      common.RuleEndpoint{Address: "198.51.100.0/24"},
 						Destination: common.RuleEndpoint{Port: "8000-9000"},
 					},
 				},
@@ -486,6 +487,7 @@ func TestRedMode_RegressionBattery(t *testing.T) {
 					{
 						Type:        common.RuleTypePass,
 						Interfaces:  []string{"wan"},
+						Source:      common.RuleEndpoint{Address: "198.51.100.0/24"},
 						Destination: common.RuleEndpoint{Port: "8080"},
 					},
 				},
@@ -531,6 +533,7 @@ func TestRedMode_RegressionBattery(t *testing.T) {
 					{
 						Type:        common.RuleTypePass,
 						Interfaces:  []string{"wan"},
+						Source:      common.RuleEndpoint{Address: "198.51.100.0/24"},
 						Destination: common.RuleEndpoint{Port: "443"},
 					},
 				},
