@@ -13,6 +13,7 @@ import (
 	"reflect"
 	"strconv"
 	"strings"
+	"unicode"
 
 	"github.com/EvilBit-Labs/opnDossier/internal/logging"
 	"github.com/EvilBit-Labs/opnDossier/internal/pool"
@@ -275,6 +276,54 @@ func (s *Sanitizer) redactWholeValue(rule Rule, fieldName, content string) strin
 	return redacted
 }
 
+// replaceTokens applies fn to each run of non-space runes in s and copies the
+// whitespace between them verbatim, so the caller's spacing survives redaction.
+//
+// Splitting a value into whitespace tokens before consulting any rule is what
+// lets every member of a delimiter-separated multi-value field -- a
+// newline-separated OPNsense alias <content>, a space-separated pfSense alias
+// <address> -- be matched against the full rule set independently. It is
+// deliberately not a bare substring scan: a token such as
+// "203.0.113.1:51820" (a host:port endpoint) must not match as an IP, because
+// IsPublicIP("203.0.113.1:51820") is false even though an unanchored IPv4
+// regex would match the substring. Validating whole tokens preserves that.
+//
+// Space is unicode.IsSpace, matching what strings.Fields recognizes. A regexp
+// \S+ is not equivalent: RE2 defines \s as ASCII-only ([\t\n\f\r ]), so a
+// value separated by a no-break space or any other Unicode separator arrives
+// at the detectors glued to its neighbour, fails every whole-token check, and
+// is emitted verbatim.
+func replaceTokens(s string, fn func(string) string) string {
+	var b strings.Builder
+
+	b.Grow(len(s))
+
+	start := -1
+
+	for i, r := range s {
+		if !unicode.IsSpace(r) {
+			if start < 0 {
+				start = i
+			}
+
+			continue
+		}
+
+		if start >= 0 {
+			b.WriteString(fn(s[start:i]))
+			start = -1
+		}
+
+		b.WriteRune(r)
+	}
+
+	if start >= 0 {
+		b.WriteString(fn(s[start:]))
+	}
+
+	return b.String()
+}
+
 // redactValueTokens splits content into whitespace-delimited tokens
 // (preserving all original whitespace/newlines exactly — alias content is
 // newline-structured, one member per line) and independently matches and
@@ -288,7 +337,7 @@ func (s *Sanitizer) redactWholeValue(rule Rule, fieldName, content string) strin
 func (s *Sanitizer) redactValueTokens(fieldName, content string) string {
 	anyRedacted := false
 
-	result := whitespaceTokenPattern.ReplaceAllStringFunc(content, func(token string) string {
+	result := replaceTokens(content, func(token string) string {
 		should, rule := s.engine.ShouldRedactValue(fieldName, token)
 		if !should {
 			return token
@@ -350,7 +399,7 @@ func (s *Sanitizer) sanitizeCommentContent(content string) string {
 		return content
 	}
 
-	redacted := whitespaceTokenPattern.ReplaceAllStringFunc(content, func(token string) string {
+	redacted := replaceTokens(content, func(token string) string {
 		s.stats.TotalFields++
 
 		should, rule := s.engine.ShouldRedactValue("comment", token)
