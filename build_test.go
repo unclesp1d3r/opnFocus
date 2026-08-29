@@ -301,6 +301,10 @@ func TestBinaryVersionSurfacesAgree(t *testing.T) {
 	subOut := run("version")
 
 	assert.Contains(t, flagOut, wantVersion, "--version must report the injected version")
+	// fang.WithCommit is what puts the commit on this surface. Without this
+	// assertion the option can be dropped and every other check here still
+	// passes, since --version keeps reporting the injected version alone.
+	assert.Contains(t, flagOut, wantCommit, "--version must report the injected commit")
 	assert.Contains(t, subOut, wantVersion, "version subcommand must report the injected version")
 	assert.Contains(t, subOut, wantCommit, "version subcommand must report the injected commit")
 	assert.NotContains(t, flagOut, "built from source",
