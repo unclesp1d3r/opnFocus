@@ -246,8 +246,10 @@ func (s *Sanitizer) sanitizeCharData(content string, pathStack []string) string 
 	// filtered by the caller and never reach this join.
 	fullPath := strings.Join(pathStack, ".")
 
-	// Try full path first, then bare element name — exact-match patterns
-	// (e.g. "key") only match the bare element name, never the dotted path.
+	// Try full path first, then bare element name. Exact-match patterns
+	// (e.g. "key") are anchored on the terminal path segment, so they match
+	// either lookup: "system.key" on the full path and "key" on the bare
+	// name both resolve to the same segment.
 	if should, rule := s.engine.ShouldRedactField(fullPath); should {
 		return s.redactWholeValue(rule, fullPath, content)
 	}

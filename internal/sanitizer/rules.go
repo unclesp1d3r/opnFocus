@@ -236,7 +236,8 @@ func terminalSegment(lowerField string) string {
 // matching rule, so earlier rules take precedence. Specifically:
 //
 //   - authserver_config MUST precede password. Both match "ldap_bindpw" (authserver_config
-//     via an exact field pattern, password via the "pass" substring). authserver_config
+//     via an exact field pattern, password via the "bindpw" substring; "pass" does not
+//     appear in "ldap_bindpw" and never matched it). authserver_config
 //     pseudonymizes the value via MapAuthServerValue; password flat-redacts to
 //     "[REDACTED-PASSWORD]". If reordered, LDAP bind passwords silently switch from
 //     pseudonymized to flat-redacted with no error or warning.
