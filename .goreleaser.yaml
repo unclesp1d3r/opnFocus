@@ -56,8 +56,6 @@ builds:
       - >-
         -s -w
         -X main.version={{.Version}}
-        -X main.commit={{.Commit}}
-        -X main.date={{ .CommitDate }}
         -X github.com/EvilBit-Labs/opnDossier/cmd.buildDate={{ .CommitDate }}
         -X github.com/EvilBit-Labs/opnDossier/cmd.gitCommit={{.Commit}}
     # Ensures mod timestamp matches commit for reproducibility

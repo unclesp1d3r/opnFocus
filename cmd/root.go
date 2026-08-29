@@ -251,7 +251,7 @@ func init() {
 		Run: func(_ *cobra.Command, _ []string) {
 			fmt.Printf("opndossier version %s\n", constants.Version)
 			fmt.Printf("Build date: %s\n", getBuildDate())
-			fmt.Printf("Git commit: %s\n", getGitCommit())
+			fmt.Printf("Git commit: %s\n", GitCommit())
 		},
 	}
 	rootCmd.AddCommand(versionCmd)
@@ -414,8 +414,9 @@ func getBuildDate() string {
 	return buildDate
 }
 
-// getGitCommit returns the git commit from ldflags or a default value.
-func getGitCommit() string {
+// GitCommit returns the git commit injected at build time via ldflags, or
+// "unknown" for a plain `go build`. Exported so main can hand it to fang.
+func GitCommit() string {
 	return gitCommit
 }
 

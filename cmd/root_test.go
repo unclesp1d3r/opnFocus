@@ -264,16 +264,16 @@ func TestGetBuildDate(t *testing.T) {
 	assert.Equal(t, "dev", getBuildDate())
 }
 
-// TestGetGitCommit verifies that getGitCommit returns the current gitCommit value.
+// TestGetGitCommit verifies that GitCommit returns the current gitCommit value.
 func TestGetGitCommit(t *testing.T) {
 	origGitCommit := gitCommit
 	t.Cleanup(func() { gitCommit = origGitCommit })
 
 	gitCommit = "abc123"
-	assert.Equal(t, "abc123", getGitCommit())
+	assert.Equal(t, "abc123", GitCommit())
 
 	gitCommit = "none"
-	assert.Equal(t, "none", getGitCommit())
+	assert.Equal(t, "none", GitCommit())
 }
 
 // TestSetupLightweightContext_DefaultInvocation_CreatesContextWithConfigAndLogger
