@@ -7,7 +7,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"strings"
 
 	common "github.com/EvilBit-Labs/opnDossier/pkg/model"
 	schema "github.com/EvilBit-Labs/opnDossier/pkg/schema/opnsense"
@@ -227,7 +226,13 @@ func peekRootElementBounded(ctx context.Context, r io.Reader) (string, io.Reader
 	limited := io.LimitReader(newCtxReader(ctx, r), DefaultMaxInputSize)
 	tee := io.TeeReader(limited, &buf)
 	dec := xml.NewDecoder(tee)
-	dec.CharsetReader = simpleCharsetReader
+	// Same charset reader the device parsers use. This peek only runs on the
+	// auto-detect path; createWithOverride skips it and goes straight to the
+	// device parser, whose decoder installs the identical CharsetReader. Both
+	// paths therefore accept the same set. They diverged before: this peek had
+	// its own narrower reader, so a Windows-1252 config parsed with an explicit
+	// --device-type but was rejected without one.
+	dec.CharsetReader = CharsetReader
 
 	ch := make(chan peekResult, 1)
 
@@ -235,7 +240,17 @@ func peekRootElementBounded(ctx context.Context, r io.Reader) (string, io.Reader
 		for {
 			tok, err := dec.Token()
 			if err != nil {
+				// An encoding the decoder cannot read is not a device-type or
+				// missing-root failure. Reporting it as one sends the operator
+				// after the wrong problem, so keep the category intact.
+				if errors.Is(err, ErrUnsupportedCharset) {
+					ch <- peekResult{err: fmt.Errorf("reading root XML element: %w", err)}
+
+					return
+				}
+
 				ch <- peekResult{err: fmt.Errorf("unsupported device type: no root XML element found: %w", err)}
+
 				return
 			}
 
@@ -276,16 +291,4 @@ func newCtxReader(ctx context.Context, r io.Reader) io.Reader {
 
 		return r.Read(p)
 	})
-}
-
-// simpleCharsetReader handles common XML charset declarations for root-element
-// detection. Only charsets whose ASCII subset matches UTF-8 are accepted, which
-// is sufficient because XML element names use only ASCII-range characters.
-func simpleCharsetReader(charset string, input io.Reader) (io.Reader, error) {
-	switch strings.ToLower(charset) {
-	case "us-ascii", "iso-8859-1", "latin-1", "utf-8":
-		return input, nil
-	default:
-		return nil, fmt.Errorf("unsupported XML charset: %s", charset)
-	}
 }

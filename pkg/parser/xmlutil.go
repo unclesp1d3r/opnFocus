@@ -2,6 +2,7 @@ package parser
 
 import (
 	"encoding/xml"
+	"errors"
 	"fmt"
 	"io"
 	"strings"
@@ -9,6 +10,16 @@ import (
 	"golang.org/x/text/encoding/charmap"
 	"golang.org/x/text/transform"
 )
+
+// ErrUnsupportedCharset reports that an XML declaration named an encoding the
+// decoder cannot read. Callers wrap decode failures with their own context, so
+// this lets them tell an encoding problem apart from a malformed document
+// rather than reporting the first as the second.
+//
+// Check for it with [errors.Is]. It is returned by [CharsetReader], and reaches
+// callers wrapped by any decoder that installs it — including
+// [NewSecureXMLDecoder] and the auto-detect path of [Factory.CreateDevice].
+var ErrUnsupportedCharset = errors.New("unsupported charset")
 
 // NewSecureXMLDecoder returns an *xml.Decoder configured with security hardening:
 //   - Input size limited to maxSize bytes (prevents XML bomb attacks)
@@ -48,8 +59,14 @@ func WrapDecodeError(err error, elementPath string) error {
 
 // CharsetReader creates a reader for the specified XML charset declaration.
 // Supported encodings: UTF-8, US-ASCII, ISO-8859-1 (Latin1), and Windows-1252.
-// Only charsets whose ASCII subset matches UTF-8 are accepted, which is
-// sufficient because XML element names use only ASCII-range characters.
+// Names are matched case-insensitively after trimming space, folding "_" to "-"
+// and dropping an IANA ":1987" suffix, so registered spellings such as
+// "ISO-8859-1:1987", "latin1" and "cp1252" resolve to the same entry.
+//
+// UTF-8 and US-ASCII pass through untouched; ISO-8859-1 and Windows-1252 are
+// transcoded through golang.org/x/text/encoding/charmap, so the returned reader
+// always yields valid UTF-8 rather than merely ASCII-compatible bytes. Anything
+// else returns [ErrUnsupportedCharset].
 func CharsetReader(charset string, input io.Reader) (io.Reader, error) {
 	normalized := strings.ToLower(strings.TrimSpace(charset))
 	normalized = strings.ReplaceAll(normalized, "_", "-")
@@ -65,6 +82,6 @@ func CharsetReader(charset string, input io.Reader) (io.Reader, error) {
 	case "windows-1252", "windows1252", "cp1252":
 		return transform.NewReader(input, charmap.Windows1252.NewDecoder()), nil
 	default:
-		return nil, fmt.Errorf("unsupported charset: %s", charset)
+		return nil, fmt.Errorf("%w: %s", ErrUnsupportedCharset, charset)
 	}
 }
