@@ -527,11 +527,18 @@ Kea's `<pools>` element on each `<subnet4>` stores newline-separated (`\n`) IP r
 
 ### 19.1 `authserver_config` Must Precede `password` in `builtinRules()`
 
-`ShouldRedactField` iterates the rule slice and returns on the first match. Both `authserver_config` and `password` match LDAP bind password fields — `authserver_config` via the exact pattern `authserver.ldap_bindpw`, and `password` via the `pass` substring. The `authserver_config` rule pseudonymizes the value through `MapAuthServerValue`; the `password` rule flat-redacts to `[REDACTED-PASSWORD]`.
+`ShouldRedactField` iterates the rule slice and returns on the first match, so when two rules match the same field name the earlier one wins and the later one never runs. `authserver_config` pseudonymizes through `MapAuthServerValue`; the `password` rule flat-redacts to `[REDACTED-PASSWORD]`.
 
-- **Problem:** If `password` is moved above `authserver_config` in the `builtinRules()` slice, `ldap_bindpw` values silently switch from pseudonymized to flat-redacted. No error or warning is emitted.
-- **Symptom:** Sanitized output shows `[REDACTED-PASSWORD]` for LDAP bind passwords instead of a pseudonymized value like `ldap-bindpw-001`.
-- **Fix:** Ensure `authserver_config` remains the first rule in `builtinRules()`. The same first-match precedence applies to `email` vs `hostname` (email must precede hostname).
+- **Problem:** If `password` is moved above `authserver_config` in the `builtinRules()` slice, any field both rules match silently switches from pseudonymized to flat-redacted. No error or warning is emitted.
+- **Symptom:** Sanitized output shows `[REDACTED-PASSWORD]` where a pseudonymized value like `ldap-bindpw-001` is expected.
+- **Fix:** Ensure `authserver_config` remains the first rule in `builtinRules()`. The same first-match precedence applies to `email` vs `hostname` — that pair genuinely overlaps today (a value can look like both), and is the live reason this section exists.
+
+**`password` does not reach `ldap_bindpw` through the `pass` substring.** An earlier version of this entry said it did. It does not: `ldap_bindpw` contains none of the `password` rule's patterns — `password`, `passwd`, `pass`, `pwd`, `bcrypt-hash`, `bcrypt_hash`, `sha512-hash`. If the `password` rule matches `ldap_bindpw` at all, it is because an explicit `bindpw` pattern was added to its `FieldPatterns`, never through the generic `pass` substring. Two consequences worth keeping straight:
+
+- Every `authserver_config` pattern is an `authserver.*` / `system.authserver.*` path, and none of those paths contain a `password`-rule substring either. So the two rules do not currently compete on any field, and the ordering guidance above — while still correct and worth keeping as cheap insurance — is vacuous for this pair until a `bindpw`-style pattern lands on the `password` rule.
+- A bare `<ldap_bindpw>` outside an `authserver.*` path therefore matches no credential rule on field name alone.
+
+The general lesson: a documented fallback is not a verified one. Check the actual `FieldPatterns` slice before relying on a rule to catch a field — a plausible-sounding substring claim is exactly the kind of thing that hides a leak.
 
 ## 20. pfSense Validator Injection
 

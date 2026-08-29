@@ -143,12 +143,12 @@ check:
 # Apply Go modernization fixes
 [group('quality')]
 modernize:
-    @{{ mise_exec }} go run golang.org/x/tools/gopls/internal/analysis/modernize/cmd/modernize@latest -fix -test ./...
+    @{{ mise_exec }} modernize -fix -test ./...
 
 # Check for modernization opportunities (dry-run)
 [group('quality')]
 modernize-check:
-    @{{ mise_exec }} go run golang.org/x/tools/gopls/internal/analysis/modernize/cmd/modernize@latest -test ./...
+    @{{ mise_exec }} modernize -test ./...
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Testing

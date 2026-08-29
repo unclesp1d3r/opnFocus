@@ -121,6 +121,7 @@ func TestBuildEffectiveFormat(t *testing.T) {
 			var cfg *config.Config
 			if tt.configFormat != "" {
 				// Create a mock config with the format set
+				//nolint:staticcheck // SA1019: exercising deprecated flat field for backward-compat coverage.
 				cfg = &config.Config{
 					Format: tt.configFormat,
 				}
