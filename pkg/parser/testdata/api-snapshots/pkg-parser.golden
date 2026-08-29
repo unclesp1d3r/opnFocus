@@ -50,6 +50,10 @@ const DefaultMaxInputSize = 10 * 1024 * 1024 // 10MB
 
 VARIABLES
 
+var ErrInputTooLarge = errors.New("input exceeds maximum allowed size")
+    ErrInputTooLarge reports that the input exceeded the configured maximum size
+    and was truncated before the decoder saw the end of the document.
+
 var ErrUnsupportedCharset = errors.New("unsupported charset")
     ErrUnsupportedCharset reports that an XML declaration named an encoding the
     decoder cannot read. Callers wrap decode failures with their own context,
@@ -104,6 +108,11 @@ func WrapDecodeError(err error, elementPath string) error
     Both the OPNsense and pfSense parsers delegate to this function to avoid
     duplicating error-wrapping logic. Future device parsers registered with
     Register should do the same.
+
+func WrapSizeLimitedDecodeError(err error, elementPath string, tracker TruncationTracker, maxSize int64) error
+    WrapSizeLimitedDecodeError annotates err like WrapDecodeError, but reports
+    the size cap as the cause when the tracker shows the input was truncated.
+    Returns nil when err is nil.
 
 
 TYPES
@@ -215,4 +224,24 @@ type OPNsenseXMLDecoder interface {
     Implementations must handle charset detection, entity expansion protection,
     and input size limits. The cfgparser.XMLParser in internal/cfgparser
     provides the default implementation used by the CLI.
+
+type TruncationTracker interface {
+	// Truncated reports whether input remained beyond the cap. A document
+	// that ends exactly at the cap is not truncated: nothing was lost.
+	Truncated() bool
+}
+    TruncationTracker reports whether input remained beyond a reader's size cap.
+    A decode error alone cannot distinguish an oversized document from a corrupt
+    one: both surface from encoding/xml as "unexpected EOF", because the cap
+    simply ends the stream early. Callers consult this to say which happened.
+
+func NewSecureXMLDecoderTracked(r io.Reader, maxSize int64) (*xml.Decoder, TruncationTracker)
+    NewSecureXMLDecoderTracked is NewSecureXMLDecoder plus a tracker reporting
+    whether the size cap truncated the input.
+
+    Without it an oversized config is indistinguishable from a corrupt one:
+    the cap ends the stream mid-document and encoding/xml reports "unexpected
+    EOF", so an operator handed an 11 MB config.xml is told their file is
+    malformed and goes looking for the wrong problem. Pair the tracker with
+    WrapSizeLimitedDecodeError to name the real cause.
 

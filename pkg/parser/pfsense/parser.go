@@ -185,10 +185,12 @@ func (p *Parser) decode(ctx context.Context, r io.Reader) (*pfsense.Document, er
 	default:
 	}
 
-	dec := parser.NewSecureXMLDecoder(r, p.maxInputSize)
+	dec, tracker := parser.NewSecureXMLDecoderTracked(r, p.maxInputSize)
 
 	var doc pfsense.Document
-	if err := parser.WrapDecodeError(dec.Decode(&doc), "/pfsense"); err != nil {
+	// Tracked so an oversized config is reported as oversized rather than as
+	// the "unexpected EOF" the truncated stream would otherwise produce.
+	if err := parser.WrapSizeLimitedDecodeError(dec.Decode(&doc), "/pfsense", tracker, p.maxInputSize); err != nil {
 		return nil, err
 	}
 
@@ -200,6 +202,13 @@ func (p *Parser) decode(ctx context.Context, r io.Reader) (*pfsense.Document, er
 
 	if doc.XMLName.Local == "" {
 		return nil, errMissingRoot
+	}
+
+	// A decode can succeed with input still beyond the cap, since the decoder
+	// stops at the closing root tag and never asks for another byte. Returning
+	// success there silently accepts an oversized config.
+	if tracker != nil && tracker.Truncated() {
+		return nil, fmt.Errorf("%w (limit %d bytes)", parser.ErrInputTooLarge, p.maxInputSize)
 	}
 
 	return &doc, nil
