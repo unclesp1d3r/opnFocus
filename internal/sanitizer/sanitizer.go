@@ -246,12 +246,14 @@ func (s *Sanitizer) sanitizeCharData(content string, pathStack []string) string 
 	// filtered by the caller and never reach this join.
 	fullPath := strings.Join(pathStack, ".")
 
-	// Try full path first, then bare element name — exact-match patterns
-	// (e.g. "key") only match the bare element name, never the dotted path.
-	if should, rule := s.engine.ShouldRedactField(fullPath); should {
+	// Try full path first, then bare element name. Exact-match patterns
+	// (e.g. "key") are anchored on the terminal path segment, so they match
+	// either lookup: "system.key" on the full path and "key" on the bare
+	// name both resolve to the same segment.
+	if should, rule := s.engine.ShouldRedactFieldValue(fullPath, content); should {
 		return s.redactWholeValue(rule, fullPath, content)
 	}
-	if should, rule := s.engine.ShouldRedactField(currentElement); should {
+	if should, rule := s.engine.ShouldRedactFieldValue(currentElement, content); should {
 		return s.redactWholeValue(rule, currentElement, content)
 	}
 
@@ -260,9 +262,10 @@ func (s *Sanitizer) sanitizeCharData(content string, pathStack []string) string 
 
 // redactWholeValue applies rule (already known to match via field name) to
 // the entire value in a single redaction call, updating stats accordingly.
-// Only count as redacted if the value actually changed; guarded Redactors
-// (e.g., ip_address_field) may return the original value when the guard
-// rejects it.
+// Only count as redacted if the value actually changed. A Redactor may still
+// return its input: the username rule declines system accounts via
+// isSystemUser. Rules whose patterns are generic enough to match unrelated
+// fields use FieldGuard instead, and never reach here at all.
 func (s *Sanitizer) redactWholeValue(rule Rule, fieldName, content string) string {
 	redacted := s.engine.RedactWithRule(rule, fieldName, content)
 	if redacted == content {

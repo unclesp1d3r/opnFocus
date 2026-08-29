@@ -48,6 +48,15 @@ type Rule struct {
 	FieldPatterns []string
 	// ValueDetector is an optional function to detect sensitive values.
 	ValueDetector func(value string) bool
+	// FieldGuard optionally qualifies a FieldPatterns match against the value.
+	// A rule whose patterns are generic enough to match unrelated fields
+	// ("from", "to", "subnet") sets it to decline rather than consume the
+	// match: a rejected guard skips the rule and scanning continues, so a
+	// later rule or the value-detector pass can still claim the value.
+	// Declining inside the Redactor instead would consume the match and
+	// silently suppress every later rule -- see GOTCHAS.md section 19.2.
+	// The guard must not allocate: it runs on values the rule may not redact.
+	FieldGuard func(value string) bool
 	// Redactor performs the actual redaction using the mapper.
 	Redactor func(mapper *Mapper, fieldName, value string) string
 }
@@ -116,21 +125,60 @@ func (e *RuleEngine) ShouldRedactField(fieldName string) (bool, Rule) {
 		if !e.ruleActiveForMode(rule) {
 			continue
 		}
-		for _, pattern := range rule.FieldPatterns {
-			if fieldNameMatches(fieldName, pattern) {
-				return true, *rule
-			}
+		if ruleMatchesFieldName(rule, fieldName) {
+			return true, *rule
 		}
 	}
 	return false, Rule{}
+}
+
+// ShouldRedactFieldValue is ShouldRedactField with the candidate value in
+// hand, so a matched rule's FieldGuard can qualify the match. A guard that
+// rejects skips the rule and lets scanning continue, where ShouldRedactField
+// would report a match that the Redactor then declines, consuming it and
+// blocking every later rule.
+//
+// Every redaction path goes through this or through ShouldRedactValue, which
+// delegates to it. ShouldRedactField is kept for name-only pattern queries
+// and currently has no caller outside tests -- do not reach for it in new
+// code that has a value available, or the guard is skipped.
+func (e *RuleEngine) ShouldRedactFieldValue(fieldName, value string) (bool, Rule) {
+	for i := range e.rules {
+		rule := &e.rules[i]
+		if !e.ruleActiveForMode(rule) {
+			continue
+		}
+		if !ruleMatchesFieldName(rule, fieldName) {
+			continue
+		}
+		if rule.FieldGuard != nil && !rule.FieldGuard(value) {
+			continue
+		}
+
+		return true, *rule
+	}
+	return false, Rule{}
+}
+
+// ruleMatchesFieldName reports whether any of rule's FieldPatterns matches
+// fieldName. Shared so the guarded and unguarded lookups cannot drift.
+func ruleMatchesFieldName(rule *Rule, fieldName string) bool {
+	for _, pattern := range rule.FieldPatterns {
+		if fieldNameMatches(fieldName, pattern) {
+			return true
+		}
+	}
+
+	return false
 }
 
 // ShouldRedactValue determines if a value should be redacted based on its content.
 // Returns a copied Rule by value — see ShouldRedactField for the mutation-safety
 // contract.
 func (e *RuleEngine) ShouldRedactValue(fieldName, value string) (bool, Rule) {
-	// First check field-based rules
-	if should, rule := e.ShouldRedactField(fieldName); should {
+	// First check field-based rules, letting FieldGuard decline a match so
+	// the value-detector pass below can still see the value.
+	if should, rule := e.ShouldRedactFieldValue(fieldName, value); should {
 		return true, rule
 	}
 
@@ -185,24 +233,45 @@ func (e *RuleEngine) ruleActiveForMode(rule *Rule) bool {
 // exactMatchPatterns lists field patterns that require exact (case-insensitive)
 // matching instead of substring matching. This prevents false positives on
 // compound field names (e.g., "key" would otherwise match "sshkey", "apikey";
-// "from"/"to" would match "timeout", "protocol", "platformfrom").
+// "from"/"to" would match "timeout", "protocol", "platformfrom";
+// "ddnsdomainkey" would match its sibling "ddnsdomainkeyalgorithm", redacting
+// the literal "hmac-md5" the audit engine reads).
 // All entries are stored pre-lowercased to match the pre-lowercased field patterns.
-var exactMatchPatterns = []string{"key", "from", "to"}
+var exactMatchPatterns = []string{"key", "from", "to", "ddnsdomainkey"}
 
 // fieldNameMatches reports whether pattern matches fieldName using a
 // case-insensitive substring check. An empty pattern always matches.
 // Patterns listed in exactMatchPatterns require an exact (case-insensitive)
 // match to prevent false positives on compound field names.
 //
+// "Exact" is anchored on the terminal path segment, not the whole string,
+// because sanitizeCharData looks up the full dotted path before the bare
+// element name and the reflection path only ever passes a dotted path. Without
+// that anchoring an exact pattern can never win the full-path lookup, and a
+// loose substring pattern on a later, less specific rule takes it instead.
+//
 // The pattern argument must be pre-lowercased (see NewRuleEngine).
 func fieldNameMatches(fieldName, pattern string) bool {
 	lowerField := strings.ToLower(fieldName)
 	for _, exact := range exactMatchPatterns {
 		if pattern == exact {
-			return lowerField == exact
+			return terminalSegment(lowerField) == exact
 		}
 	}
 	return strings.Contains(lowerField, pattern)
+}
+
+// terminalSegment returns the last dot-delimited segment of a lowercased field
+// path, dropping any slice index the reflection path appends ("apikeys[0]"
+// becomes "apikeys").
+func terminalSegment(lowerField string) string {
+	if dot := strings.LastIndexByte(lowerField, '.'); dot >= 0 {
+		lowerField = lowerField[dot+1:]
+	}
+	if bracket := strings.IndexByte(lowerField, '['); bracket >= 0 {
+		lowerField = lowerField[:bracket]
+	}
+	return lowerField
 }
 
 // builtinRules returns the default set of redaction rules used by the sanitizer package.
@@ -215,13 +284,18 @@ func fieldNameMatches(fieldName, pattern string) bool {
 // matching rule, so earlier rules take precedence. Specifically:
 //
 //   - authserver_config MUST precede password. Both match "ldap_bindpw" (authserver_config
-//     via an exact field pattern, password via the "pass" substring). authserver_config
+//     via an exact field pattern, password via the "bindpw" substring; "pass" does not
+//     appear in "ldap_bindpw" and never matched it). authserver_config
 //     pseudonymizes the value via MapAuthServerValue; password flat-redacts to
 //     "[REDACTED-PASSWORD]". If reordered, LDAP bind passwords silently switch from
 //     pseudonymized to flat-redacted with no error or warning.
 //
-//   - email MUST precede hostname. Email addresses contain dots that match hostname
-//     patterns. The ordering ensures emails are mapped via MapEmail, not MapHostname.
+//   - email SHOULD precede hostname, but nothing currently depends on it. Their
+//     FieldPatterns are disjoint ("email" vs "hostname"/"domain"/"althostnames"/
+//     "hostnames"), and hostname's ValueDetector returns early on IsEmail, so it
+//     declines an email-looking value on the value path whatever the order. Keep
+//     the ordering as insurance against a future overlapping pattern; do not cite
+//     it as a live guard. See GOTCHAS 19.1.
 //
 //nolint:funlen // declarative rule table; order is load-bearing (see above)
 func builtinRules() []Rule {
@@ -232,9 +306,10 @@ func builtinRules() []Rule {
 	return []Rule{
 		// NOTE: authserver.ldap_* patterns assume OPNsense XML nesting
 		// (system.authserver.ldap_*). If a device type uses different nesting
-		// (e.g., system.ldap_bindpw without authserver parent), those fields
-		// will fall through to the password rule (flat-redacted, not
-		// pseudonymized).
+		// (e.g., system.ldap_bindpw without authserver parent), only
+		// ldap_bindpw still redacts, via the "bindpw" pattern on the password
+		// rule below. The remaining ldap_* fields are host/DN/port metadata,
+		// not credentials.
 		//
 		// These rules match on field paths from the decoded document, not on a
 		// typed schema: no AuthServer type exists in pkg/schema for either
@@ -274,6 +349,11 @@ func builtinRules() []Rule {
 			FieldPatterns: []string{
 				"password", "passwd", "pass", "pwd",
 				"bcrypt-hash", "bcrypt_hash", "sha512-hash",
+				// "ldap_bindpw" matches none of the patterns above -- "pwd"
+				// does not appear in it -- so without this the value is emitted
+				// verbatim wherever authserver_config's path patterns miss.
+				// Keep in sync with passwordKeywords in patterns.go.
+				"bindpw",
 			},
 			Redactor: func(_ *Mapper, _, _ string) string {
 				return "[REDACTED-PASSWORD]"
@@ -355,6 +435,11 @@ func builtinRules() []Rule {
 				// pattern above is exact-match only (see exactMatchPatterns),
 				// so "enckey" needs its own substring alias. See ADR-0001.
 				"enckey", "enc_key",
+				// pfSense DHCP dynamic-DNS TSIG key: shared HMAC secret,
+				// grouped with the other HMAC material above rather than with
+				// asymmetric keys. Exact-match (see exactMatchPatterns) so it
+				// does not swallow <ddnsdomainkeyname>/<ddnsdomainkeyalgorithm>.
+				"ddnsdomainkey",
 			},
 			ValueDetector: IsPrivateKey,
 			Redactor: func(_ *Mapper, _, _ string) string {
@@ -519,13 +604,11 @@ func builtinRules() []Rule {
 			},
 			// No ValueDetector: redaction is purely field-name-driven.
 			// "from"/"to" are too generic for value-based matching across all fields.
+			// FieldGuard keeps those generic patterns from consuming a match on a
+			// non-IP value ("any", "lan", or an email address), which would block
+			// every later rule from seeing it.
+			FieldGuard: IsIP,
 			Redactor: func(m *Mapper, _, value string) string {
-				// Guard: field patterns like "from"/"to" can match non-IP values
-				// (e.g., "any", "lan"); only redact when the value is actually an IP.
-				// When the guard rejects, sanitizer.go counts it as SkippedFields.
-				if !IsIP(value) {
-					return value
-				}
 				if IsPublicIP(value) {
 					return m.MapPublicIP(value)
 				}
@@ -541,19 +624,20 @@ func builtinRules() []Rule {
 				"subnet", "subnetv6",
 			},
 			// ValueDetector enables CIDR detection on unrecognized field names;
-			// the Redactor guard handles the field-pattern match path separately.
+			// FieldGuard below qualifies the field-pattern match path. The
+			// Redactor no longer guards anything -- it used to return the value
+			// unchanged for non-CIDRs, which consumed the match (GOTCHAS 19.2).
 			// IsSubnet (net.ParseCIDR) covers both IPv4 and IPv6 CIDR literals.
 			// Multi-value alias fields (newline- or space-separated CIDR lists)
 			// are split into individual tokens before reaching the rule engine —
 			// see sanitizeCharData/redactValueTokens in sanitizer.go — so each
 			// member is matched against this rule independently.
 			ValueDetector: IsSubnet,
-			Redactor: func(_ *Mapper, _, value string) string {
-				// Guard: field-pattern matches (e.g., "subnet") bypass the ValueDetector,
-				// so we must validate here too for non-CIDR values like "255.255.255.0".
-				if !IsSubnet(value) {
-					return value
-				}
+			// FieldGuard covers the field-pattern path, which bypasses the
+			// ValueDetector: without it a non-CIDR value like "255.255.255.0" or an
+			// email address matched on the field name alone and was consumed here.
+			FieldGuard: IsSubnet,
+			Redactor: func(_ *Mapper, _, _ string) string {
 				return redactedSubnetValue
 			},
 		},

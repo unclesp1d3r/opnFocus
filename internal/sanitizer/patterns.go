@@ -267,6 +267,14 @@ var (
 	passwordKeywords = []string{
 		"password", "passwd", "pass", "secret", "key", "token",
 		"credential", "auth", "prv", "private", "bindpw",
+		// pfSense DHCP dynamic-DNS TSIG key. Mirrors the exact-match
+		// "ddnsdomainkey" field pattern on the private_key rule, per the
+		// FieldPatterns/passwordKeywords synchronization CONTRIBUTING.md
+		// requires. Value-based detection does not inherit field-pattern
+		// exactness, but the sibling ddnsdomainkeyname/ddnsdomainkeyalgorithm
+		// carry metadata rather than secrets, so a keyword match on them is
+		// harmless where a field-pattern match would not be.
+		"ddnsdomainkey",
 		"bcrypt-hash", "sha512-hash",
 		// OpenVPN: `<tls>` holds the --tls-auth/--tls-crypt HMAC key on
 		// <openvpn-server>/<openvpn-client>; `<StaticKeys>` holds MVC
