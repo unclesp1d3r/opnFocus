@@ -162,6 +162,37 @@ Most `Compare*` methods in `internal/diff/analyzer.go` have early-return guards 
 
 - **Exceptions:** `CompareFirewallRules` and `CompareUsers` intentionally omit section-level guards because per-item granularity is more useful for security-sensitive resources (individual rule additions/removals are reported separately).
 
+### 4.2 Rule and User Equality Helpers Must Cover Every Model Field
+
+`rulesEqual` and `usersEqual` in `internal/diff` decide whether a paired item is reported as modified. A field missing from either helper does not produce a weaker diff entry -- it produces **no entry at all**, silently.
+
+Both had drifted badly: `rulesEqual` compared 7 of `common.FirewallRule`'s 33 fields and `usersEqual` 5 of `common.User`'s 7. A diff stayed silent on a rule's direction being reversed, a rule becoming floating or quick, its gateway being redirected, its state type weakened, its logging turned off, and on a user's UID changing or an API credential being added, rotated or removed.
+
+- **When you add a field to `common.FirewallRule` or `common.User`, add it to the equality helper.** `TestRulesEqual_ComparesEveryFirewallRuleField` and `TestUsersEqual_ComparesEveryUserField` walk the struct reflectively and fail until you do.
+- **Only identity fields belong on the ignore list.** `UUID` and `Tracker` are excluded because `CompareFirewallRules` pairs on them; comparing them would mark every paired rule modified.
+
+### 4.3 Most Configs Have No Rule UUIDs
+
+`CompareFirewallRules` pairs rules by `UUID`, but **pfSense never writes one**, and neither do older OPNsense configs -- 10 of the 13 fixtures in `testdata/` have zero. The fallback used to compare only the rule *count*, so any content change that left the count intact was invisible: on `testdata/pfsense/config-2.6.x.xml`, flipping a rule from `pass` to `block` reported "No changes detected".
+
+`compareRulesWithoutUUID` now pairs in three passes -- by pfSense's `<tracker>`, then by exact content (which anchors the unchanged rules), then by remaining position. Whatever is left unpaired is a genuine addition or removal.
+
+- **Do not "simplify" this back to positional pairing.** The content-anchoring pass is what stops a rule inserted at the top from cascading into every rule below it reading as modified. `TestCompareFirewallRules_NoUUID_InsertionDoesNotCascade` guards it.
+- **Test new comparison logic against a UUID-less fixture.** A test built on `sample.config.6.xml` (which has UUIDs) exercises a different code path than one built on any pfSense fixture.
+- **Two known limits, pinned by `TestCompareFirewallRules_KnownLimits`.** Neither is a regression -- the count-only fallback reported nothing for either -- but both are sharp enough that a future change should decide about them rather than discover them:
+  - **A pure reorder produces no entry from content comparison.** That is by design -- order changes are the order detector's job, reached via `--detect-order`. Note that detector had the *same* UUID dependency: `extractRuleUUIDs` dropped every rule without a `<uuid>`, so `--detect-order` was a documented flag that silently found nothing on pfSense. It now keys on `ruleIdentity` (UUID, else `<tracker>`), and rules with neither stay out because a rule indistinguishable from its peers cannot be said to have moved.
+  - **Leftovers pair by similarity, not position.** Once the tracker and content passes have anchored what they can, the rest are scored against each other (`ruleSimilarity`) and matched best-first. Blind positional pairing misattributed edits: with `a, b, c(pass)` becoming `a, c(block)` it handed the surviving `c` to `b` and reported "b modified into c" plus "c removed". Weights are description 4, interface list 2, and one each for type, protocol, source, destination and port; `simMinScore` is 4, reachable by a matching description alone or by a matching interface list plus two other fields. Above `simMaxPairs` leftovers on either side the scoring is skipped and pairing falls back to positional, so a config where nothing anchors stays bounded.
+
+### 4.4 NAT Rules Were Compared By Count Only
+
+`CompareNAT` compared `len(old.OutboundRules) != len(newCfg.OutboundRules)` and the same for `InboundRules`, and nothing else. Every content change that left the counts intact was invisible: an outbound rule retargeted or moved to another interface, and -- worse -- a **port forward redirected to a different internal host**, which is about the most consequential NAT change there is.
+
+No NAT rule in any shipped fixture carries a `<uuid>`, not even in the OPNsense MVC configs that populate them on firewall rules, so this is the path every real config takes.
+
+- **Rules now pair via `itemPairer`** (`internal/diff/pairing.go`): identity, then exact content, then similarity, with a positional fallback. the same pairer the firewall rules use.
+- **`natRulesEqual` and `inboundNATRulesEqual` must cover every model field.** A field missing from either produces no diff entry at all, not a less detailed one. `TestNATRulesEqual_ComparesEveryField` and `TestInboundNATRulesEqual_ComparesEveryField` walk the structs reflectively and fail until you add it.
+- **Paths are `nat.inbound.rules[N]` and `nat.outbound.rules[N]`.** The `nat.inbound` prefix is load-bearing: the security scorer's `port-forward-change` pattern matches on it, so renaming the path silently drops the impact rating from every port-forward entry.
+
 ## 5. CLI Flag Wiring
 
 ### 5.1 Silent Flag Ignores
