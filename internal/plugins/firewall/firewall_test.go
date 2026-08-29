@@ -1930,3 +1930,39 @@ func TestFirewallPlugin_ScopedRule_NoAnyAnyFinding(t *testing.T) {
 	assert.False(t, hasFindingRef(findings, "FIREWALL-023"),
 		"a rule with a scoped source must not be reported as any-source on WAN")
 }
+
+// TestFirewallPlugin_NegatedWildcard_NoAnyAnyFinding is the other
+// false-positive half. A negated endpoint matches the complement of its
+// address, so a negated wildcard matches nothing and the rule passes no
+// traffic. Reporting FIREWALL-022 or -023 against it would raise a
+// highest-severity finding on a rule that cannot forward a packet.
+func TestFirewallPlugin_NegatedWildcard_NoAnyAnyFinding(t *testing.T) {
+	t.Parallel()
+
+	for _, addr := range []string{"any", "ANY", "", "0.0.0.0/0", "::/0"} {
+		t.Run("addr="+addr, func(t *testing.T) {
+			t.Parallel()
+
+			device := &common.CommonDevice{
+				Interfaces: []common.Interface{
+					{Name: "wan", IPAddress: "203.0.113.10", Enabled: true},
+				},
+				FirewallRules: []common.FirewallRule{{
+					Type:        common.RuleTypePass,
+					Interfaces:  []string{"wan"},
+					Description: "negated wildcard, matches nothing",
+					Source:      common.RuleEndpoint{Address: addr, Negated: true},
+					Destination: common.RuleEndpoint{Address: addr, Negated: true},
+				}},
+			}
+
+			findings, _, err := firewall.NewPlugin().RunChecks(device)
+			require.NoError(t, err)
+
+			assert.False(t, hasFindingRef(findings, "FIREWALL-022"),
+				"a negated %q endpoint matches nothing, so the rule passes no traffic", addr)
+			assert.False(t, hasFindingRef(findings, "FIREWALL-023"),
+				"a negated %q source accepts no source", addr)
+		})
+	}
+}

@@ -32,8 +32,8 @@ func (fp *Plugin) checkNoAnyAnyPassRules(device *common.CommonDevice) checkResul
 			continue
 		}
 
-		srcAny := analysis.IsAnyAddress(rule.Source.Address)
-		dstAny := analysis.IsAnyAddress(rule.Destination.Address)
+		srcAny := analysis.IsAnyEndpoint(rule.Source)
+		dstAny := analysis.IsAnyEndpoint(rule.Destination)
 		portAny := analysis.IsAnyPort(rule.Destination.Port)
 		protoAny := analysis.IsAnyProtocol(rule.Protocol)
 
@@ -61,7 +61,7 @@ func (fp *Plugin) checkNoAnySourceOnWANInbound(device *common.CommonDevice) chec
 		// RuleReachability (not a bare rule.Interfaces scan) so unscoped
 		// floating pass rules with source=any on WAN are not missed — their
 		// interface list is empty and would otherwise skip the loop entirely.
-		if analysis.IsAnyAddress(rule.Source.Address) &&
+		if analysis.IsAnyEndpoint(rule.Source) &&
 			analysis.RuleReachability(rule, device.Interfaces) == analysis.WANReachable {
 			return checkResult{Result: false, Known: true}
 		}

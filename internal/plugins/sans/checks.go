@@ -113,8 +113,8 @@ func (sp *Plugin) checkDefaultDeny(device *common.CommonDevice) checkResult {
 			hasBlock = true
 		}
 		if r.Type == common.RuleTypePass &&
-			analysis.IsAnyAddress(r.Source.Address) &&
-			analysis.IsAnyAddress(r.Destination.Address) {
+			analysis.IsAnyEndpoint(r.Source) &&
+			analysis.IsAnyEndpoint(r.Destination) {
 			hasAnyAnyPass = true
 		}
 	}
@@ -464,7 +464,7 @@ func (sp *Plugin) checkMailRestriction(device *common.CommonDevice) checkResult 
 		if r.Destination.Port == "25" || r.Destination.Port == "587" ||
 			r.Destination.Port == "465" {
 			hasSMTPRules = true
-			if analysis.IsAnyAddress(r.Destination.Address) {
+			if analysis.IsAnyEndpoint(r.Destination) {
 				return checkResult{Result: false, Known: true}
 			}
 		}
@@ -524,7 +524,7 @@ func (sp *Plugin) checkDNSZoneTransfer(device *common.CommonDevice) checkResult 
 			continue
 		}
 		if r.Destination.Port == "53" &&
-			analysis.IsAnyAddress(r.Source.Address) {
+			analysis.IsAnyEndpoint(r.Source) {
 			return checkResult{Result: true, Known: true}
 		}
 	}
@@ -545,7 +545,7 @@ func (sp *Plugin) checkEgressFiltering(device *common.CommonDevice) checkResult 
 			continue
 		}
 		hasOutbound = true
-		if analysis.IsAnyAddress(r.Source.Address) {
+		if analysis.IsAnyEndpoint(r.Source) {
 			return checkResult{Result: false, Known: true}
 		}
 	}

@@ -132,3 +132,95 @@ func TestIsWideOpenPassRule_NotWideOpen(t *testing.T) {
 		})
 	}
 }
+
+// TestIsAnyEndpoint_RespectsNegation guards the difference between an address
+// spelling and an endpoint. A negated endpoint matches the complement of what
+// its address names, so a negated wildcard matches nothing at all. Judging it
+// by address alone reports a rule that passes no traffic as wide open.
+func TestIsAnyEndpoint_RespectsNegation(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name string
+		ep   common.RuleEndpoint
+		want bool
+	}{
+		{"any", common.RuleEndpoint{Address: "any"}, true},
+		{"empty", common.RuleEndpoint{Address: ""}, true},
+		{"ipv4 wildcard", common.RuleEndpoint{Address: "0.0.0.0/0"}, true},
+		{"ipv6 wildcard", common.RuleEndpoint{Address: "::/0"}, true},
+		{"uppercase", common.RuleEndpoint{Address: "ANY"}, true},
+
+		// Negating a wildcard yields the empty set, not everything.
+		{"NOT any", common.RuleEndpoint{Address: "any", Negated: true}, false},
+		{"NOT empty", common.RuleEndpoint{Address: "", Negated: true}, false},
+		{"NOT ipv4 wildcard", common.RuleEndpoint{Address: "0.0.0.0/0", Negated: true}, false},
+		{"NOT ipv6 wildcard", common.RuleEndpoint{Address: "::/0", Negated: true}, false},
+
+		// A negated specific address was never "any" either way.
+		{"host", common.RuleEndpoint{Address: "192.168.1.1"}, false},
+		{"NOT host", common.RuleEndpoint{Address: "192.168.1.1", Negated: true}, false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			assert.Equal(t, tt.want, analysis.IsAnyEndpoint(tt.ep))
+		})
+	}
+}
+
+// TestIsWideOpenPassRule_NegatedEndpointIsNotWideOpen pins the consequence at
+// the rule level: FIREWALL-022 and FIREWALL-023 are the highest-severity rule
+// checks, and a false positive there reports a critical finding against a rule
+// that passes nothing.
+func TestIsWideOpenPassRule_NegatedEndpointIsNotWideOpen(t *testing.T) {
+	t.Parallel()
+
+	wideOpen := func() common.FirewallRule {
+		return common.FirewallRule{
+			Type:        common.RuleTypePass,
+			Source:      common.RuleEndpoint{Address: "any"},
+			Destination: common.RuleEndpoint{Address: "any"},
+		}
+	}
+
+	t.Run("baseline is wide open", func(t *testing.T) {
+		t.Parallel()
+		assert.True(t, analysis.IsWideOpenPassRule(wideOpen()))
+	})
+
+	t.Run("negated source", func(t *testing.T) {
+		t.Parallel()
+
+		r := wideOpen()
+		r.Source.Negated = true
+		assert.False(t, analysis.IsWideOpenPassRule(r))
+	})
+
+	t.Run("negated destination", func(t *testing.T) {
+		t.Parallel()
+
+		r := wideOpen()
+		r.Destination.Negated = true
+		assert.False(t, analysis.IsWideOpenPassRule(r))
+	})
+
+	t.Run("negated wildcard cidr source", func(t *testing.T) {
+		t.Parallel()
+
+		r := wideOpen()
+		r.Source = common.RuleEndpoint{Address: "0.0.0.0/0", Negated: true}
+		assert.False(t, analysis.IsWideOpenPassRule(r))
+	})
+
+	t.Run("both negated", func(t *testing.T) {
+		t.Parallel()
+
+		r := wideOpen()
+		r.Source.Negated = true
+		r.Destination.Negated = true
+		assert.False(t, analysis.IsWideOpenPassRule(r))
+	})
+}

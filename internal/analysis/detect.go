@@ -302,7 +302,7 @@ func DetectSecurityIssues(cfg *common.CommonDevice) []common.SecurityFinding {
 	}
 
 	for i, rule := range cfg.FirewallRules {
-		if !rule.Disabled && rule.Type == common.RuleTypePass && IsAnyAddress(rule.Source.Address) &&
+		if !rule.Disabled && rule.Type == common.RuleTypePass && IsAnyEndpoint(rule.Source) &&
 			RuleReachability(rule, cfg.Interfaces) == WANReachable {
 			findings = append(findings, common.SecurityFinding{
 				Component:      fmt.Sprintf("filter.rule[%d]", i),

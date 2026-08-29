@@ -357,10 +357,7 @@ func (sp *Plugin) hasDefaultDenyPolicy(device *common.CommonDevice) bool {
 
 	for _, rule := range rules {
 		if rule.Type == common.RuleTypePass {
-			srcTarget := rule.Source.Address
-			dstTarget := rule.Destination.Address
-
-			if analysis.IsAnyAddress(srcTarget) && analysis.IsAnyAddress(dstTarget) {
+			if analysis.IsAnyEndpoint(rule.Source) && analysis.IsAnyEndpoint(rule.Destination) {
 				hasAnyAnyAllow = true
 				break
 			}
@@ -387,11 +384,17 @@ func (sp *Plugin) hasOverlyPermissiveRules(device *common.CommonDevice) bool {
 		srcTarget := rule.Source.Address
 		dstTarget := rule.Destination.Address
 
-		srcBroad := analysis.IsAnyAddress(srcTarget) || slices.Contains(broadNetworks, srcTarget)
-		dstBroad := analysis.IsAnyAddress(dstTarget) || slices.Contains(broadNetworks, dstTarget)
+		// Only the wildcard half consults Negated. A negated broad network is
+		// still broad (everything outside it), so the broadNetworks membership
+		// test is deliberately left on the raw address.
+		srcAny := analysis.IsAnyEndpoint(rule.Source)
+		dstAny := analysis.IsAnyEndpoint(rule.Destination)
+
+		srcBroad := srcAny || slices.Contains(broadNetworks, srcTarget)
+		dstBroad := dstAny || slices.Contains(broadNetworks, dstTarget)
 
 		// Check for "any/any" rules (most permissive)
-		if analysis.IsAnyAddress(srcTarget) && analysis.IsAnyAddress(dstTarget) {
+		if srcAny && dstAny {
 			return true
 		}
 

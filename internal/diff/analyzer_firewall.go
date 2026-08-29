@@ -374,6 +374,6 @@ func objectRefsEqual(a, b *common.ObjectRef) bool {
 // that allows all traffic from any source to any destination.
 func isPermissiveRule(rule common.FirewallRule) bool {
 	return rule.Type == common.RuleTypePass &&
-		analysis.IsAnyAddress(rule.Source.Address) &&
-		analysis.IsAnyAddress(rule.Destination.Address)
+		analysis.IsAnyEndpoint(rule.Source) &&
+		analysis.IsAnyEndpoint(rule.Destination)
 }

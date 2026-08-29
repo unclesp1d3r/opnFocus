@@ -30,8 +30,8 @@ const (
 // specific host, so a pass rule matching all traffic reads as scoped and the
 // checks that exist to catch exactly that rule report compliant.
 //
-// This is the predicate for "does this endpoint match everything", used by the
-// audit checks. It is deliberately not used by the overlap engine in
+// This tests an address spelling only. Callers holding a common.RuleEndpoint
+// want IsAnyEndpoint, which also accounts for an inverted match. It is deliberately not used by the overlap engine in
 // overlap.go, which does real CIDR containment: there, treating 0.0.0.0/0 as an
 // unconditional wildcard would make it cover IPv6 targets it cannot match.
 func IsAnyAddress(addr string) bool {
@@ -41,6 +41,26 @@ func IsAnyAddress(addr string) bool {
 		strings.EqualFold(trimmed, constants.NetworkAny) ||
 		trimmed == wildcardCIDRv4 ||
 		trimmed == wildcardCIDRv6
+}
+
+// IsAnyEndpoint reports whether an endpoint matches every host.
+//
+// This is the endpoint-level predicate, and it is the one audit checks want.
+// IsAnyAddress answers only whether an address string is a wildcard spelling;
+// an endpoint additionally carries Negated, and a negated endpoint matches the
+// complement of what its address names. A negated wildcard therefore matches
+// nothing at all, so classifying it by address alone turns a rule that passes
+// no traffic into a highest-severity wide-open finding.
+//
+// Negated inverts the address only. The vendor schema carries <not> beside the
+// address fields and pfSense presents it as an invert-match toggle on the
+// address, so port and protocol predicates are unaffected by it.
+//
+// overlap.go and rules.go already account for Negated; routing the checks
+// through this keeps the audit path consistent with them rather than letting
+// the two disagree about what a rule means.
+func IsAnyEndpoint(ep common.RuleEndpoint) bool {
+	return !ep.Negated && IsAnyAddress(ep.Address)
 }
 
 // IsAnyPort reports whether an endpoint port specification matches every port.
@@ -69,8 +89,8 @@ func IsWideOpenPassRule(rule common.FirewallRule) bool {
 		return false
 	}
 
-	return IsAnyAddress(rule.Source.Address) &&
-		IsAnyAddress(rule.Destination.Address) &&
+	return IsAnyEndpoint(rule.Source) &&
+		IsAnyEndpoint(rule.Destination) &&
 		IsAnyPort(rule.Destination.Port) &&
 		IsAnyProtocol(rule.Protocol)
 }
