@@ -4,6 +4,7 @@ package stig
 import (
 	"slices"
 
+	"github.com/EvilBit-Labs/opnDossier/internal/analysis"
 	"github.com/EvilBit-Labs/opnDossier/internal/compliance"
 	"github.com/EvilBit-Labs/opnDossier/internal/constants"
 	common "github.com/EvilBit-Labs/opnDossier/pkg/model"
@@ -355,11 +356,12 @@ func (sp *Plugin) hasDefaultDenyPolicy(device *common.CommonDevice) bool {
 	hasAnyAnyAllow := false
 
 	for _, rule := range rules {
-		if rule.Type == common.RuleTypePass {
-			srcTarget := rule.Source.Address
-			dstTarget := rule.Destination.Address
-
-			if srcTarget == constants.NetworkAny && (dstTarget == "" || dstTarget == constants.NetworkAny) {
+		// A disabled rule overrides nothing, so it cannot defeat a default-deny
+		// policy. Now that an omitted address counts as a wildcard, skipping
+		// them keeps a disabled rule with no endpoints set from reading as
+		// any/any.
+		if !rule.Disabled && rule.Type == common.RuleTypePass {
+			if analysis.IsAnyEndpoint(rule.Source) && analysis.IsAnyEndpoint(rule.Destination) {
 				hasAnyAnyAllow = true
 				break
 			}
@@ -371,39 +373,62 @@ func (sp *Plugin) hasDefaultDenyPolicy(device *common.CommonDevice) bool {
 	return hasExplicitDeny && !hasAnyAnyAllow
 }
 
+// isBroadEndpoint reports whether an endpoint still matches a broad swathe of
+// hosts once its inverted-match flag is taken into account.
+//
+// broadNetworks holds the wildcards themselves ("any", 0.0.0.0/0, ::/0)
+// alongside genuinely large but bounded ranges. Those two halves invert
+// differently: a negated wildcard matches nothing and is not broad, while a
+// negated bounded range is everything outside it and stays broad. Testing
+// membership on the raw address alone would keep reporting a rule that matches
+// no traffic as overly permissive.
+func isBroadEndpoint(ep common.RuleEndpoint, addr string) bool {
+	if ep.Negated && analysis.IsAnyAddress(addr) {
+		return false
+	}
+
+	return slices.Contains(broadNetworks, addr)
+}
+
 // hasOverlyPermissiveRules checks whether the device contains firewall pass rules with
 // overly broad source or destination addresses, wide network ranges, or missing port
 // restrictions that violate STIG packet-filtering requirements.
+//
+// Disabled rules are skipped: they forward nothing, so they cannot be overly
+// permissive. That matters now an omitted address counts as a wildcard, which
+// makes a disabled rule with no endpoints set look maximally broad.
 func (sp *Plugin) hasOverlyPermissiveRules(device *common.CommonDevice) bool {
 	// Check for overly permissive firewall rules
 	rules := device.FirewallRules
 
 	for _, rule := range rules {
-		if rule.Type != common.RuleTypePass {
+		if rule.Disabled || rule.Type != common.RuleTypePass {
 			continue
 		}
 
 		srcTarget := rule.Source.Address
 		dstTarget := rule.Destination.Address
 
-		srcBroad := srcTarget == constants.NetworkAny || slices.Contains(broadNetworks, srcTarget)
-		dstBroad := dstTarget == "" || dstTarget == constants.NetworkAny ||
-			slices.Contains(broadNetworks, dstTarget)
+		srcAny := analysis.IsAnyEndpoint(rule.Source)
+		dstAny := analysis.IsAnyEndpoint(rule.Destination)
+
+		srcBroad := srcAny || isBroadEndpoint(rule.Source, srcTarget)
+		dstBroad := dstAny || isBroadEndpoint(rule.Destination, dstTarget)
 
 		// Check for "any/any" rules (most permissive)
-		if srcTarget == constants.NetworkAny && (dstTarget == "" || dstTarget == constants.NetworkAny) {
+		if srcAny && dstAny {
 			return true
 		}
 
 		// Check for broad network ranges (e.g., entire subnets without specific restrictions)
-		if srcTarget != "" && srcBroad && dstBroad {
+		if srcBroad && dstBroad {
 			return true
 		}
 
 		// Check for broad rules without specific port restrictions (TCP/UDP or unspecified protocol)
 		if srcBroad && dstBroad &&
 			(rule.Protocol == "" || rule.Protocol == "tcp" || rule.Protocol == "udp" || rule.Protocol == "tcp/udp") &&
-			(rule.Destination.Port == "" || rule.Destination.Port == constants.NetworkAny) {
+			analysis.IsAnyPort(rule.Destination.Port) {
 			return true
 		}
 	}

@@ -7,6 +7,7 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/EvilBit-Labs/opnDossier/internal/analysis"
 	common "github.com/EvilBit-Labs/opnDossier/pkg/model"
 )
 
@@ -371,8 +372,14 @@ func objectRefsEqual(a, b *common.ObjectRef) bool {
 
 // isPermissiveRule reports whether a firewall rule is an unrestricted pass rule
 // that allows all traffic from any source to any destination.
+//
+// Disabled rules are excluded: they forward nothing, so reporting one as
+// permissive overstates the impact of a diff. This matters more now that an
+// omitted address counts as a wildcard, which makes a disabled rule with no
+// source or destination look maximally permissive rather than unset.
 func isPermissiveRule(rule common.FirewallRule) bool {
-	return rule.Type == common.RuleTypePass &&
-		rule.Source.Address == "any" &&
-		rule.Destination.Address == "any"
+	return !rule.Disabled &&
+		rule.Type == common.RuleTypePass &&
+		analysis.IsAnyEndpoint(rule.Source) &&
+		analysis.IsAnyEndpoint(rule.Destination)
 }
