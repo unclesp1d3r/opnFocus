@@ -37,8 +37,11 @@ line two --></config>`))
 		// well-formed XML document. A sanitized config that no longer parses
 		// is a defect even when every secret was correctly redacted — the
 		// output is meant to be loadable/inspectable config.xml, not prose.
+		// Strict stays on: this is validating emitted output, not tolerating
+		// vendor input. A lenient decoder accepts malformed nesting and unknown
+		// entities, which would let the invariant pass on output a downstream
+		// strict parser rejects. Raised in review.
 		decoder := xml.NewDecoder(bytes.NewReader(out.Bytes()))
-		decoder.Strict = false
 		decoder.Entity = map[string]string{}
 		for {
 			_, err := decoder.Token()
