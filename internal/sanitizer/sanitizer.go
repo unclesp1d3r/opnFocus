@@ -682,15 +682,15 @@ func declaresNonUTF8Charset(decl []byte) bool {
 		}
 	}
 
-	end := strings.IndexByte(value, quote)
-	if end < 0 {
+	raw, _, ok := strings.Cut(value, string(quote))
+	if !ok {
 		return false
 	}
 
 	// Mirror CharsetReader's normalization: it treats UTF_8 as UTF-8 and passes
 	// those bytes through untouched, so relabelling that declaration would
 	// rewrite a document the sanitizer never transcoded.
-	charset := strings.ReplaceAll(strings.TrimSpace(value[:end]), "_", "-")
+	charset := strings.ReplaceAll(strings.TrimSpace(raw), "_", "-")
 
 	switch charset {
 	case "utf-8", "utf8", "":
