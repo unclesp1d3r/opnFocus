@@ -16,6 +16,7 @@ import (
 
 	"github.com/EvilBit-Labs/opnDossier/internal/logging"
 	"github.com/EvilBit-Labs/opnDossier/internal/pool"
+	"github.com/EvilBit-Labs/opnDossier/pkg/parser"
 )
 
 // Sanitizer orchestrates the redaction of sensitive data from OPNsense configuration.
@@ -127,6 +128,10 @@ func (s *Sanitizer) sanitizeXMLContent(data []byte) ([]byte, error) {
 	decoder.Strict = false
 	// Prevent XXE attacks by disabling entity expansion
 	decoder.Entity = map[string]string{}
+	// The same charset reader the device parsers use. Without it encoding/xml
+	// refuses any declaration other than UTF-8, so sanitize failed outright on
+	// a real OPNsense config.xml, which declares us-ascii.
+	decoder.CharsetReader = parser.CharsetReader
 
 	var output strings.Builder
 	output.Grow(len(data))
@@ -137,14 +142,7 @@ func (s *Sanitizer) sanitizeXMLContent(data []byte) ([]byte, error) {
 	// O(depth) string allocation per StartElement. See issue #148.
 	var pathStack []string
 
-	// Write XML declaration if present
-	if bytes.HasPrefix(bytes.TrimSpace(data), []byte("<?xml")) {
-		idx := bytes.Index(data, []byte("?>"))
-		if idx > 0 {
-			output.Write(data[:idx+2])
-			output.WriteString("\n")
-		}
-	}
+	writeXMLDeclaration(&output, data)
 
 	for {
 		token, err := decoder.Token()
@@ -543,6 +541,90 @@ func joinReflectPath(pathStack []string, sliceIdx int) string {
 		return last
 	}
 	return strings.Join(pathStack[:len(pathStack)-1], ".") + "." + last
+}
+
+// canonicalXMLDeclaration is the declaration written when the input's charset
+// had to be re-labelled.
+const canonicalXMLDeclaration = `<?xml version="1.0" encoding="UTF-8"?>`
+
+// writeXMLDeclaration emits the sanitized document's XML declaration.
+//
+// A declaration naming UTF-8, or naming no encoding at all, is copied verbatim
+// so output stays byte-identical for those inputs. Any other declared charset
+// is replaced with a canonical UTF-8 declaration, because CharsetReader has
+// already decoded the document and every byte written from here is UTF-8.
+// Copying the original would label the output with an encoding it is not in,
+// which re-parses as mojibake for anything outside ASCII.
+func writeXMLDeclaration(output *strings.Builder, data []byte) {
+	if !bytes.HasPrefix(bytes.TrimSpace(data), []byte("<?xml")) {
+		return
+	}
+
+	idx := bytes.Index(data, []byte("?>"))
+	if idx <= 0 {
+		return
+	}
+
+	decl := data[:idx+2]
+	if declaresNonUTF8Charset(decl) {
+		output.WriteString(canonicalXMLDeclaration)
+	} else {
+		output.Write(decl)
+	}
+
+	output.WriteString("\n")
+}
+
+// declaresNonUTF8Charset reports whether decl names an encoding that is not
+// UTF-8. A declaration with no encoding attribute is treated as UTF-8, the XML
+// default and what the sanitizer emits.
+//
+// The attribute is located the way encoding/xml locates it: the literal
+// "encoding=" followed immediately by a quote. XML 1.0 allows whitespace around
+// the "=" but Go's decoder does not, and a form the decoder does not recognize
+// is never transcoded, so treating it as a declared charset here would relabel
+// a document that was passed through untouched.
+func declaresNonUTF8Charset(decl []byte) bool {
+	lower := strings.ToLower(string(decl))
+
+	const attr = "encoding="
+
+	var (
+		value string
+		quote byte
+	)
+
+	for i := 0; ; {
+		k := strings.Index(lower[i:], attr)
+		if k < 0 {
+			return false
+		}
+
+		i += k + len(attr)
+		if i < len(lower) && (lower[i] == '"' || lower[i] == '\'') {
+			quote = lower[i]
+			value = lower[i+1:]
+
+			break
+		}
+	}
+
+	end := strings.IndexByte(value, quote)
+	if end < 0 {
+		return false
+	}
+
+	// Mirror CharsetReader's normalization: it treats UTF_8 as UTF-8 and passes
+	// those bytes through untouched, so relabelling that declaration would
+	// rewrite a document the sanitizer never transcoded.
+	charset := strings.ReplaceAll(strings.TrimSpace(value[:end]), "_", "-")
+
+	switch charset {
+	case "utf-8", "utf8", "":
+		return false
+	default:
+		return true
+	}
 }
 
 // escapeXMLText uses the stdlib xml.EscapeText to properly escape XML character data.

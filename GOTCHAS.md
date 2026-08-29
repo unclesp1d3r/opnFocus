@@ -384,6 +384,16 @@ A fresh `NewRuleEngine` creates a fresh `NewMapper()` — mappings are determini
 - **Why warn instead of fix:** Supporting struct-valued maps via reflection requires reconstructing each element in place (read → recurse into a copy → `SetMapIndex` with the mutated copy). That work is scheduled under todo #151 (tag-based redaction) which will subsume this gap by annotating sensitive fields directly and driving redaction from tags instead of field-name heuristics. The warning is the bridge until #151 lands.
 - **Regression tests:** `TestSanitizeStruct_MapStructValues_WarnsAndSkips` and `TestSanitizeStruct_MapStructValues_NilLoggerNoPanic` in `internal/sanitizer/sanitizer_reflect_test.go` pin both the warning path and the nil-logger nil-safety invariant. If a future enhancement starts handling struct-valued maps, those tests must be updated (or replaced) to reflect the new behavior — do not delete them blind.
 
+### 14.5 The Sanitizer Builds Its Own Decoder
+
+`sanitizeXMLContent` constructs an `xml.Decoder` directly rather than going through `parser.NewSecureXMLDecoder`, because it needs `Strict = false` and token-level access the parsers do not. That means **every hardening the parsers get has to be repeated here by hand**, and one was missing: with no `CharsetReader`, `encoding/xml` refuses any declaration other than UTF-8 with `encoding %q declared but Decoder.CharsetReader is nil`.
+
+Real OPNsense writes `<?xml version='1.0' encoding='us-ascii'?>`, so `opndossier sanitize` failed outright on its most common input, and on `testdata/sample.config.2.xml` and `sample.config.4.xml`. The failure was easy to miss because the verification loop in CONTRIBUTING pipes stderr to `/dev/null`, so a crashed run and a clean run both show zero unredacted lines.
+
+- **When you add hardening to `pkg/parser/xmlutil.go`, check whether `sanitizeXMLContent` needs it too.** The two decoders are independent.
+- **The output is always UTF-8.** `CharsetReader` decodes the input, so `writeXMLDeclaration` rewrites a non-UTF-8 declaration to `encoding="UTF-8"`; copying the original would label the file with an encoding it is not in. A UTF-8 or bare declaration is copied byte for byte so existing output does not shift.
+- **Check exit codes, not just output, when testing the CLI.** `sanitize ... 2>/dev/null | grep` hides a total failure as an empty result.
+
 ## 15. Liberal Boolean and Integer Parsing
 
 ### 15.0 `BoolFlag` vs `FlexBool` vs `FlexInt` vs strict `int`/`bool`
