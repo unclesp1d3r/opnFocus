@@ -84,23 +84,79 @@ func (s *SysctlItems) UnmarshalXML(d *xml.Decoder, start xml.StartElement) error
 		return err
 	}
 
-	*s = append(*s, container.Items...)
+	for i := range container.Items {
+		if container.Items[i].IsPlaceholder() {
+			continue
+		}
+		*s = append(*s, container.Items[i])
+	}
 
-	// Keep a directly-written tunable only when it carries content. An
-	// OPNsense-shaped container leaves these fields empty, and appending
-	// them unconditionally would put a blank entry after every real one.
-	if container.Descr != "" || container.Tunable != "" || container.Value != "" ||
-		container.Key != "" || container.Secret != "" {
-		*s = append(*s, SysctlItem{
-			Descr:   container.Descr,
-			Tunable: container.Tunable,
-			Value:   container.Value,
-			Key:     container.Key,
-			Secret:  container.Secret,
-		})
+	// Keep a directly-written tunable only when it carries content, by the
+	// same predicate the <item> children go through above. An
+	// OPNsense-shaped container leaves these fields empty, so appending
+	// unconditionally would put a blank entry after every real one.
+	direct := SysctlItem{
+		Descr:   container.Descr,
+		Tunable: container.Tunable,
+		Value:   container.Value,
+		Key:     container.Key,
+		Secret:  container.Secret,
+	}
+	if !direct.IsPlaceholder() {
+		*s = append(*s, direct)
 	}
 
 	return nil
+}
+
+// IsPlaceholder reports whether the entry carries no configuration at all.
+//
+// The DTD's content model for <item> makes every child optional --
+// "<!ELEMENT item (((number,type)|(descr,tunable))?,(value|(key,secret))?)>" --
+// so a bare <item/> is valid and unmarshals into an entry whose fields are all
+// zero. Appending it would report a tunable that is not configured, the same
+// phantom-entry problem GOTCHAS.md section 3.4 describes for the EMPTY-declared
+// elements. No shipped fixture contains one; the guard is here because the
+// schema permits it, not because a fixture forced it.
+//
+// Conservative by the same rule as the section 3.4 predicates: an entry is
+// dropped only when every configuration field is zero, so one carrying just a
+// description survives.
+func (s SysctlItem) IsPlaceholder() bool {
+	return s.Descr == "" &&
+		s.Tunable == "" &&
+		s.Value == "" &&
+		s.Key == "" &&
+		s.Secret == "" &&
+		s.Item == ""
+}
+
+// MarshalXML writes the tunables back in the container shape they were read
+// from: one <sysctl> element holding a repeated <item> per tunable.
+//
+// Without this, the default encoder would emit one <sysctl> per tunable with
+// the fields as direct children -- the legacy flat shape. That still decodes,
+// because UnmarshalXML accepts both, so the values survive a round trip; but
+// the document would no longer match what the vendor writes, and every other
+// custom container in this package (Dhcpd, Interfaces, InterfaceList) pairs
+// its unmarshaler with a marshaler for exactly that reason.
+func (s SysctlItems) MarshalXML(e *xml.Encoder, start xml.StartElement) error {
+	if len(s) == 0 {
+		return nil
+	}
+
+	if err := e.EncodeToken(start); err != nil {
+		return err
+	}
+
+	itemStart := xml.StartElement{Name: xml.Name{Local: "item"}}
+	for i := range s {
+		if err := e.EncodeElement(s[i], itemStart); err != nil {
+			return err
+		}
+	}
+
+	return e.EncodeToken(xml.EndElement{Name: start.Name})
 }
 
 // System contains the core system configuration including hostname, domain, DNS, users, groups,

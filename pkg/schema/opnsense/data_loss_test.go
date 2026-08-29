@@ -2,6 +2,7 @@ package opnsense
 
 import (
 	"encoding/xml"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -166,4 +167,68 @@ func TestOpenVPNClient_CryptoFieldsAreParsed(t *testing.T) {
 	assert.Equal(t, "AES-256-GCM", client.Crypto)
 	assert.Equal(t, "SHA384", client.Digest)
 	assert.Equal(t, "AES-256-GCM", client.NCPCiphers)
+}
+
+func TestSysctlItems_PlaceholderItemIsDropped(t *testing.T) {
+	// The DTD makes every child of <item> optional, so a bare <item/> is valid
+	// and would otherwise unmarshal into an entry reporting a tunable that is
+	// not configured. Same phantom-entry class as GOTCHAS.md section 3.4.
+	tests := []struct {
+		name string
+		xml  string
+		want int
+	}{
+		{"bare placeholder", `<opnsense><sysctl><item/></sysctl></opnsense>`, 0},
+		{"placeholder among real entries", `<opnsense><sysctl>` +
+			`<item><tunable>net.inet.ip.redirect</tunable><value>0</value></item>` +
+			`<item/>` +
+			`<item><tunable>net.inet.tcp.blackhole</tunable><value>2</value></item>` +
+			`</sysctl></opnsense>`, 2},
+		{"description alone survives", `<opnsense><sysctl>` +
+			`<item><descr>documented but unset</descr></item></sysctl></opnsense>`, 1},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var doc OpnSenseDocument
+			require.NoError(t, xml.Unmarshal([]byte(tt.xml), &doc))
+			assert.Len(t, doc.Sysctl, tt.want)
+		})
+	}
+}
+
+func TestSysctlItems_MarshalsBackToTheContainerShape(t *testing.T) {
+	// Every other custom container in this package pairs its unmarshaler with a
+	// marshaler. Without one the encoder emits a <sysctl> element per tunable in
+	// the legacy flat shape, which still decodes but no longer matches what the
+	// vendor writes.
+	const in = `<opnsense><sysctl>` +
+		`<item><descr>a</descr><tunable>t1</tunable><value>1</value></item>` +
+		`<item><descr>b</descr><tunable>t2</tunable><value>2</value></item>` +
+		`</sysctl></opnsense>`
+
+	var doc OpnSenseDocument
+	require.NoError(t, xml.Unmarshal([]byte(in), &doc))
+	require.Len(t, doc.Sysctl, 2)
+
+	out, err := xml.Marshal(&doc)
+	require.NoError(t, err)
+
+	rendered := string(out)
+	assert.Equal(t, 1, strings.Count(rendered, "<sysctl>"),
+		"exactly one container, not one element per tunable")
+	assert.Equal(t, 2, strings.Count(rendered, "<item>"),
+		"one <item> child per tunable")
+
+	var back OpnSenseDocument
+	require.NoError(t, xml.Unmarshal(out, &back))
+	assert.Equal(t, doc.Sysctl, back.Sysctl, "round trip must preserve every tunable")
+}
+
+func TestSysctlItems_MarshalsNothingWhenEmpty(t *testing.T) {
+	var doc OpnSenseDocument
+	out, err := xml.Marshal(&doc)
+	require.NoError(t, err)
+	assert.NotContains(t, string(out), "<sysctl>",
+		"an empty list must not emit an empty container")
 }
