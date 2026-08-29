@@ -209,29 +209,55 @@ func (e *Engine) addReorderChanges(result *Result) {
 
 // detectFirewallReorders uses the order detector to find reordered firewall rules.
 func (e *Engine) detectFirewallReorders() []Change {
-	oldUUIDs := extractRuleUUIDs(e.oldConfig.FirewallRules)
-	newUUIDs := extractRuleUUIDs(e.newConfig.FirewallRules)
+	oldIDs := extractRuleIdentities(e.oldConfig.FirewallRules)
+	newIDs := extractRuleIdentities(e.newConfig.FirewallRules)
 
-	reorders := e.orderDetector.DetectReorders(oldUUIDs, newUUIDs)
+	reorders := e.orderDetector.DetectReorders(oldIDs, newIDs)
 	changes := make([]Change, 0, len(reorders))
 	for _, r := range reorders {
 		changes = append(changes, Change{
 			Type:        ChangeReordered,
 			Section:     SectionFirewall,
-			Path:        fmt.Sprintf("filter.rule[uuid=%s]", r.ID),
+			Path:        "filter.rule[" + r.ID + "]",
 			Description: fmt.Sprintf("Rule moved from position %d to %d", r.OldPosition, r.NewPosition),
 		})
 	}
 	return changes
 }
 
-// extractRuleUUIDs returns the ordered list of UUIDs from firewall rules.
-func extractRuleUUIDs(rules []common.FirewallRule) []string {
-	uuids := make([]string, 0, len(rules))
+// ruleIdentity returns the stable identifier a rule can be tracked by across
+// two configs: its UUID when it has one, otherwise its pfSense <tracker>. The
+// second return is false when the rule carries neither, in which case it cannot
+// participate in order detection -- a rule with no identity is
+// indistinguishable from its peers, so "it moved" is not a claim that can be
+// made about it.
+func ruleIdentity(rule common.FirewallRule) (string, bool) {
+	if rule.UUID != "" {
+		return "uuid=" + rule.UUID, true
+	}
+
+	if rule.Tracker != "" {
+		return "tracker=" + rule.Tracker, true
+	}
+
+	return "", false
+}
+
+// extractRuleIdentities returns the ordered identifiers of the rules that have
+// one.
+//
+// This previously read UUIDs only, so it returned an empty list for any config
+// whose rules carry no <uuid> -- which is every pfSense config and every older
+// OPNsense one. DetectReorders then had nothing to compare and --detect-order
+// was a documented flag that silently did nothing for most real inputs.
+func extractRuleIdentities(rules []common.FirewallRule) []string {
+	ids := make([]string, 0, len(rules))
+
 	for _, r := range rules {
-		if r.UUID != "" {
-			uuids = append(uuids, r.UUID)
+		if id, ok := ruleIdentity(r); ok {
+			ids = append(ids, id)
 		}
 	}
-	return uuids
+
+	return ids
 }

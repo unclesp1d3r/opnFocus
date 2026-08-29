@@ -78,12 +78,21 @@ func (a *Analyzer) CompareUsers(old, newCfg []common.User) []Change {
 	return changes
 }
 
-// usersEqual reports whether two users are semantically equal by comparing
-// their name, description, scope, group, and disabled state.
+// usersEqual reports whether two users are semantically equal.
+//
+// It previously compared five of the model's seven fields, omitting UID and
+// APIKeys. A user gaining, losing or rotating an API credential therefore
+// produced no diff entry at all, which is the change an operator reviewing a
+// config most needs to see.
+//
+// When a field is added to common.User it belongs here.
+// TestUsersEqual_ComparesEveryUserField fails until it is.
 func usersEqual(a, b common.User) bool {
 	return a.Name == b.Name &&
 		a.Description == b.Description &&
 		a.Scope == b.Scope &&
 		a.GroupName == b.GroupName &&
-		a.Disabled == b.Disabled
+		a.Disabled == b.Disabled &&
+		a.UID == b.UID &&
+		slices.Equal(a.APIKeys, b.APIKeys)
 }
