@@ -58,7 +58,7 @@ version: v2.12.2   # comment says "should be handled by mise ... specified here 
 
 A routine tool bump moved mise to 2.13.2 and left `ci.yml` at 2.12.2. From then on the two ran **different linters**, and 2.13.2's staticcheck reports SA1019 deprecation hits that 2.12.2 does not:
 
-```
+```text
 golangci-lint 2.13.2 run ./...   ->  13 issues   exit 1     # just lint
 golangci-lint 2.12.2 run ./...   ->   0 issues   exit 0     # CI, same tree, same config
 ```
@@ -114,7 +114,7 @@ This is why `AGENTS.md` states the rule without an exception: *"Never dismiss wa
 ## When to Apply
 
 - `just ci-check` fails in a package your diff does not touch — resolve it, do not defer it or ask whether it counts.
-- You are adding a Go tool to a justfile recipe — put it in `mise.toml` under `[tools]` with a `go:` backend and call it by name. Never `go run …@latest`, which silently escapes the lockfile. (`security-tools` at `justfile:94` still has this shape and remains unfixed.)
+- You are adding a Go tool to a justfile recipe — put it in `mise.toml` under `[tools]` with a `go:` backend and call it by name. Never `go run …@latest`, which silently escapes the lockfile. (`install-security-tools` still has this shape, using `go install …@latest` for `gosec` and `cyclonedx-gomod` — a different command with the same lockfile-escaping problem.)
 - CI is green but local is red, or the reverse — compare the actual invocations before assuming environment drift. The arguments differ.
 
 ## Examples
@@ -136,9 +136,9 @@ Each suppression states its own reason, greps cleanly, dies with the line it gua
 
 **An untidy `go.mod` breaks the API snapshot tests, and the error does not mention go.mod.** `TestPublicAPISnapshot_*` diffs `go doc` output against a golden fixture. When `go.mod` needs tidying, `go doc` prefixes its output with a warning:
 
-```
+```text
 go: updates to go.mod needed; to update it:
-	go mod tidy
+ go mod tidy
 ```
 
 That warning lands inside the captured output, so all four snapshot tests fail with a diff whose first line is about go.mod and whose remaining hundreds of lines are the unchanged API surface. The signal is the top of the diff, not its size. A dependency-update commit that leaves `go 1.26` where `go mod tidy` wants `go 1.26.0` is enough to trigger it. Run `go mod tidy` and re-read the first line of the diff before assuming the public API actually changed.
