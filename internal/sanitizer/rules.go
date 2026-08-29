@@ -48,6 +48,15 @@ type Rule struct {
 	FieldPatterns []string
 	// ValueDetector is an optional function to detect sensitive values.
 	ValueDetector func(value string) bool
+	// FieldGuard optionally qualifies a FieldPatterns match against the value.
+	// A rule whose patterns are generic enough to match unrelated fields
+	// ("from", "to", "subnet") sets it to decline rather than consume the
+	// match: a rejected guard skips the rule and scanning continues, so a
+	// later rule or the value-detector pass can still claim the value.
+	// Declining inside the Redactor instead would consume the match and
+	// silently suppress every later rule -- see GOTCHAS.md section 19.2.
+	// The guard must not allocate: it runs on values the rule may not redact.
+	FieldGuard func(value string) bool
 	// Redactor performs the actual redaction using the mapper.
 	Redactor func(mapper *Mapper, fieldName, value string) string
 }
@@ -116,21 +125,55 @@ func (e *RuleEngine) ShouldRedactField(fieldName string) (bool, Rule) {
 		if !e.ruleActiveForMode(rule) {
 			continue
 		}
-		for _, pattern := range rule.FieldPatterns {
-			if fieldNameMatches(fieldName, pattern) {
-				return true, *rule
-			}
+		if ruleMatchesFieldName(rule, fieldName) {
+			return true, *rule
 		}
 	}
 	return false, Rule{}
+}
+
+// ShouldRedactFieldValue is ShouldRedactField with the candidate value in
+// hand, so a matched rule's FieldGuard can qualify the match. Prefer it
+// wherever the value is available: a guard that rejects skips the rule and
+// lets scanning continue, where ShouldRedactField would report a match that
+// the Redactor then declines, consuming it and blocking every later rule.
+func (e *RuleEngine) ShouldRedactFieldValue(fieldName, value string) (bool, Rule) {
+	for i := range e.rules {
+		rule := &e.rules[i]
+		if !e.ruleActiveForMode(rule) {
+			continue
+		}
+		if !ruleMatchesFieldName(rule, fieldName) {
+			continue
+		}
+		if rule.FieldGuard != nil && !rule.FieldGuard(value) {
+			continue
+		}
+
+		return true, *rule
+	}
+	return false, Rule{}
+}
+
+// ruleMatchesFieldName reports whether any of rule's FieldPatterns matches
+// fieldName. Shared so the guarded and unguarded lookups cannot drift.
+func ruleMatchesFieldName(rule *Rule, fieldName string) bool {
+	for _, pattern := range rule.FieldPatterns {
+		if fieldNameMatches(fieldName, pattern) {
+			return true
+		}
+	}
+
+	return false
 }
 
 // ShouldRedactValue determines if a value should be redacted based on its content.
 // Returns a copied Rule by value — see ShouldRedactField for the mutation-safety
 // contract.
 func (e *RuleEngine) ShouldRedactValue(fieldName, value string) (bool, Rule) {
-	// First check field-based rules
-	if should, rule := e.ShouldRedactField(fieldName); should {
+	// First check field-based rules, letting FieldGuard decline a match so
+	// the value-detector pass below can still see the value.
+	if should, rule := e.ShouldRedactFieldValue(fieldName, value); should {
 		return true, rule
 	}
 
@@ -552,13 +595,11 @@ func builtinRules() []Rule {
 			},
 			// No ValueDetector: redaction is purely field-name-driven.
 			// "from"/"to" are too generic for value-based matching across all fields.
+			// FieldGuard keeps those generic patterns from consuming a match on a
+			// non-IP value ("any", "lan", or an email address), which would block
+			// every later rule from seeing it.
+			FieldGuard: IsIP,
 			Redactor: func(m *Mapper, _, value string) string {
-				// Guard: field patterns like "from"/"to" can match non-IP values
-				// (e.g., "any", "lan"); only redact when the value is actually an IP.
-				// When the guard rejects, sanitizer.go counts it as SkippedFields.
-				if !IsIP(value) {
-					return value
-				}
 				if IsPublicIP(value) {
 					return m.MapPublicIP(value)
 				}
@@ -581,12 +622,11 @@ func builtinRules() []Rule {
 			// see sanitizeCharData/redactValueTokens in sanitizer.go — so each
 			// member is matched against this rule independently.
 			ValueDetector: IsSubnet,
-			Redactor: func(_ *Mapper, _, value string) string {
-				// Guard: field-pattern matches (e.g., "subnet") bypass the ValueDetector,
-				// so we must validate here too for non-CIDR values like "255.255.255.0".
-				if !IsSubnet(value) {
-					return value
-				}
+			// FieldGuard covers the field-pattern path, which bypasses the
+			// ValueDetector: without it a non-CIDR value like "255.255.255.0" or an
+			// email address matched on the field name alone and was consumed here.
+			FieldGuard: IsSubnet,
+			Redactor: func(_ *Mapper, _, _ string) string {
 				return redactedSubnetValue
 			},
 		},

@@ -71,16 +71,29 @@ func TestRedact_SubnetField_NonCIDRValue(t *testing.T) {
 
 	engine := NewRuleEngine(ModeAggressive)
 
-	// "subnet" field with non-CIDR values must pass through unchanged.
-	nonSubnetValues := []string{"255.255.255.0", "office network", "24", ""}
-	for _, val := range nonSubnetValues {
-		result := engine.Redact("subnet", val)
-		if result != val {
+	// A "subnet" field holding a non-CIDR value must never be redacted as a
+	// subnet. It may still be claimed by a later rule: FieldGuard declines the
+	// match rather than consuming it, so scanning continues. That is the point
+	// of the guard, and these two cases show both outcomes.
+	for _, val := range []string{"office network", "24", ""} {
+		if result := engine.Redact("subnet", val); result != val {
 			t.Errorf("Redact('subnet', %q) = %q, want unchanged", val, result)
 		}
 	}
 
-	// "subnet" field with a real CIDR should still be redacted.
+	// "255.255.255.0" is a netmask, not a CIDR, so subnet_field declines it --
+	// and the value-based public-IP rule then claims it, exactly as it already
+	// did in moderate mode. Before FieldGuard, subnet_field consumed the match
+	// and returned the value untouched, so aggressive leaked a value moderate
+	// redacted. Asserting the redaction here is what pins that fix.
+	if got := engine.Redact("subnet", "255.255.255.0"); got == "255.255.255.0" {
+		t.Errorf("Redact('subnet', '255.255.255.0') = %q, want it claimed by the public-IP rule", got)
+	}
+	if got := NewRuleEngine(ModeModerate).Redact("subnet", "255.255.255.0"); got == "255.255.255.0" {
+		t.Errorf("moderate must redact it too, else the monotonicity premise is wrong; got %q", got)
+	}
+
+	// A real CIDR is still redacted as a subnet.
 	result := engine.Redact("subnet", "192.168.1.0/24")
 	if result != "[REDACTED-SUBNET]" {
 		t.Errorf("Redact('subnet', '192.168.1.0/24') = %q, want '[REDACTED-SUBNET]'", result)

@@ -512,11 +512,21 @@ Kea's `<pools>` element on each `<subnet4>` stores newline-separated (`\n`) IP r
 
 ### 19.1 `authserver_config` Must Precede `password` in `builtinRules()`
 
-`ShouldRedactField` iterates the rule slice and returns on the first match. Both `authserver_config` and `password` match LDAP bind password fields — `authserver_config` via the exact pattern `authserver.ldap_bindpw`, and `password` via the `bindpw` substring (`pass` does not appear in `ldap_bindpw` and never matched it). The `authserver_config` rule pseudonymizes the value through `MapAuthServerValue`; the `password` rule flat-redacts to `[REDACTED-PASSWORD]`.
+`ShouldRedactField` iterates the rule slice and returns on the first match. Both `authserver_config` and `password` match LDAP bind password fields — `authserver_config` via the exact pattern `authserver.ldap_bindpw`, and `password` via the `pass` substring. The `authserver_config` rule pseudonymizes the value through `MapAuthServerValue`; the `password` rule flat-redacts to `[REDACTED-PASSWORD]`.
 
 - **Problem:** If `password` is moved above `authserver_config` in the `builtinRules()` slice, `ldap_bindpw` values silently switch from pseudonymized to flat-redacted. No error or warning is emitted.
 - **Symptom:** Sanitized output shows `[REDACTED-PASSWORD]` for LDAP bind passwords instead of a pseudonymized value like `ldap-bindpw-001`.
 - **Fix:** Ensure `authserver_config` remains the first rule in `builtinRules()`. The same first-match precedence applies to `email` vs `hostname` (email must precede hostname).
+
+### 19.2 A Rule That Declines Inside Its Redactor Consumes the Match
+
+First-match precedence has a second edge. A rule can match on field name and then decide, inside its `Redactor`, that it does not want the value after all — `ip_address_field` and `subnet_field` both did this, returning the value unchanged when it was not an IP or not a CIDR. That reads like declining, but the match was already consumed: `ShouldRedactField` had returned, so no later rule and no value-detector pass ever saw the value.
+
+- **Symptom:** aggressive mode leaks values moderate redacts. Both offending rules are aggressive-only, so in moderate they are inactive and the value falls through to the detectors normally. An email in `<subnet>` or `<from>` was pseudonymized in moderate and emitted verbatim in aggressive — the higher-privacy mode being the leaky one.
+- **Not caught by the fixtures.** No shipped config puts an email address in a `<subnet>` or `<from>` element, so a fixture sweep passes against the broken code. `TestModes_AggressiveRedactsEverythingModerateDoes_Synthetic` carries the invariant on probes built to trigger it; the fixture sweep beside it is the regression net for real-world shapes and is expected to be quiet.
+- **Fix:** declare the qualification on the rule as `FieldGuard func(value string) bool` rather than implementing it in the `Redactor`. A rejected guard skips the rule and scanning continues. `ShouldRedactFieldValue` applies it wherever the value is in hand; `ShouldRedactField` remains name-only for callers that genuinely have no value.
+- **Why not fall through whenever a `Redactor` returns its input unchanged?** That would mean invoking redactors speculatively, and redactors allocate pseudonyms in the `Mapper` that surface in the mapping report. Today's redactors happen to return before touching the mapper, but that is the same unenforced discipline whose absence caused this. A `FieldGuard` cannot allocate.
+- **Adding a rule with generic patterns?** Patterns like `from`, `to`, or `subnet` match fields that have nothing to do with the rule. Give it a `FieldGuard`; do not test the value inside the `Redactor`.
 
 ## 20. pfSense Validator Injection
 

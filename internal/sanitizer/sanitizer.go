@@ -250,10 +250,10 @@ func (s *Sanitizer) sanitizeCharData(content string, pathStack []string) string 
 	// (e.g. "key") are anchored on the terminal path segment, so they match
 	// either lookup: "system.key" on the full path and "key" on the bare
 	// name both resolve to the same segment.
-	if should, rule := s.engine.ShouldRedactField(fullPath); should {
+	if should, rule := s.engine.ShouldRedactFieldValue(fullPath, content); should {
 		return s.redactWholeValue(rule, fullPath, content)
 	}
-	if should, rule := s.engine.ShouldRedactField(currentElement); should {
+	if should, rule := s.engine.ShouldRedactFieldValue(currentElement, content); should {
 		return s.redactWholeValue(rule, currentElement, content)
 	}
 
