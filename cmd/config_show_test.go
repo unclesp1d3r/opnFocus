@@ -235,8 +235,10 @@ func TestFormatValueForDisplay(t *testing.T) {
 }
 
 func TestBuildConfigValues(t *testing.T) {
+	//nolint:staticcheck // SA1019: exercising deprecated flat field for backward-compat coverage.
 	cfg := &config.Config{
-		Verbose:    true,
+		Verbose: true,
+
 		Format:     "json",
 		WrapWidth:  80,
 		JSONOutput: true,
@@ -275,6 +277,7 @@ func TestConfigShowCmdJSONOutput(t *testing.T) {
 	testLogger, err := logging.New(logging.Config{Level: "info"})
 	require.NoError(t, err)
 
+	//nolint:staticcheck // SA1019: exercising deprecated flat field for backward-compat coverage.
 	cfg := &config.Config{
 		Format:    "markdown",
 		WrapWidth: -1,
@@ -321,8 +324,10 @@ func TestConfigShowCmdStyledOutput(t *testing.T) {
 	testLogger, err := logging.New(logging.Config{Level: "info"})
 	require.NoError(t, err)
 
+	//nolint:staticcheck // SA1019: exercising deprecated flat field for backward-compat coverage.
 	cfg := &config.Config{
-		Format:  "json",
+		Format: "json",
+
 		Verbose: true,
 	}
 

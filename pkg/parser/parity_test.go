@@ -58,7 +58,8 @@ func TestCommonDeviceSubsystemParity(t *testing.T) {
 				"pfSense converter did not emit a ConversionWarning for known-gap subsystem %q; "+
 					"expected Field=%q and Message=%q. Either remove %q from pfsenseKnownGaps "+
 					"or restore the warning emission in emitKnownGapWarnings().",
-				gap, gap, pfsense.PfsenseKnownGapMessage, gap)
+				gap, gap, pfsense.PfsenseKnownGapMessage, gap,
+			)
 		}
 	}
 
@@ -91,7 +92,8 @@ func TestCommonDeviceSubsystemParity(t *testing.T) {
 			"pfSense silently drops the %s subsystem that OPNsense populates; "+
 				"either implement it in the pfSense converter or add %q to "+
 				"pfsenseKnownGaps with a ConversionWarning.",
-			fieldName, fieldName)
+			fieldName, fieldName,
+		)
 	}
 }
 
