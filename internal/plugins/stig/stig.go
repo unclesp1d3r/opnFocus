@@ -372,6 +372,23 @@ func (sp *Plugin) hasDefaultDenyPolicy(device *common.CommonDevice) bool {
 // hasOverlyPermissiveRules checks whether the device contains firewall pass rules with
 // overly broad source or destination addresses, wide network ranges, or missing port
 // restrictions that violate STIG packet-filtering requirements.
+// isBroadEndpoint reports whether an endpoint still matches a broad swathe of
+// hosts once its inverted-match flag is taken into account.
+//
+// broadNetworks holds the wildcards themselves ("any", 0.0.0.0/0, ::/0)
+// alongside genuinely large but bounded ranges. Those two halves invert
+// differently: a negated wildcard matches nothing and is not broad, while a
+// negated bounded range is everything outside it and stays broad. Testing
+// membership on the raw address alone would keep reporting a rule that matches
+// no traffic as overly permissive.
+func isBroadEndpoint(ep common.RuleEndpoint, addr string) bool {
+	if ep.Negated && analysis.IsAnyAddress(addr) {
+		return false
+	}
+
+	return slices.Contains(broadNetworks, addr)
+}
+
 func (sp *Plugin) hasOverlyPermissiveRules(device *common.CommonDevice) bool {
 	// Check for overly permissive firewall rules
 	rules := device.FirewallRules
@@ -384,14 +401,11 @@ func (sp *Plugin) hasOverlyPermissiveRules(device *common.CommonDevice) bool {
 		srcTarget := rule.Source.Address
 		dstTarget := rule.Destination.Address
 
-		// Only the wildcard half consults Negated. A negated broad network is
-		// still broad (everything outside it), so the broadNetworks membership
-		// test is deliberately left on the raw address.
 		srcAny := analysis.IsAnyEndpoint(rule.Source)
 		dstAny := analysis.IsAnyEndpoint(rule.Destination)
 
-		srcBroad := srcAny || slices.Contains(broadNetworks, srcTarget)
-		dstBroad := dstAny || slices.Contains(broadNetworks, dstTarget)
+		srcBroad := srcAny || isBroadEndpoint(rule.Source, srcTarget)
+		dstBroad := dstAny || isBroadEndpoint(rule.Destination, dstTarget)
 
 		// Check for "any/any" rules (most permissive)
 		if srcAny && dstAny {
