@@ -48,7 +48,9 @@ func NewXMLParser() *XMLParser {
 // against XML bombs, XXE attacks, and excessive entity expansion.
 // The context is checked periodically to support cancellation of long-running parse operations.
 func (p *XMLParser) Parse(ctx context.Context, r io.Reader) (*schema.OpnSenseDocument, error) {
-	dec := parser.NewSecureXMLDecoder(r, p.MaxInputSize)
+	// Tracked so an oversized config is reported as oversized rather than as
+	// the "unexpected EOF" the truncated stream would otherwise produce.
+	dec, tracker := parser.NewSecureXMLDecoderTracked(r, p.MaxInputSize)
 	// OPNsense-specific decoder settings for streaming token parsing.
 	dec.DefaultSpace = ""
 	dec.AutoClose = xml.HTMLAutoClose
@@ -67,12 +69,12 @@ func (p *XMLParser) Parse(ctx context.Context, r io.Reader) (*schema.OpnSenseDoc
 			break
 		}
 		if err != nil {
-			return nil, handleXMLError(err, dec)
+			return nil, handleXMLError(err, dec, tracker, p.MaxInputSize)
 		}
 
 		if startElem, ok := tok.(xml.StartElement); ok {
 			if err := handleStartElement(dec, &doc, startElem); err != nil {
-				return nil, err
+				return nil, annotateTruncation(err, tracker, p.MaxInputSize)
 			}
 		}
 
@@ -87,14 +89,30 @@ func (p *XMLParser) Parse(ctx context.Context, r io.Reader) (*schema.OpnSenseDoc
 		return nil, ErrMissingOpnSenseDocumentRoot
 	}
 
+	// A decode can succeed with input still beyond the cap: the loop stops on
+	// the closing root tag and never asks for another byte. Returning success
+	// there silently accepts an oversized config and discards whatever
+	// followed, which is the opposite of what the limit is for.
+	if tracker != nil && tracker.Truncated() {
+		return nil, fmt.Errorf("%w (limit %d bytes)", parser.ErrInputTooLarge, p.MaxInputSize)
+	}
+
 	return &doc, nil
 }
 
-// handleXMLError processes XML syntax errors.
-func handleXMLError(err error, dec *xml.Decoder) error {
+// handleXMLError processes XML syntax errors. When tracker reports the input
+// was truncated by the size cap, the cap is named as the cause: the truncated
+// stream reaches encoding/xml as an unexpected EOF, which reads as a corrupt
+// document and sends the operator after the wrong problem.
+func handleXMLError(err error, dec *xml.Decoder, tracker parser.TruncationTracker, maxSize int64) error {
+	if tracker != nil && tracker.Truncated() {
+		return annotateTruncation(err, tracker, maxSize)
+	}
+
 	if wrappedErr := WrapXMLSyntaxErrorWithOffset(err, "opnsense", dec); wrappedErr != nil {
 		return fmt.Errorf("failed to decode XML: %w", wrappedErr)
 	}
+
 	return fmt.Errorf("failed to read token: %w", err)
 }
 
@@ -288,4 +306,16 @@ func skipElement(dec *xml.Decoder) error {
 	}
 
 	return nil
+}
+
+// annotateTruncation names the size cap as the cause when tracker reports the
+// input was cut short. A truncated stream reaches encoding/xml as an unexpected
+// EOF, which reads as a corrupt document and sends the operator after the wrong
+// problem. Returns err unchanged when the input was not truncated.
+func annotateTruncation(err error, tracker parser.TruncationTracker, maxSize int64) error {
+	if err == nil || tracker == nil || !tracker.Truncated() {
+		return err
+	}
+
+	return fmt.Errorf("%w (limit %d bytes): %w", parser.ErrInputTooLarge, maxSize, err)
 }
