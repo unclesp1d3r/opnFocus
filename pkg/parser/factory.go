@@ -226,9 +226,12 @@ func peekRootElementBounded(ctx context.Context, r io.Reader) (string, io.Reader
 	limited := io.LimitReader(newCtxReader(ctx, r), DefaultMaxInputSize)
 	tee := io.TeeReader(limited, &buf)
 	dec := xml.NewDecoder(tee)
-	// Same charset reader the device parsers use. Root-element detection runs
-	// before them, so a charset this rejects is a charset the tool refuses
-	// outright, whatever the parser downstream supports.
+	// Same charset reader the device parsers use. This peek only runs on the
+	// auto-detect path; createWithOverride skips it and goes straight to the
+	// device parser, whose decoder installs the identical CharsetReader. Both
+	// paths therefore accept the same set. They diverged before: this peek had
+	// its own narrower reader, so a Windows-1252 config parsed with an explicit
+	// --device-type but was rejected without one.
 	dec.CharsetReader = CharsetReader
 
 	ch := make(chan peekResult, 1)

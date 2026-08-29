@@ -360,15 +360,20 @@ func TestFactory_AcceptedCharsets(t *testing.T) {
 // document is decoded, not merely accepted.
 //
 // Regression: root-element detection used its own charset reader that accepted
-// only us-ascii, iso-8859-1, latin-1 and utf-8. Detection runs before the
-// device parsers, so a Windows-1252 config was rejected outright even though
-// CharsetReader supports it and five documentation pages list it as supported.
-// The failure surfaced as "unsupported device type: no root XML element found",
-// which points at the wrong problem.
+// only us-ascii, iso-8859-1, latin-1 and utf-8, while the device parsers used
+// the broader CharsetReader. The two disagreed, so a Windows-1252 config —
+// documented as supported — parsed with an explicit --device-type but was
+// rejected on the auto-detect path, as "unsupported device type: no root XML
+// element found", which points at the wrong problem.
 //
-// 0x93 and 0x94 are the curly quotes. They are undefined in ISO-8859-1, so
-// decoding them correctly proves the Windows-1252 table was applied rather than
-// the bytes being passed through.
+// This exercises the whole pipeline rather than the peek alone: detection stops
+// at the root element name, which is ASCII either way, so the transcoding under
+// test happens in the device parser reading the replayed raw bytes.
+//
+// 0x93 and 0x94 are the Windows-1252 curly quotes. ISO-8859-1 also maps those
+// bytes, to the C1 controls U+0093 and U+0094, so asserting on the quotes
+// discriminates between the two tables — and against the bytes being passed
+// through undecoded, which is not valid UTF-8.
 func TestFactory_Windows1252_DecodesHighBytes(t *testing.T) {
 	t.Parallel()
 
