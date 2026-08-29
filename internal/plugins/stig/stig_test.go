@@ -529,3 +529,90 @@ func TestPlugin_analyzeLoggingConfiguration(t *testing.T) {
 		})
 	}
 }
+
+// TestHasOverlyPermissiveRules_NegatedWildcardIsNotBroad covers the half of the
+// broad-network test that inverts. broadNetworks holds the wildcards ("any",
+// 0.0.0.0/0, ::/0) alongside genuinely large but bounded ranges, and the two
+// invert differently: a negated wildcard matches nothing and is not broad,
+// while a negated bounded range is everything outside it and stays broad.
+// Testing membership on the raw address alone reported a rule that matches no
+// traffic as overly permissive.
+func TestHasOverlyPermissiveRules_NegatedWildcardIsNotBroad(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name    string
+		address string
+		negated bool
+		want    bool
+	}{
+		{"any", "any", false, true},
+		{"wildcard v4", "0.0.0.0/0", false, true},
+		{"wildcard v6", "::/0", false, true},
+		{"bounded broad range", "10.0.0.0/8", false, true},
+
+		// Negating a wildcard yields the empty set.
+		{"negated any", "any", true, false},
+		{"negated wildcard v4", "0.0.0.0/0", true, false},
+		{"negated wildcard v6", "::/0", true, false},
+
+		// Negating a bounded range leaves everything outside it, still broad.
+		{"negated bounded range", "10.0.0.0/8", true, true},
+
+		// An omitted endpoint is a wildcard, so its negation is the empty set too.
+		{"empty address", "", false, true},
+		{"negated empty address", "", true, false},
+
+		{"scoped host", "192.168.1.5", false, false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			device := &common.CommonDevice{FirewallRules: []common.FirewallRule{{
+				Type:        common.RuleTypePass,
+				Source:      common.RuleEndpoint{Address: tt.address, Negated: tt.negated},
+				Destination: common.RuleEndpoint{Address: tt.address, Negated: tt.negated},
+			}}}
+
+			got := (&Plugin{}).hasOverlyPermissiveRules(device)
+			if got != tt.want {
+				t.Errorf("hasOverlyPermissiveRules(%q, negated=%v) = %v, want %v",
+					tt.address, tt.negated, got, tt.want)
+			}
+		})
+	}
+}
+
+// TestHasOverlyPermissiveRules_DisabledRuleIsNotPermissive guards the other
+// consequence of treating an omitted address as a wildcard: a disabled pass
+// rule with no endpoints set now looks maximally permissive rather than unset,
+// even though it forwards nothing.
+func TestHasOverlyPermissiveRules_DisabledRuleIsNotPermissive(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name     string
+		disabled bool
+		want     bool
+	}{
+		{"enabled any/any rule is permissive", false, true},
+		{"disabled any/any rule forwards nothing", true, false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			device := &common.CommonDevice{FirewallRules: []common.FirewallRule{{
+				Type:     common.RuleTypePass,
+				Disabled: tt.disabled,
+			}}}
+
+			if got := (&Plugin{}).hasOverlyPermissiveRules(device); got != tt.want {
+				t.Errorf("hasOverlyPermissiveRules(disabled=%v) = %v, want %v", tt.disabled, got, tt.want)
+			}
+		})
+	}
+}

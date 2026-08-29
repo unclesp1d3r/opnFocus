@@ -153,6 +153,21 @@ OPNsense and pfSense write a self-closing placeholder inside a container when no
 - **Adding a field to a guarded struct?** `TestIsPlaceholder_EveryFieldDefeatsPlaceholder_NoFieldIsSilentlyUncovered` (`pkg/schema/opnsense/placeholder_test.go`) sets each non-`XMLName` field in isolation and asserts the entry survives, so a field missing from a predicate fails there instead of silently dropping real config. It has no allowlist to drift, and a field type it cannot populate fails loudly rather than being skipped — extend the test and the predicate together.
 - **Eight element types are guarded**, matching every `EMPTY` declaration `testdata/opnsense-config.dtd` makes for a repeated element: `route`, `bridged`, `ppp`, `gif`, `gre`, `lagg`, `vip`, and `vlan`. When adding a repeated-element container, grep that DTD for `<!ELEMENT <name> EMPTY>` — a hit means the vendor emits a placeholder and the converter needs a guard. Do not assume a container is clean because no phantom has been reported: the second five were found only because the first three were fixed and someone re-checked the DTD against the fixture.
 
+### 3.5 "any" Has Four Spellings in the Common Model
+
+An endpoint that matches every host reaches `common.RuleEndpoint.Address` as any of four values, and a check comparing against one of them misses the rest:
+
+- `"any"` -- what the converters normalize `<any/>`, `<any>1</any>` and `<network>any</network>` to
+- any casing of it -- the vendor XML is not case-normalized
+- `""` -- an omitted or empty `<source>`/`<destination>` element; a rule with no source matches every source, and `testdata/gateway_groups_test.xml` contains such a `<rule>`
+- `0.0.0.0/0` and `::/0` -- what automation and hand-edited configs write
+
+**Use `analysis.IsAnyEndpoint` / `analysis.IsAnyPort` / `analysis.IsAnyProtocol` / `analysis.IsWideOpenPassRule`**, never a bare `== constants.NetworkAny`. Reach for `IsAnyEndpoint` rather than `IsAnyAddress` whenever you hold a `common.RuleEndpoint`: the endpoint also carries `Negated`, and a negated wildcard matches nothing rather than everything. Sixteen sites across `internal/plugins/{firewall,sans,stig}` and `internal/analysis/{detect,engine}` had the bare comparison, so a WAN pass rule matching all traffic reported compliant on FIREWALL-022 and FIREWALL-023.
+
+- **Detection:** build the same rule five ways (`any`, `ANY`, `""`, `0.0.0.0/0`, `::/0`) and assert the check fires on all five. `TestFirewallPlugin_AnyAnyPassRule_AllAnySpellings` is the pattern.
+- **Deliberately not converted:** `isBlockAllRule` and `isTerminalDenyRule` in `detect.go` identify *default-deny* rules, so widening them widens an exemption rather than a detection, and `isBlockAllRule` carries a byte-for-byte legacy output contract. `isAnyAddressSet` in `overlap.go` also stays as-is: the overlap engine does real CIDR containment, where treating `0.0.0.0/0` as an unconditional wildcard would make it cover IPv6 targets it cannot match.
+- **Test fixtures:** hand-built `common.FirewallRule` values that leave `Source` unset now read as "any source". Pin an explicit address when a test is about something else, or it will trip the permissive-rule detectors.
+
 ## 4. Diff Engine
 
 ### 4.1 Section-Level Added/Removed Guards
