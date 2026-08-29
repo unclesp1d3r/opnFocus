@@ -24,9 +24,13 @@ jobs:
           cache: true
           github_token: ${{ secrets.GITHUB_TOKEN }}
 
-      - uses: golangci/golangci-lint-action@ba0d7d2ec06a0ea1cb5fa41b2e4a3ab91d21278a # v9 # The version should be handled by mise, but we specify it here to ensure consistency
+      # Keep `version` in lockstep with the golangci-lint pin in mise.toml.
+      # These are two independent pins: mise drives `just lint` locally, this
+      # one drives CI. When they drift, CI and developers run different
+      # linters against the same tree and CI silently becomes the weaker gate.
+      - uses: golangci/golangci-lint-action@ba0d7d2ec06a0ea1cb5fa41b2e4a3ab91d21278a # v9
         with:
-          version: v2.12.2
+          version: v2.13.2
 
   # ─────────────────────────────────────────────────────────────────────────
   # Test - Run tests across platforms and Go versions
