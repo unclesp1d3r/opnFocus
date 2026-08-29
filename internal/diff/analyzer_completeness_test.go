@@ -36,8 +36,7 @@ func varyField(v reflect.Value) bool {
 
 		return true
 	case reflect.Struct:
-		for i := range v.NumField() {
-			f := v.Field(i)
+		for _, f := range v.Fields() {
 			if f.Kind() == reflect.String && f.CanSet() {
 				f.SetString("diff-probe")
 

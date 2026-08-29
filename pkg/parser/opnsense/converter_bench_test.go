@@ -91,33 +91,33 @@ func buildNATRuleEndpoints(i int, anyPresent *string) (schema.Source, schema.Des
 	switch i % 4 {
 	case 0:
 		return schema.Source{
-				Network: fmt.Sprintf("10.%d.0.0/24", i),
-				Port:    "1024",
-			}, schema.Destination{
-				Network: fmt.Sprintf("172.16.%d.0/24", i),
-				Port:    "443",
-			}
+			Network: fmt.Sprintf("10.%d.0.0/24", i),
+			Port:    "1024",
+		}, schema.Destination{
+			Network: fmt.Sprintf("172.16.%d.0/24", i),
+			Port:    "443",
+		}
 	case 1:
 		return schema.Source{
-				Address: fmt.Sprintf("203.0.113.%d", i%256),
-				Port:    "32768",
-			}, schema.Destination{
-				Address: fmt.Sprintf("198.51.100.%d", i%256),
-				Port:    "80",
-			}
+			Address: fmt.Sprintf("203.0.113.%d", i%256),
+			Port:    "32768",
+		}, schema.Destination{
+			Address: fmt.Sprintf("198.51.100.%d", i%256),
+			Port:    "80",
+		}
 	case 2:
 		return schema.Source{
-				Any: anyPresent,
-			}, schema.Destination{
-				Network: fmt.Sprintf("10.%d.1.0/24", i),
-				Port:    "53",
-			}
+			Any: anyPresent,
+		}, schema.Destination{
+			Network: fmt.Sprintf("10.%d.1.0/24", i),
+			Port:    "53",
+		}
 	default:
 		return schema.Source{
-				Network: fmt.Sprintf("10.%d.2.0/24", i),
-			}, schema.Destination{
-				Any: anyPresent,
-			}
+			Network: fmt.Sprintf("10.%d.2.0/24", i),
+		}, schema.Destination{
+			Any: anyPresent,
+		}
 	}
 }
 

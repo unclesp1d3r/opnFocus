@@ -88,6 +88,7 @@ func TestMultiFileConvertWritesSeparateDocuments(t *testing.T) {
 	cmd := &cobra.Command{Use: "test"}
 	cmd.SetOut(&stdout)
 	cmd.SetContext(context.Background())
+	//nolint:staticcheck // SA1019: exercising deprecated flat field for backward-compat coverage.
 	SetCommandContext(cmd, &CommandContext{
 		Config: &config.Config{Format: "json"},
 		Logger: testLogger,
