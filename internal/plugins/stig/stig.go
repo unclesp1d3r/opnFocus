@@ -356,7 +356,11 @@ func (sp *Plugin) hasDefaultDenyPolicy(device *common.CommonDevice) bool {
 	hasAnyAnyAllow := false
 
 	for _, rule := range rules {
-		if rule.Type == common.RuleTypePass {
+		// A disabled rule overrides nothing, so it cannot defeat a default-deny
+		// policy. Now that an omitted address counts as a wildcard, skipping
+		// them keeps a disabled rule with no endpoints set from reading as
+		// any/any.
+		if !rule.Disabled && rule.Type == common.RuleTypePass {
 			if analysis.IsAnyEndpoint(rule.Source) && analysis.IsAnyEndpoint(rule.Destination) {
 				hasAnyAnyAllow = true
 				break
@@ -369,9 +373,6 @@ func (sp *Plugin) hasDefaultDenyPolicy(device *common.CommonDevice) bool {
 	return hasExplicitDeny && !hasAnyAnyAllow
 }
 
-// hasOverlyPermissiveRules checks whether the device contains firewall pass rules with
-// overly broad source or destination addresses, wide network ranges, or missing port
-// restrictions that violate STIG packet-filtering requirements.
 // isBroadEndpoint reports whether an endpoint still matches a broad swathe of
 // hosts once its inverted-match flag is taken into account.
 //
@@ -389,12 +390,19 @@ func isBroadEndpoint(ep common.RuleEndpoint, addr string) bool {
 	return slices.Contains(broadNetworks, addr)
 }
 
+// hasOverlyPermissiveRules checks whether the device contains firewall pass rules with
+// overly broad source or destination addresses, wide network ranges, or missing port
+// restrictions that violate STIG packet-filtering requirements.
+//
+// Disabled rules are skipped: they forward nothing, so they cannot be overly
+// permissive. That matters now an omitted address counts as a wildcard, which
+// makes a disabled rule with no endpoints set look maximally broad.
 func (sp *Plugin) hasOverlyPermissiveRules(device *common.CommonDevice) bool {
 	// Check for overly permissive firewall rules
 	rules := device.FirewallRules
 
 	for _, rule := range rules {
-		if rule.Type != common.RuleTypePass {
+		if rule.Disabled || rule.Type != common.RuleTypePass {
 			continue
 		}
 
