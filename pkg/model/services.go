@@ -1,6 +1,6 @@
 package model
 
-import "slices"
+import "strings"
 
 // DHCPAdvancedV4 contains advanced DHCPv4 configuration fields including alias/reject,
 // DNS overrides, protocol timing, send/request/required options, and config overrides.
@@ -194,13 +194,24 @@ type DHCPScope struct {
 // deprecated DNSServer field in sync with the first entry so the two cannot
 // drift.
 //
-// The slice is copied: retaining the caller's would let a later write to
-// servers[0] change DNSServers while DNSServer kept the old value, which is
-// exactly the drift this method exists to prevent.
+// Entries are trimmed and empty ones dropped, and an all-empty input clears the
+// field to nil rather than leaving a slice of blanks. Both vendors write a
+// self-closing <dnsserver/> placeholder when nothing is configured, which
+// unmarshals to "" (GOTCHAS 3.4); keeping those would publish phantom entries
+// that omitempty cannot suppress, and a placeholder ordered ahead of a real
+// server would put "" in DNSServer and report the scope as having no resolver.
+// Matches splitNonEmpty's convention in the OPNsense converter.
+//
+// The caller's slice is never retained: entries are appended into a fresh one,
+// so a later write to servers[0] cannot change DNSServers while DNSServer keeps
+// the old value.
 func (s *DHCPScope) SetDNSServers(servers []string) {
 	s.DNSServers = nil
-	if len(servers) > 0 {
-		s.DNSServers = slices.Clone(servers)
+
+	for _, server := range servers {
+		if trimmed := strings.TrimSpace(server); trimmed != "" {
+			s.DNSServers = append(s.DNSServers, trimmed)
+		}
 	}
 
 	s.DNSServer = ""

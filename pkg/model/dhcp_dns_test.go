@@ -75,3 +75,45 @@ func TestDHCPScope_SetDNSServers_CopiesInput(t *testing.T) {
 		"the stored slice must not alias the caller's")
 	assert.Equal(t, scope.DNSServers[0], scope.DNSServer, "the two must stay in sync")
 }
+
+// TestDHCPScope_SetDNSServers_DropsPlaceholders guards against phantom
+// entries. Both vendors write a self-closing <dnsserver/> when nothing is
+// configured, which unmarshals to "" (GOTCHAS 3.4). Keeping those would
+// publish a dnsServers array of blanks that omitempty cannot suppress, and a
+// placeholder ordered ahead of a real server would put "" in the deprecated
+// scalar and report the scope as having no resolver at all.
+func TestDHCPScope_SetDNSServers_DropsPlaceholders(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name       string
+		in         []string
+		wantSlice  []string
+		wantScalar string
+	}{
+		{"single placeholder", []string{""}, nil, ""},
+		{"two placeholders", []string{"", ""}, nil, ""},
+		{"whitespace only", []string{"   "}, nil, ""},
+		{"real then placeholder", []string{"10.0.0.1", ""}, []string{"10.0.0.1"}, "10.0.0.1"},
+		{"placeholder then real", []string{"", "10.0.0.1"}, []string{"10.0.0.1"}, "10.0.0.1"},
+		{"placeholder between", []string{"10.0.0.1", "", "10.0.0.2"}, []string{"10.0.0.1", "10.0.0.2"}, "10.0.0.1"},
+		{"padded values trimmed", []string{" 10.0.0.1 "}, []string{"10.0.0.1"}, "10.0.0.1"},
+		{"nil input", nil, nil, ""},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			var scope common.DHCPScope
+			scope.SetDNSServers(tt.in)
+
+			assert.Equal(t, tt.wantSlice, scope.DNSServers, "DNSServers")
+			assert.Equal(t, tt.wantScalar, scope.DNSServer, "deprecated scalar")
+
+			if len(scope.DNSServers) > 0 {
+				assert.Equal(t, scope.DNSServers[0], scope.DNSServer, "the two must stay in sync")
+			}
+		})
+	}
+}
