@@ -96,33 +96,33 @@ func buildPfSenseNATRuleEndpoints(i int, anyPresent *string) (opnsense.Source, o
 	switch i % 4 {
 	case 0:
 		return opnsense.Source{
-				Network: fmt.Sprintf("10.%d.0.0/24", i),
-				Port:    "1024",
-			}, opnsense.Destination{
-				Network: fmt.Sprintf("172.16.%d.0/24", i),
-				Port:    "443",
-			}
+			Network: fmt.Sprintf("10.%d.0.0/24", i),
+			Port:    "1024",
+		}, opnsense.Destination{
+			Network: fmt.Sprintf("172.16.%d.0/24", i),
+			Port:    "443",
+		}
 	case 1:
 		return opnsense.Source{
-				Address: fmt.Sprintf("203.0.113.%d", i%256),
-				Port:    "32768",
-			}, opnsense.Destination{
-				Address: fmt.Sprintf("198.51.100.%d", i%256),
-				Port:    "80",
-			}
+			Address: fmt.Sprintf("203.0.113.%d", i%256),
+			Port:    "32768",
+		}, opnsense.Destination{
+			Address: fmt.Sprintf("198.51.100.%d", i%256),
+			Port:    "80",
+		}
 	case 2:
 		return opnsense.Source{
-				Any: anyPresent,
-			}, opnsense.Destination{
-				Network: fmt.Sprintf("10.%d.1.0/24", i),
-				Port:    "53",
-			}
+			Any: anyPresent,
+		}, opnsense.Destination{
+			Network: fmt.Sprintf("10.%d.1.0/24", i),
+			Port:    "53",
+		}
 	default:
 		return opnsense.Source{
-				Network: fmt.Sprintf("10.%d.2.0/24", i),
-			}, opnsense.Destination{
-				Any: anyPresent,
-			}
+			Network: fmt.Sprintf("10.%d.2.0/24", i),
+		}, opnsense.Destination{
+			Any: anyPresent,
+		}
 	}
 }
 

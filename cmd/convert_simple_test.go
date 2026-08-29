@@ -153,6 +153,7 @@ func TestBuildConversionOptionsSimple(t *testing.T) {
 	}
 
 	// Test with config
+	//nolint:staticcheck // SA1019: exercising deprecated flat field for backward-compat coverage.
 	cfg := &config.Config{
 		Theme: "dark",
 	}
