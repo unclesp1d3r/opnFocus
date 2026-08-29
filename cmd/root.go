@@ -103,6 +103,13 @@ func isLightweightCommand(cmd *cobra.Command) bool {
 // This skips config file loading and uses minimal defaults for fast startup.
 func setupLightweightContext(cmd *cobra.Command) error {
 	// Use minimal default config - no file loading, no env var processing
+	// Config.Format is deprecated in favour of Export.Format, but cmd/convert.go
+	// and cmd/config_show.go still read the flat field for v1.x config
+	// compatibility. Setting Export.Format here instead would change which
+	// field those readers see on the lightweight path, so the flat field stays
+	// until the v2.0 removal tracked in CHANGELOG Unreleased/Deprecated.
+
+	//nolint:staticcheck // SA1019: exercising deprecated flat field for backward-compat coverage.
 	cfg = &config.Config{
 		Format: defaultFormat,
 	}
