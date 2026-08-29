@@ -133,10 +133,15 @@ func (e *RuleEngine) ShouldRedactField(fieldName string) (bool, Rule) {
 }
 
 // ShouldRedactFieldValue is ShouldRedactField with the candidate value in
-// hand, so a matched rule's FieldGuard can qualify the match. Prefer it
-// wherever the value is available: a guard that rejects skips the rule and
-// lets scanning continue, where ShouldRedactField would report a match that
-// the Redactor then declines, consuming it and blocking every later rule.
+// hand, so a matched rule's FieldGuard can qualify the match. A guard that
+// rejects skips the rule and lets scanning continue, where ShouldRedactField
+// would report a match that the Redactor then declines, consuming it and
+// blocking every later rule.
+//
+// Every redaction path goes through this or through ShouldRedactValue, which
+// delegates to it. ShouldRedactField is kept for name-only pattern queries
+// and currently has no caller outside tests -- do not reach for it in new
+// code that has a value available, or the guard is skipped.
 func (e *RuleEngine) ShouldRedactFieldValue(fieldName, value string) (bool, Rule) {
 	for i := range e.rules {
 		rule := &e.rules[i]

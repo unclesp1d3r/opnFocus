@@ -113,6 +113,18 @@ func TestModes_AggressiveRedactsEverythingModerateDoes(t *testing.T) {
 			moderate := leafValues(t, sanitizeToString(t, ModeModerate, raw))
 			aggressive := leafValues(t, sanitizeToString(t, ModeAggressive, raw))
 
+			// path#index keys only line up while every leaf survives in all three
+			// documents. If a redaction ever emptied a value its CharData would be
+			// skipped, shifting every later index for that path and silently
+			// comparing unrelated pairs. Verified true for all shipped fixtures;
+			// assert it so a future change fails here instead of passing wrongly.
+			if len(moderate) != len(original) || len(aggressive) != len(original) {
+				t.Fatalf(
+					"leaf counts diverged, so path#index keys no longer align: original=%d moderate=%d aggressive=%d",
+					len(original), len(moderate), len(aggressive),
+				)
+			}
+
 			for key, before := range original {
 				modAfter, ok := moderate[key]
 				if !ok || modAfter == before {
@@ -160,6 +172,13 @@ func TestModes_AggressiveRedactsEverythingModerateDoes_Synthetic(t *testing.T) {
 	original := leafValues(t, probe)
 	moderate := leafValues(t, sanitizeToString(t, ModeModerate, raw))
 	aggressive := leafValues(t, sanitizeToString(t, ModeAggressive, raw))
+
+	if len(moderate) != len(original) || len(aggressive) != len(original) {
+		t.Fatalf(
+			"leaf counts diverged, so path#index keys no longer align: original=%d moderate=%d aggressive=%d",
+			len(original), len(moderate), len(aggressive),
+		)
+	}
 
 	checked := 0
 

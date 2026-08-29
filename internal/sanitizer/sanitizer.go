@@ -262,9 +262,10 @@ func (s *Sanitizer) sanitizeCharData(content string, pathStack []string) string 
 
 // redactWholeValue applies rule (already known to match via field name) to
 // the entire value in a single redaction call, updating stats accordingly.
-// Only count as redacted if the value actually changed; guarded Redactors
-// (e.g., ip_address_field) may return the original value when the guard
-// rejects it.
+// Only count as redacted if the value actually changed. A Redactor may still
+// return its input: the username rule declines system accounts via
+// isSystemUser. Rules whose patterns are generic enough to match unrelated
+// fields use FieldGuard instead, and never reach here at all.
 func (s *Sanitizer) redactWholeValue(rule Rule, fieldName, content string) string {
 	redacted := s.engine.RedactWithRule(rule, fieldName, content)
 	if redacted == content {
