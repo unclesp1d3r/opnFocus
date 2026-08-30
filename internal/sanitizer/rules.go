@@ -197,7 +197,10 @@ func ruleExcludesFieldName(rule *Rule, fieldName string) bool {
 		return false
 	}
 
-	segment := terminalSegment(strings.ToLower(fieldName))
+	// No ToLower: terminalSegment splits on byte positions and EqualFold
+	// compares case-insensitively, so lowercasing here would allocate for
+	// nothing on every field name the rule matched.
+	segment := terminalSegment(fieldName)
 
 	return slices.ContainsFunc(rule.FieldExclusions, func(excluded string) bool {
 		return strings.EqualFold(segment, excluded)
@@ -293,17 +296,20 @@ func fieldNameMatches(fieldName, pattern string) bool {
 	return strings.Contains(lowerField, pattern)
 }
 
-// terminalSegment returns the last dot-delimited segment of a lowercased field
-// path, dropping any slice index the reflection path appends ("apikeys[0]"
-// becomes "apikeys").
-func terminalSegment(lowerField string) string {
-	if dot := strings.LastIndexByte(lowerField, '.'); dot >= 0 {
-		lowerField = lowerField[dot+1:]
+// terminalSegment returns the last dot-delimited segment of a field path,
+// dropping any slice index the reflection path appends ("apikeys[0]" becomes
+// "apikeys"). It splits on byte positions only, so it preserves the case it is
+// given: fieldNameMatches passes an already-lowercased path because it then
+// compares with strings.Contains, while ruleExcludesFieldName passes the raw
+// path and compares with strings.EqualFold.
+func terminalSegment(field string) string {
+	if dot := strings.LastIndexByte(field, '.'); dot >= 0 {
+		field = field[dot+1:]
 	}
-	if bracket := strings.IndexByte(lowerField, '['); bracket >= 0 {
-		lowerField = lowerField[:bracket]
+	if bracket := strings.IndexByte(field, '['); bracket >= 0 {
+		field = field[:bracket]
 	}
-	return lowerField
+	return field
 }
 
 // builtinRules returns the default set of redaction rules used by the sanitizer package.

@@ -594,6 +594,12 @@ func TestRuleMatchesFieldName_FieldExclusions(t *testing.T) {
 		{"a mixed-case field is excluded", []string{"ddnsdomainkeyalgorithm"}, "DDNSDomainKeyAlgorithm", false},
 		{"a mixed-case exclusion still excludes", []string{"DDNSDomainKeyAlgorithm"}, "ddnsdomainkeyalgorithm", false},
 		{
+			"a mixed-case dotted path is excluded",
+			[]string{"ddnsdomainkeyalgorithm"},
+			"DHCPD.LAN.DDNSDomainKeyAlgorithm",
+			false,
+		},
+		{
 			"a substring of the terminal segment does not suppress",
 			[]string{"ddnsdomain"},
 			"ddnsdomainkeyalgorithm",
