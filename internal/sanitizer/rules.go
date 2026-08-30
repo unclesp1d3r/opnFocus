@@ -57,6 +57,17 @@ type Rule struct {
 	// silently suppress every later rule -- see GOTCHAS.md section 19.2.
 	// The guard must not allocate: it runs on values the rule may not redact.
 	FieldGuard func(value string) bool
+	// FieldExclusions names fields this rule must never claim on a
+	// FieldPatterns match, compared case-insensitively against the field
+	// path's terminal segment. It is the field-name counterpart to
+	// FieldGuard: a generic pattern such as "domain" can match a field whose
+	// value has nothing to do with the rule, and sometimes only the field
+	// name distinguishes them -- a TSIG algorithm name and a single-label
+	// hostname are both valid DNS labels, so no value predicate separates
+	// them. Like FieldGuard it skips the rule without consuming the match,
+	// so a later rule or the value-detector pass can still claim the value.
+	// See GOTCHAS.md section 19.3.
+	FieldExclusions []string
 	// Redactor performs the actual redaction using the mapper.
 	Redactor func(mapper *Mapper, fieldName, value string) string
 }
@@ -161,10 +172,36 @@ func (e *RuleEngine) ShouldRedactFieldValue(fieldName, value string) (bool, Rule
 }
 
 // ruleMatchesFieldName reports whether any of rule's FieldPatterns matches
-// fieldName. Shared so the guarded and unguarded lookups cannot drift.
+// fieldName and the rule does not exclude that field. Shared so the guarded
+// and unguarded lookups cannot drift.
 func ruleMatchesFieldName(rule *Rule, fieldName string) bool {
+	if ruleExcludesFieldName(rule, fieldName) {
+		return false
+	}
+
 	for _, pattern := range rule.FieldPatterns {
 		if fieldNameMatches(fieldName, pattern) {
+			return true
+		}
+	}
+
+	return false
+}
+
+// ruleExcludesFieldName reports whether fieldName is one of rule's
+// FieldExclusions. The comparison is case-insensitive and anchored on the
+// terminal path segment -- the same anchoring fieldNameMatches applies to
+// exactMatchPatterns -- because the engine looks up both bare field names and
+// full dotted paths. Unlike FieldPatterns, exclusions are not pre-lowercased
+// at cache time, so a rule may declare them in any case.
+func ruleExcludesFieldName(rule *Rule, fieldName string) bool {
+	if len(rule.FieldExclusions) == 0 {
+		return false
+	}
+
+	segment := terminalSegment(strings.ToLower(fieldName))
+	for _, excluded := range rule.FieldExclusions {
+		if strings.EqualFold(segment, excluded) {
 			return true
 		}
 	}
@@ -530,6 +567,20 @@ func builtinRules() []Rule {
 			Modes:       aggressiveOnly,
 			FieldPatterns: []string{
 				"hostname", "domain", "althostnames", "hostnames",
+			},
+			// DHCP dynamic-DNS TSIG metadata. All three names contain
+			// "domain", so the substring pattern above claimed them, and a
+			// field-name match redacts unconditionally (GOTCHAS 14.2) --
+			// rewriting the literal "hmac-md5" the audit engine reads into a
+			// pseudonymised host in aggressive mode, which moderate and
+			// minimal left alone. A FieldGuard cannot separate these: the
+			// algorithm name and a single-label hostname such as "firewall"
+			// are both valid DNS labels, so the field name is the only
+			// discriminating information. A genuinely hostname-shaped value
+			// in one of these fields is still redacted, via the
+			// value-detector pass.
+			FieldExclusions: []string{
+				"ddnsdomainkeyname", "ddnsdomainkeyalgorithm", "ddnsdomainalgorithm",
 			},
 			ValueDetector: func(value string) bool {
 				// Don't match emails as hostnames

@@ -122,18 +122,25 @@ func TestRedact_DDNSDomainKey(t *testing.T) {
 
 // TestShouldRedactField_DDNSDomainKeySiblings guards the reason ddnsdomainkey
 // is an exact-match pattern. As a substring it would also swallow its
-// siblings, redacting the literal "hmac-md5" the audit engine reads. The
-// siblings may still match other rules in aggressive mode (hostname claims
-// anything containing "domain"), so this asserts only that private_key never
-// takes them.
+// siblings, redacting the literal "hmac-md5" the audit engine reads.
+//
+// It also pins the fix for the hostname rule claiming those same siblings.
+// All three sibling names contain "domain", which the hostname rule lists as
+// a FieldPattern and matches as a substring, and a field-name match redacts
+// unconditionally (GOTCHAS 14.2). In aggressive mode that turned the literal
+// TSIG algorithm name into a pseudonymised host. The hostname rule now
+// carries FieldExclusions for these fields, so the value survives in every
+// mode.
 func TestShouldRedactField_DDNSDomainKeySiblings(t *testing.T) {
 	t.Parallel()
 
 	siblings := []string{
 		"ddnsdomainkeyname",
 		"ddnsdomainkeyalgorithm",
+		"ddnsdomainalgorithm",
 		"dhcpd.lan.ddnsdomainkeyname",
 		"dhcpd.lan.ddnsdomainkeyalgorithm",
+		"dhcpd.lan.ddnsdomainalgorithm",
 	}
 
 	for _, mode := range []Mode{ModeAggressive, ModeModerate, ModeMinimal} {
@@ -147,21 +154,12 @@ func TestShouldRedactField_DDNSDomainKeySiblings(t *testing.T) {
 					t.Errorf("ShouldRedactField(%q) matched private_key, want the exact-match guard to hold", field)
 				}
 
-				// Assert on the emitted value, not just the rule name. The
-				// exact-match guard is what this test is for, but a weaker
-				// assertion would also pass if some other rule rewrote the
-				// value, which is exactly what happens in aggressive mode:
-				// both siblings contain "domain" and so match the hostname
-				// rule, and a field-name match redacts unconditionally
-				// (GOTCHAS 14.2), turning the literal algorithm name into a
-				// pseudonymised host. That is pre-existing behaviour of the
-				// hostname rule rather than anything this change introduces,
-				// so it is pinned here rather than altered.
+				// Assert on the emitted value, not just the rule name. A
+				// weaker assertion would also pass if some other rule rewrote
+				// the value, which is what the hostname rule used to do in
+				// aggressive mode. The value must now survive in every mode.
 				got := engine.Redact(field, siblingProbeValue)
 				want := siblingProbeValue
-				if mode == ModeAggressive {
-					want = "host-001.example.com"
-				}
 
 				if got != want {
 					t.Errorf("Redact(%q, %q) in %s = %q, want %q",
@@ -238,6 +236,74 @@ func TestFieldNameMatches_TerminalSegmentAnchoring(t *testing.T) {
 			t.Parallel()
 			if got := fieldNameMatches(tt.field, tt.pattern); got != tt.want {
 				t.Errorf("fieldNameMatches(%q, %q) = %v, want %v", tt.field, tt.pattern, got, tt.want)
+			}
+		})
+	}
+}
+
+// TestAggressiveMode_HostnameCoverageUnchanged pins the redaction the TSIG
+// field exclusions must not narrow. Every <hostname> value in testdata is a
+// single label with no dot ("firewall", "OPNsense"), and IsHostname requires a
+// dot, so a value-shaped guard on the hostname rule would have released all of
+// them in aggressive mode. The exclusions are keyed on the field name for
+// exactly that reason.
+func TestAggressiveMode_HostnameCoverageUnchanged(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		field string
+		value string
+	}{
+		{"hostname", "firewall"},
+		{"hostname", "OPNsense"},
+		{"hostname", "fw.example.com"},
+		{"domain", "example.com"},
+		{"domain", "localdomain"},
+		{"ddnsdomain", "dyn.example.com"},
+		{"ddnsdomainprimary", "ns1.example.com"},
+		{"domainsearchlist", "corp.example.com"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.field+"_"+tt.value, func(t *testing.T) {
+			t.Parallel()
+
+			engine := NewRuleEngine(ModeAggressive)
+
+			got := engine.Redact(tt.field, tt.value)
+			if got != expectedMappedHostname1 {
+				t.Errorf("Redact(%q, %q) in aggressive = %q, want %q",
+					tt.field, tt.value, got, expectedMappedHostname1)
+			}
+		})
+	}
+}
+
+// TestAggressiveMode_ExcludedTSIGFieldStillRedactsHostname pins the residual
+// safety net. A field exclusion suppresses only the unconditional field-name
+// claim; ShouldRedactValue still runs its value-detector pass afterward, and
+// the hostname rule's ValueDetector is in it. So the exclusions release TSIG
+// algorithm names without releasing a hostname an operator stored in one of
+// these fields.
+func TestAggressiveMode_ExcludedTSIGFieldStillRedactsHostname(t *testing.T) {
+	t.Parallel()
+
+	excluded := []string{
+		"ddnsdomainkeyname",
+		"ddnsdomainkeyalgorithm",
+		"ddnsdomainalgorithm",
+	}
+
+	for _, field := range excluded {
+		t.Run(field, func(t *testing.T) {
+			t.Parallel()
+
+			engine := NewRuleEngine(ModeAggressive)
+
+			got := engine.Redact(field, "tsig-key.internal.example.com")
+			if got != expectedMappedHostname1 {
+				t.Errorf("Redact(%q, hostname-shaped value) in aggressive = %q, want %q",
+					field, got, expectedMappedHostname1)
 			}
 		})
 	}

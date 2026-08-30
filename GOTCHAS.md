@@ -553,6 +553,21 @@ First-match precedence has a second edge. A rule can match on field name and the
 - **One declining redactor is left on purpose.** The `username` rule still returns its input for system accounts via `isSystemUser`, so it consumes the match the same way. It is not a leak today: the values it declines (`root`, `nobody`, `www`) are ones moderate does not redact either, so monotonicity holds — verified by probe, not assumed. It becomes one the moment a value `isSystemUser` accepts is also something a moderate-mode rule would redact. Prefer a `FieldGuard` if you touch it.
 - **Adding a rule with generic patterns?** Patterns like `from`, `to`, or `subnet` match fields that have nothing to do with the rule. Give it a `FieldGuard`; do not test the value inside the `Redactor`.
 
+### 19.3 A Generic Field Pattern Sometimes Needs `FieldExclusions`, Not a `FieldGuard`
+
+§19.2 says to give a rule with generic patterns a `FieldGuard`. That advice has a limit: a `FieldGuard` only ever receives the **value**. When the value cannot distinguish the fields, only the field name can, and a guard is the wrong tool.
+
+The `hostname` rule lists `domain` as a `FieldPattern`, matched as a substring, so it claimed three DHCP dynamic-DNS TSIG metadata fields — `ddnsdomainkeyname`, `ddnsdomainkeyalgorithm`, and `ddnsdomainalgorithm`. A field-name match redacts unconditionally (§14.2), so in aggressive mode the literal `hmac-md5` the audit engine reads became `host-001.example.com`. The rule is `aggressiveOnly`, so moderate and minimal were correct and aggressive — the mode operators pick when sharing most widely — was the broken one.
+
+- **The obvious fix is wrong, and quietly so.** `FieldGuard: IsHostname` looks right and would have leaked every firewall hostname in the repo. `IsHostname` requires at least one dot (`TestIsHostname` pins `{"localhost", false}`), and **every** `<hostname>` value in `testdata/` is a single label: `firewall`, `OPNsense`, `pfSense`, `printer`, `fw-test`. The guard would decline on all of them, no later rule or detector would claim them, and aggressive mode would emit real hostnames verbatim.
+- **No value predicate can work here.** `hmac-md5` and `fw1` are both valid single DNS labels. The discriminating information is the field name, not the value shape.
+- **Fix:** `FieldExclusions []string` on `Rule`, honored in `ruleMatchesFieldName` — the shared chokepoint `ShouldRedactField` and `ShouldRedactFieldValue` both call, so the two lookups cannot drift. It skips the rule without consuming the match, exactly like `FieldGuard`. Matching is case-insensitive and anchored on the terminal path segment, so `dhcpd.lan.ddnsdomainkeyalgorithm` is excluded but `ddnsdomain` is not.
+- **The exclusion does not release hostnames.** It suppresses only the unconditional name-based claim; `ShouldRedactValue` still runs its value-detector pass, and the `hostname` rule's `ValueDetector` is in it. A hostname-shaped value stored in an excluded field is still redacted. `TestAggressiveMode_ExcludedTSIGFieldStillRedactsHostname` pins this.
+- **`ddnsdomainalgorithm` is the one you will miss.** It does not contain `ddnsdomainkey`, so the exact-match pattern that protects the other siblings from `private_key` does not cover it — and it is the most common of the three, appearing 71 times across the fixtures versus 4 for `ddnsdomainkeyalgorithm`. Grep the fixtures rather than trusting a bug report's field list.
+- **A fixture diff will look far bigger than the change.** `Mapper` numbers pseudonyms in encounter order, so releasing 71 values renumbers every later `host-NNN`. Mask the indices (`s/host-[0-9]+/host-N/`) before diffing, or you will be reading hundreds of lines of renumbering looking for the four that matter.
+- **Regression tests:** `TestRuleMatchesFieldName_FieldExclusions` (mechanism), `TestShouldRedactField_DDNSDomainKeySiblings` (all three fields, all three modes), `TestAggressiveMode_HostnameCoverageUnchanged` (the redaction this must not narrow).
+- **Do not "simplify" the exclusions into a `FieldGuard`.** The single-label hostname case above is why they are keyed on the field name.
+
 ## 20. pfSense Validator Injection
 
 ### 20.1 `SetValidator` Is Guarded by `sync.Once`
