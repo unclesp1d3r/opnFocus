@@ -60,13 +60,12 @@ type Rule struct {
 	// FieldExclusions names fields this rule must never claim on a
 	// FieldPatterns match, compared case-insensitively against the field
 	// path's terminal segment. It is the field-name counterpart to
-	// FieldGuard: a generic pattern such as "domain" can match a field whose
-	// value has nothing to do with the rule, and sometimes only the field
-	// name distinguishes them -- a TSIG algorithm name and a single-label
-	// hostname are both valid DNS labels, so no value predicate separates
-	// them. Like FieldGuard it skips the rule without consuming the match,
-	// so a later rule or the value-detector pass can still claim the value.
-	// See GOTCHAS.md section 19.3.
+	// FieldGuard, for the case FieldGuard cannot express: a guard sees only
+	// the value, so when two fields carry indistinguishable values and only
+	// their names differ, the exclusion has to key on the name. Like
+	// FieldGuard it skips the rule without consuming the match, so a later
+	// rule or the value-detector pass can still claim the value.
+	// See GOTCHAS.md section 19.3 for the case that motivated it.
 	FieldExclusions []string
 	// Redactor performs the actual redaction using the mapper.
 	Redactor func(mapper *Mapper, fieldName, value string) string
@@ -175,13 +174,12 @@ func (e *RuleEngine) ShouldRedactFieldValue(fieldName, value string) (bool, Rule
 // fieldName and the rule does not exclude that field. Shared so the guarded
 // and unguarded lookups cannot drift.
 func ruleMatchesFieldName(rule *Rule, fieldName string) bool {
-	if ruleExcludesFieldName(rule, fieldName) {
-		return false
-	}
-
 	for _, pattern := range rule.FieldPatterns {
 		if fieldNameMatches(fieldName, pattern) {
-			return true
+			// Exclusions are rule-level, so one check on the first matching
+			// pattern settles it. Checking here rather than up front keeps the
+			// cost off every field name the rule was never going to claim.
+			return !ruleExcludesFieldName(rule, fieldName)
 		}
 	}
 
@@ -200,13 +198,10 @@ func ruleExcludesFieldName(rule *Rule, fieldName string) bool {
 	}
 
 	segment := terminalSegment(strings.ToLower(fieldName))
-	for _, excluded := range rule.FieldExclusions {
-		if strings.EqualFold(segment, excluded) {
-			return true
-		}
-	}
 
-	return false
+	return slices.ContainsFunc(rule.FieldExclusions, func(excluded string) bool {
+		return strings.EqualFold(segment, excluded)
+	})
 }
 
 // ShouldRedactValue determines if a value should be redacted based on its content.
