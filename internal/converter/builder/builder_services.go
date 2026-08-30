@@ -156,7 +156,7 @@ func BuildDHCPSummaryTableSet(scopes []common.DHCPScope) *markdown.TableSet {
 				formatters.EscapeTableContent(scope.Gateway),
 				formatters.EscapeTableContent(scope.Range.From),
 				formatters.EscapeTableContent(scope.Range.To),
-				formatters.EscapeTableContent(scope.DNSServer),
+				formatters.EscapeTableContent(dhcpDNSCell(scope)),
 				formatters.EscapeTableContent(scope.WINSServer),
 				formatters.EscapeTableContent(scope.NTPServer),
 			})
@@ -218,4 +218,19 @@ func BuildDHCPStaticLeasesTableSet(leases []common.DHCPStaticLease) *markdown.Ta
 		Header: headers,
 		Rows:   rows,
 	}
+}
+
+// dhcpDNSCell renders a scope's DNS servers, falling back to the deprecated
+// scalar. A CommonDevice built by a consumer or unmarshalled from JSON written
+// before DNSServers existed populates only DNSServer, and must not render an
+// empty cell while that field is still supported.
+func dhcpDNSCell(scope common.DHCPScope) string {
+	if len(scope.DNSServers) > 0 {
+		return strings.Join(scope.DNSServers, ", ")
+	}
+
+	// Reading the deprecated field is the point of this fallback: it is what a
+	// consumer built before DNSServers existed populates.
+	//nolint:staticcheck // SA1019: deliberate, for the deprecation cycle
+	return scope.DNSServer
 }

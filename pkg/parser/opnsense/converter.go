@@ -122,7 +122,7 @@ func (c *converter) convertSystem(doc *schema.OpnSenseDocument) common.System {
 		Optimization:                  sys.Optimization,
 		Language:                      sys.Language,
 		Timezone:                      sys.Timezone,
-		DNSServers:                    strings.Fields(sys.DNSServer),
+		DNSServers:                    fieldsOfEach(sys.DNSServers),
 		TimeServers:                   strings.Fields(sys.TimeServers),
 		DNSAllowOverride:              bool(sys.DNSAllowOverride),
 		DisableNATReflection:          shared.IsValueTrue(sys.DisableNATReflection),

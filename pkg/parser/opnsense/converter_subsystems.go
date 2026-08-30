@@ -245,13 +245,14 @@ func (c *converter) convertKeaDHCPScopes(doc *schema.OpnSenseDocument) []common.
 			Description: sub.Description,
 		}
 
-		// Extract gateway, DNS, NTP from option_data.
-		// Fields can be comma-separated lists; use the first value.
+		// option_data fields can be comma-separated lists. Gateway and
+		// NTPServer are scalars on the model, so they take the first value;
+		// DNSServers holds every entry.
 		if sub.OptionData.Routers != "" {
 			scope.Gateway = firstCSV(sub.OptionData.Routers)
 		}
 		if sub.OptionData.DomainNameServers != "" {
-			scope.DNSServer = firstCSV(sub.OptionData.DomainNameServers)
+			scope.SetDNSServers(splitCSV(sub.OptionData.DomainNameServers))
 		}
 		if sub.OptionData.NTPServers != "" {
 			scope.NTPServer = firstCSV(sub.OptionData.NTPServers)
@@ -345,4 +346,20 @@ func parseKeaRange(rangeStr string) common.DHCPRange {
 func firstCSV(s string) string {
 	before, _, _ := strings.Cut(s, ",")
 	return strings.TrimSpace(before)
+}
+
+// splitCSV splits a comma-separated Kea option value into its trimmed,
+// non-empty members, where firstCSV would keep only the head.
+func splitCSV(s string) []string {
+	parts := strings.Split(s, ",")
+	out := make([]string, 0, len(parts))
+	for _, p := range parts {
+		if p = strings.TrimSpace(p); p != "" {
+			out = append(out, p)
+		}
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
 }

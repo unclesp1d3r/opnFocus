@@ -557,7 +557,9 @@ func TestConverter_KeaDHCP_UnifiedScopes(t *testing.T) {
 
 		// Option data → scope fields
 		assert.Equal(t, "192.168.1.1", keaScope.Gateway)
-		assert.Equal(t, "192.168.1.1", keaScope.DNSServer)
+		// Every comma-separated domain-name-servers entry is carried, not just
+		// the first: a Kea scope advertising two resolvers must report two.
+		assert.Equal(t, []string{"192.168.1.1", "8.8.8.8"}, keaScope.DNSServers)
 		assert.Equal(t, "192.168.1.1", keaScope.NTPServer)
 
 		// First pool → range

@@ -20,9 +20,12 @@ type DhcpdInterface struct {
 	DdnsDomainAlgorithm string                      `xml:"ddnsdomainalgorithm,omitempty" json:"ddnsdomainalgorithm,omitempty" yaml:"ddnsdomainalgorithm,omitempty"`
 	NumberOptions       []opnsense.DHCPNumberOption `xml:"numberoptions>item,omitempty"  json:"numberOptions,omitempty"       yaml:"numberOptions,omitempty"`
 	Winsserver          string                      `xml:"winsserver,omitempty"          json:"winsserver,omitempty"          yaml:"winsserver,omitempty"`
-	Dnsserver           string                      `xml:"dnsserver,omitempty"           json:"dnsserver,omitempty"           yaml:"dnsserver,omitempty"`
-	Ntpserver           string                      `xml:"ntpserver,omitempty"           json:"ntpserver,omitempty"           yaml:"ntpserver,omitempty"`
-	Staticmap           []opnsense.DHCPStaticLease  `xml:"staticmap,omitempty"           json:"staticmap,omitempty"           yaml:"staticmap,omitempty"`
+	// Dnsserver repeats once per advertised DNS server. A scalar here would
+	// silently keep only the last element (GOTCHAS §3.3) -- the repo's own
+	// testdata/pfsense/config-pfSense.xml carries two per scope.
+	Dnsserver []string                   `xml:"dnsserver,omitempty" json:"dnsserver,omitempty" yaml:"dnsserver,omitempty"`
+	Ntpserver string                     `xml:"ntpserver,omitempty" json:"ntpserver,omitempty" yaml:"ntpserver,omitempty"`
+	Staticmap []opnsense.DHCPStaticLease `xml:"staticmap,omitempty" json:"staticmap,omitempty" yaml:"staticmap,omitempty"`
 
 	// Advanced DHCP fields
 	AliasAddress   string `xml:"alias-address,omitempty"  json:"aliasAddress,omitempty"   yaml:"aliasAddress,omitempty"`

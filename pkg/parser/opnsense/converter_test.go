@@ -25,7 +25,7 @@ func TestConverter_System(t *testing.T) {
 	doc := schema.NewOpnSenseDocument()
 	doc.System.Hostname = "fw01"
 	doc.System.Domain = "example.com"
-	doc.System.DNSServer = "8.8.8.8 8.8.4.4"
+	doc.System.DNSServers = []string{"8.8.8.8", "8.8.4.4"}
 	doc.System.TimeServers = "0.pool.ntp.org 1.pool.ntp.org"
 	doc.System.DisableNATReflection = "yes"
 	doc.System.DisableConsoleMenu = true
@@ -604,7 +604,7 @@ func TestConverter_DNS(t *testing.T) {
 	t.Parallel()
 
 	doc := schema.NewOpnSenseDocument()
-	doc.System.DNSServer = "1.1.1.1 9.9.9.9"
+	doc.System.DNSServers = []string{"1.1.1.1", "9.9.9.9"}
 	doc.Unbound.Enable = "1"
 	doc.Unbound.Dnssec = "1"
 	doc.Unbound.Dnssecstripped = "1"

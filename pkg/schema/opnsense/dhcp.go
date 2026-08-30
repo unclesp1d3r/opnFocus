@@ -112,9 +112,11 @@ type DhcpdInterface struct {
 	DdnsDomainAlgorithm string             `xml:"ddnsdomainalgorithm,omitempty"`
 	NumberOptions       []DHCPNumberOption `xml:"numberoptions>item,omitempty"`
 	Winsserver          string             `xml:"winsserver,omitempty"`
-	Dnsserver           string             `xml:"dnsserver,omitempty"`
-	Ntpserver           string             `xml:"ntpserver,omitempty"`
-	Staticmap           []DHCPStaticLease  `xml:"staticmap,omitempty"`
+	// Dnsserver repeats once per advertised DNS server. A scalar here would
+	// silently keep only the last element (GOTCHAS §3.3).
+	Dnsserver []string          `xml:"dnsserver,omitempty"`
+	Ntpserver string            `xml:"ntpserver,omitempty"`
+	Staticmap []DHCPStaticLease `xml:"staticmap,omitempty"`
 
 	// Advanced DHCP fields
 	AliasAddress   string `xml:"alias-address,omitempty"`
