@@ -564,3 +564,64 @@ func TestShouldRedactField_OTPSeed(t *testing.T) {
 		})
 	}
 }
+
+// TestRuleMatchesFieldName_FieldExclusions covers the field-name counterpart to
+// FieldGuard: a rule names fields it must never claim even when one of its
+// FieldPatterns matches. FieldGuard cannot express this because it only ever
+// sees the value. See GOTCHAS.md section 19.3.
+func TestRuleMatchesFieldName_FieldExclusions(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name       string
+		exclusions []string
+		field      string
+		want       bool
+	}{
+		{"no exclusions leaves the match intact", nil, "ddnsdomainkeyalgorithm", true},
+		{
+			"exclusion equal to the field suppresses the match",
+			[]string{"ddnsdomainkeyalgorithm"},
+			"ddnsdomainkeyalgorithm",
+			false,
+		},
+		{
+			"exclusion anchors on the terminal segment",
+			[]string{"ddnsdomainkeyalgorithm"},
+			"dhcpd.lan.ddnsdomainkeyalgorithm",
+			false,
+		},
+		{"a mixed-case field is excluded", []string{"ddnsdomainkeyalgorithm"}, "DDNSDomainKeyAlgorithm", false},
+		{"a mixed-case exclusion still excludes", []string{"DDNSDomainKeyAlgorithm"}, "ddnsdomainkeyalgorithm", false},
+		{
+			"a mixed-case dotted path is excluded",
+			[]string{"ddnsdomainkeyalgorithm"},
+			"DHCPD.LAN.DDNSDomainKeyAlgorithm",
+			false,
+		},
+		{
+			"a substring of the terminal segment does not suppress",
+			[]string{"ddnsdomain"},
+			"ddnsdomainkeyalgorithm",
+			true,
+		},
+		{"an unrelated exclusion leaves the match intact", []string{"unrelated"}, "ddnsdomainkeyalgorithm", true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			rule := Rule{
+				Name:            "test_rule",
+				FieldPatterns:   []string{"domain"},
+				FieldExclusions: tt.exclusions,
+			}
+
+			if got := ruleMatchesFieldName(&rule, tt.field); got != tt.want {
+				t.Errorf("ruleMatchesFieldName(%q) with exclusions %v = %v, want %v",
+					tt.field, tt.exclusions, got, tt.want)
+			}
+		})
+	}
+}
