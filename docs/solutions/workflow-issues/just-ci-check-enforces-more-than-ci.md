@@ -52,8 +52,8 @@ golangci-lint = "2.13.2"
 ```
 
 ```yaml
-# .github/workflows/ci.yml:29 — what CI uses
-version: v2.12.2   # comment says "should be handled by mise ... specified here to ensure consistency"
+# .github/workflows/ci.yml — what CI uses
+version: v2.12.2   # comment said "should be handled by mise ... specified here to ensure consistency"
 ```
 
 A routine tool bump moved mise to 2.13.2 and left `ci.yml` at 2.12.2. From then on the two ran **different linters**, and 2.13.2's staticcheck reports SA1019 deprecation hits that 2.12.2 does not:
@@ -64,6 +64,8 @@ golangci-lint 2.12.2 run ./...   ->   0 issues   exit 0     # CI, same tree, sam
 ```
 
 The second pin defeats its own stated purpose: hardcoding the version to "ensure consistency" is exactly what makes it drift, because now two files must be updated in lockstep and only one of them is what developers run. A single source of truth — let the action take the version from mise — cannot skew.
+
+> **This specific skew is closed.** #819 aligned `ci.yml` to `v2.13.2`, and the workflow now carries a comment naming the hazard: *"These are two independent pins: mise drives `just lint` locally, this one drives CI. When they drift, CI and developers run different linters against the same tree and CI silently becomes the weaker gate."* Two pins still exist, so the drift can recur — the guidance below is what keeps it caught, not the current alignment.
 
 **Do not diagnose this by reasoning about invocation differences.** The obvious suspect was the `./...` argument that `just lint` passes and `golangci-lint-action` does not. That theory was wrong, and only running CI's exact version locally disproved it:
 

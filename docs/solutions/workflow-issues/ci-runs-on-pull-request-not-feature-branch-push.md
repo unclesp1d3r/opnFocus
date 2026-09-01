@@ -34,17 +34,20 @@ The local `just ci-check` recipe is the pre-push gate; remote CI is a **PR-time*
 
 Trigger map for the workflows in `.github/workflows/` (as of this writing):
 
-| Workflow        | Triggers on                                                           |
-| --------------- | --------------------------------------------------------------------- |
-| `ci.yml`        | `push: main`, `pull_request`                                          |
-| `security.yml`  | `push: main`, `pull_request`, weekly schedule                         |
-| `docs.yml`      | `push: main`                                                          |
-| `go-deps.yml`   | `push: main`                                                          |
-| `scorecard.yml` | `push: main`, `branch_protection_rule`, schedule, `workflow_dispatch` |
-| `release.yml`   | `push` tags `v*`, `workflow_dispatch`                                 |
-| `sbom.yml`      | schedule, `workflow_dispatch`                                         |
+| Workflow                  | Triggers on                                                                                                                  |
+| ------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| `ci.yml`                  | `push: main`, `pull_request`                                                                                                 |
+| `security.yml`            | `push: main`, `pull_request`, weekly schedule                                                                                |
+| `docs.yml`                | `push: main`, `pull_request` (paths: `docs/**`, `mkdocs.yml`, `requirements.txt`, `mise.toml`, `.github/workflows/docs.yml`) |
+| `go-deps.yml`             | `push: main`                                                                                                                 |
+| `scorecard.yml`           | `push: main`, `branch_protection_rule`, schedule, `workflow_dispatch`                                                        |
+| `release.yml`             | `push` tags `v*`, `workflow_dispatch`                                                                                        |
+| `sbom.yml`                | schedule, `workflow_dispatch`                                                                                                |
+| `copilot-setup-steps.yml` | `workflow_dispatch`, `push` and `pull_request` (paths: its own file only)                                                    |
 
-Practical consequence: on a feature branch, **only a PR (or merging to `main`) runs Actions.** Doc/metadata-only branches still get the full `ci.yml` + `security.yml` matrix once a PR is open, because neither has a path filter.
+Practical consequence: on a feature branch, **only a PR (or merging to `main`) runs Actions** — with one narrow exception: `copilot-setup-steps.yml` has an unrestricted `push` trigger filtered to its own file, so a branch push that edits that one workflow does fire it. Nothing else does.
+
+Doc/metadata-only branches still get the full `ci.yml` + `security.yml` matrix once a PR is open, because neither has a path filter; a PR touching `docs/**` additionally fires `docs.yml`, which does.
 
 ## Why This Matters
 

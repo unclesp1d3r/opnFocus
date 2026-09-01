@@ -71,7 +71,7 @@ If AI assistance was used in producing the diff, this project's [`AI_POLICY.md`]
 ```markdown
 ## AI disclosure
 
-Used Claude Code (`<model name>`) for <one-line description of where AI assisted>. All code reviewed locally and via CI before push. Followed process per [`AI_POLICY.md`](../blob/main/AI_POLICY.md).
+Used Claude Code (`<model name>`) for <one-line description of where AI assisted>. All code reviewed locally and via CI before push. Followed process per [`AI_POLICY.md`](https://github.com/EvilBit-Labs/opnDossier/blob/main/AI_POLICY.md).
 ```
 
 The disclosure satisfies the policy requirement in two short lines. Do not expand it into a skill inventory, a list of automated reviewers, or a description of the agent's workflow — that is the same chronicling problem moved into a different section.
@@ -163,7 +163,7 @@ push. Run artifacts retained at `/tmp/compound-engineering/...`.
 
 Used Claude Code (`Claude Opus 4.7 (1M Context)`) for the implementation and
 PR description. All code reviewed locally and via CI before push. Followed
-process per [`AI_POLICY.md`](../blob/main/AI_POLICY.md).
+process per [`AI_POLICY.md`](https://github.com/EvilBit-Labs/opnDossier/blob/main/AI_POLICY.md).
 ```
 
 The minimal form satisfies the disclosure requirement in [`AI_POLICY.md`](https://github.com/EvilBit-Labs/opnDossier/blob/main/AI_POLICY.md) while staying out of the way of the actual change description.
@@ -197,7 +197,7 @@ A PR body that meets this standard tends to look like:
 ## AI disclosure
 
 Used Claude Code (`<model>`) for <scope>. All code reviewed locally and via
-CI before push. Followed process per [`AI_POLICY.md`](../blob/main/AI_POLICY.md).
+CI before push. Followed process per [`AI_POLICY.md`](https://github.com/EvilBit-Labs/opnDossier/blob/main/AI_POLICY.md).
 
 ## Refs
 
