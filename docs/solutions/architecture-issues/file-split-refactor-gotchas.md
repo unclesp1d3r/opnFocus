@@ -4,7 +4,7 @@ category: architecture-issues
 date: 2026-03-18
 tags: [refactoring, file-split, pre-commit, testing, validator]
 related_issues: ['#319', '#415']
-components: [internal/validator, internal/processor]
+components: [internal/validator]
 ---
 
 # File-Split Refactoring: Pre-commit Hooks and Test Breakage

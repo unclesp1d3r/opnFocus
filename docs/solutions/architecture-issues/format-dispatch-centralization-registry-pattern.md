@@ -40,7 +40,7 @@ Format dispatch logic for output formats (markdown, json, yaml, text, html) was 
 - `internal/converter/options.go` -- Format.Validate switch
 - `internal/config/validation.go` -- ValidFormats list
 - `cmd/shared_flags.go` -- shell completion list
-- `internal/processor/processor.go` -- Transform switch (no alias resolution)
+- `internal/processor/processor.go` -- Transform switch (no alias resolution); this package was later deleted entirely in #777, so only the remaining locations are greppable today
 
 Adding a new format required coordinating updates across all locations. Missing one caused silent inconsistencies -- a format valid in one location might be rejected or produce wrong output elsewhere.
 
@@ -113,12 +113,10 @@ When a struct has mutable state (like MarkdownBuilder), create a fresh instance 
 - [ ] Shell completions derive from `DefaultRegistry.ValidFormats()`
 - [ ] `Format.Validate()` delegates to registry
 - [ ] `config.ValidFormats` derives from registry with `slices.Clone()`
-- [ ] `processor.Transform()` resolves aliases via `Canonical()`
 - [ ] `go test -race ./internal/converter/...` passes
 - [ ] `just ci-check` passes
 
 ## Related Documentation
 
-- [AGENTS.md section 5.9b](https://github.com/EvilBit-Labs/opnDossier/blob/main/AGENTS.md) -- FormatRegistry Pattern documentation
-- [architecture.md](../../development/architecture.md) -- FormatRegistry Integration section
+- [pipelines.md](../../development/architecture/pipelines.md) -- the FormatRegistry dispatch layer, with the export-stage sequence diagram
 - [documentation-code-drift-interface-refactoring.md](../logic-errors/documentation-code-drift-interface-refactoring.md) -- documentation accuracy guidelines
