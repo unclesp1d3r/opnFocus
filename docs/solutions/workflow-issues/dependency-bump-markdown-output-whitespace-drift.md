@@ -4,7 +4,7 @@ category: workflow-issues
 date: '2026-08-21'
 module: internal/converter
 problem_type: workflow_issue
-component: converter/builder, processor
+component: converter/builder
 severity: medium
 tags:
   - dependency-update
@@ -31,7 +31,7 @@ related_docs:
 
 ## Context
 
-`github.com/nao1215/markdown` (v0.13.0 to v1.0.0, dependabot PR #770) is the library `internal/converter/builder` and `internal/processor/report_markdown.go` use to construct every markdown-format report opnDossier generates. 21 Go files reference the package (12 non-test import sites, plus test files); it is not an incidental dependency — it owns the literal bytes of a primary output format.
+`github.com/nao1215/markdown` (v0.13.0 to v1.0.0, dependabot PR #770) is the library `internal/converter/builder` (and, at the time, `internal/processor/report_markdown.go`) uses to construct every markdown-format report opnDossier generates. 21 Go files referenced the package (12 non-test import sites, plus test files); it is not an incidental dependency — it owns the literal bytes of a primary output format.
 
 The bump touched only `go.mod` and `go.sum`. `go build`, `go vet`, and every package except one passed unchanged. `TestGolden_ProgrammaticReportGeneration` (`internal/converter/golden_test.go`) failed all six subtests — the only failure in the repo.
 
@@ -42,7 +42,9 @@ Two upstream changelog claims looked, at a skim, like they might affect this rep
 - The v1.0.0 CHANGELOG lists "line endings on Windows" among its fixes. Reading the library's own `lf.go` in the module cache (`$(go env GOMODCACHE)/github.com/nao1215/markdown@v1.0.0/internal/lf.go` — a dependency path, not a repo path) shows the fix was a testability refactor — `LineFeed()` now delegates to an unexported `lineFeed(goos string)` so both branches can be tested regardless of the host OS — not a behavior change. `lineFeed` still returns `"\r\n"` when `goos == "windows"` and `"\n"` otherwise, identical to v0.13.0. `internal/converter/builder/lineendings.go`'s `renderMarkdown` (`formatters.NormalizeToLF(md.String())`) and the invariant documented in `GOTCHAS.md` section 10.4 are therefore still load-bearing and unaffected.
 - The v1.0.0 CHANGELOG's "Upgrading from v0.13.0" section states every regenerated document now ends with a trailing line ending (MD047 compliance), achieved via the writer-flush path. opnDossier extracts output via `md.String()` directly rather than through that writer-flush path, so this repo's generated reports were verified byte-identical at the tail before and after the bump — still no trailing LF.
 
-A gap surfaced by tracing every call site: `internal/processor/report_markdown.go` builds markdown independently of `internal/converter/builder` (the divergence `GOTCHAS.md` section 10.4 already names — both had to be given the `NormalizeToLF` treatment separately for the same reason). It has no golden fixture at all under `internal/processor`, so its output shifted with this same bump and nothing in the test suite would catch it either way.
+A gap surfaced by tracing every call site: `internal/processor/report_markdown.go` built markdown independently of `internal/converter/builder` (the divergence `GOTCHAS.md` section 10.4 already names — both had to be given the `NormalizeToLF` treatment separately for the same reason). It had no golden fixture at all under `internal/processor`, so its output shifted with this same bump and nothing in the test suite would have caught it either way.
+
+> **Since resolved:** `internal/processor` was deleted in #777 (packages outside the binary dependency closure), which removed the second construction path and with it this specific coverage gap. Every remaining `nao1215/markdown` call site is under `internal/converter/`. The general risk stands — the finding here is that the call-site grep is what surfaces an unfixtured path, not that this one path was special.
 
 Separately, `THIRD_PARTY_NOTICES` pins each dependency's license URL to a specific tag via `packaging/notices.tpl` (the `just notices` recipe). Nothing in CI enforces that this file tracks `go.mod`/`go.sum`. Regenerating it after this bump rewrote 26 package URLs and added one new package entry (a font license) — only one of the 26 rewrites was the bumped package — because the file had already drifted from the dependency tree independent of this PR.
 
@@ -69,7 +71,7 @@ Upstream changelogs describe *intended* changes from the maintainer's perspectiv
 - Any dependency bump — dependabot-authored or manual — where the bumped package is imported by more than a trivial number of files, or is known to construct output bytes (markdown, HTML, XML/YAML serialization, templating, string-formatting libraries).
 - Any time `go build`/`go vet`/lint pass but a golden or snapshot test fails after a dependency bump: read the fixture diff before assuming it is noise, and before running `-update` and moving on.
 - Before citing an upstream changelog claim ("fixes X", "Y now behaves correctly") as justification for skipping verification of a repo invariant such as a `GOTCHAS.md` entry — confirm the claim against the vendored module source first.
-- When a repo has more than one code path constructing the same output format (here: `internal/converter/builder` and `internal/processor/report_markdown.go`) — a fixture gap on one of them is a standing risk for every future bump of that shared library, not just this one.
+- When a repo has more than one code path constructing the same output format — a fixture gap on one of them is a standing risk for every future bump of that shared library, not just this one. That was the case here until `internal/processor` was removed in #777; re-run the call-site grep rather than assuming the single-path state still holds.
 
 ## Examples
 
@@ -100,14 +102,17 @@ git diff internal/converter/testdata/golden/
 
 ```bash
 grep -rl 'nao1215/markdown' --include='*.go' . | grep -v _test.go
+# At the time of this bump:
 # internal/converter/builder/*.go        <- has golden fixtures
-# internal/processor/report_markdown.go  <- builds markdown independently,
+# internal/processor/report_markdown.go  <- built markdown independently,
 #                                           no golden fixture, silent exposure
+# (that second path was removed in #777; run the grep again rather than
+#  trusting this list)
 ```
 
 ## Related
 
-- `GOTCHAS.md` section 10.4 ("Never Return `md.String()` or `buf.String()` Raw") — the line-ending invariant this bump could have broken but did not, and the reason `report_markdown.go` and `internal/converter/builder` both need independent `NormalizeToLF` treatment.
+- `GOTCHAS.md` section 10.4 ("Never Return `md.String()` or `buf.String()` Raw") — the line-ending invariant this bump could have broken but did not, and the reason `report_markdown.go` and `internal/converter/builder` each needed independent `NormalizeToLF` treatment while both existed.
 - `GOTCHAS.md` section 22.2 — the `\.golden\.md$` exclude in `.pre-commit-config.yaml` keeps mdformat off these fixtures, which is why golden-file diffing is the sole detection mechanism for this class of upstream formatting change.
 - `internal/converter/golden_test.go` — the fixture harness that caught this bump; the `-update` flag is documented at the top of the file.
 - `internal/converter/builder/lineendings.go` — the `renderMarkdown` helper that is the sanctioned exit point for markdown output in the builder package.

@@ -34,10 +34,18 @@ The impact-and-context framing attached to a red-mode exposure finding: why an e
 
 ## Device model
 
+### Common device
+
+The vendor-neutral representation every device parser produces: one firewall's configuration expressed in a single shared shape, so that analysis, compliance checks, diffing, and every output format work against one model rather than against each vendor's own config dialect. Adding support for a new platform means writing a parser that populates this model, not teaching every downstream consumer a new schema.
+
+A Common device is the unit of analysis — one parsed configuration file normally yields exactly one.
+
 ### Named-object reference layer
 
-Planned: an additive registry (`NamedObjects`) and reference concept (`ObjectRef`) on `CommonDevice` that would let a device parser preserve object-oriented config as named object definitions plus rule-level references to them, alongside the existing resolved-inline-value fields. Not yet implemented — `CommonDevice` does not currently expose these fields. The design intent is for resolved values to stay always populated so existing pf-family checks keep firing unmodified, with the reference layer optional and empty for devices (OPNsense, pfSense) that have no named-object concept, unlocking reference-integrity checks like dangling-object detection without a schema rewrite.
+The registry of named object definitions a device declares, plus the rule-level references pointing at them, carried on a Common device alongside its resolved inline values. It lets a parser preserve object-oriented configuration as definitions-and-references rather than flattening it away.
+
+Resolved values stay populated whether or not the layer is present, so checks written against addresses and ports keep firing unmodified; the layer is simply empty for platforms that have no named-object concept. Its presence is what makes reference-integrity questions expressible at all — whether a reference points at nothing, and whether a defined object is reachable from any policy.
 
 ### DeviceBundle
 
-The planned container for a config file that yields more than one `CommonDevice` from a single parse — the deferred FortiGate VDOM case, where each VDOM (plus the global scope) becomes its own device rather than being merged into one. Not yet implemented: today's parsers are single-`CommonDevice`-per-file only, and a VDOM-bearing FortiGate config is detected and warned rather than expanded into a DeviceBundle.
+The planned container for a config file that yields more than one Common device from a single parse — the deferred FortiGate VDOM case, where each VDOM (plus the global scope) becomes its own device rather than being merged into one. Not yet implemented: today's parsers are single-device-per-file only, and a VDOM-bearing FortiGate config is detected and warned rather than expanded into a DeviceBundle.

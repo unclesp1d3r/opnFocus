@@ -61,7 +61,7 @@ The immediately-invoked function literal creates a deferred recovery scope isola
 ### Key Design Decisions
 
 1. **Logger parameter uses `*logging.Logger`** -- matches the project's charmbracelet/log-based logging, ensuring panic recovery logs respect the application's configured output format, level, and destination. A nil guard defaults to a fallback logger so callers can never trigger a secondary panic on the recovery path.
-2. **Stack trace included via `runtime/debug.Stack()`** -- matches the pattern in `internal/processor/processor.go`, giving actionable debugging information for misbehaving plugins (especially dynamic `.so` files).
+2. **Stack trace included via `runtime/debug.Stack()`** -- giving actionable debugging information for misbehaving plugins (especially dynamic `.so` files).
 3. **Panicked plugins retained in results with safe defaults** -- a `panicked` flag gates the post-recovery path. When set, safe defaults (`pluginName`, `Version: "unknown (panicked)"`, empty compliance map) are populated and the loop `continue`s, skipping method calls (`Name()`, `Description()`, `GetControls()`) on the potentially corrupt plugin. Downstream consumers can see the plugin was requested and evaluated. See GOTCHAS.md SS2.2.
 4. **Post-recovery method calls avoided** -- after a panic, the plugin's internal state may be corrupt. Calling `p.Name()`, `p.GetControls()`, etc. could trigger a secondary unrecovered panic. The recovery path uses only the `pluginName` string already in scope from the loop variable.
 

@@ -13,7 +13,7 @@ This file provides AI coding assistants with project context. All substantive do
 - **[Architecture](docs/development/architecture.md)** — System design, component interactions, deployment patterns
 - **[Known Gotchas](GOTCHAS.md)** — Non-obvious behaviors, common pitfalls, hard-won lessons
 - **[Plugin Development](docs/development/plugin-development.md)** — Compliance plugin and device parser development
-- **[Solutions](docs/solutions/)** — Documented problem solutions for searchable future reference
+- **[Solutions](docs/solutions/)** — Documented problem solutions for searchable future reference, filed by category (architecture-issues, logic-errors, runtime-errors, workflow-issues, performance-issues, conventions) with YAML frontmatter (`component`, `tags`, `problem_type`); relevant when implementing or debugging in an area one covers
 - **[Concepts](CONCEPTS.md)** — Shared domain vocabulary (entities, named processes, status concepts); relevant when orienting to the codebase or discussing domain concepts
 
 ## Agent-Specific Rules
