@@ -21,7 +21,7 @@ related_docs: []
 
 # Memoizing Recursive Graph Resolution Must Also Bound Output Size
 
-> **Fix status:** Introduced by [PR #696](https://github.com/EvilBit-Labs/opnDossier/pull/696) (firewall rule shadowing detection), unmerged as of this writing. The cited file `pkg/model/named_objects.go` does not exist on `main` yet — it is added by that PR. The behavior described below reflects that PR's `NamedObjects.Resolve` / `resolveNode` implementation.
+> **Fix status:** Merged. Introduced by [PR #696](https://github.com/EvilBit-Labs/opnDossier/pull/696) (firewall rule shadowing detection). `pkg/model/named_objects.go` is on `main` and carries all three mechanisms described below: `maxAliasDepth` (16), the per-`Resolve` `memo`, and `dedupeSorted` applied at every node as well as at the top.
 
 ## Problem
 

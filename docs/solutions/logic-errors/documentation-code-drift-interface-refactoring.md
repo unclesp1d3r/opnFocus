@@ -15,7 +15,7 @@ tags:
   - prose-verification
   - automated-review-gap
   - second-opinion
-component: converter/builder, processor
+component: converter/builder
 severity: medium
 symptoms:
   - Documentation lists method names that do not exist in code
@@ -212,6 +212,8 @@ Before merging PRs that touch docs, AGENTS.md, GOTCHAS.md, or Mermaid diagrams:
 - [ ] Code paths described in docs have corresponding test cases
 
 ## Recurrence: Concurrency-Invariant Prose (2026-05-03)
+
+> The `internal/processor` package cited throughout this section was deleted in #777 (packages outside the binary dependency closure). The file and line references below are preserved as the record of what the review actually examined; they no longer resolve on `main`. The drift pattern and the review technique are what carry forward.
 
 The same drift pattern recurred on a different surface — concurrency invariants rather than interface methods — in [PR #598](https://github.com/EvilBit-Labs/opnDossier/pull/598) (`perf(processor): remove CoreProcessor mutex serialization`, squash-merged as commit `433bad6`). The mutex removal was correct and benchmarked clean (~2.24-2.57x throughput improvement). The follow-up doc commit on that PR (collapsed into `433bad6` by the squash-merge, so no longer addressable as a standalone SHA) contained three factual errors that a multi-persona automated review (correctness, testing, maintainability, project-standards, performance, reliability) passed without challenge:
 
