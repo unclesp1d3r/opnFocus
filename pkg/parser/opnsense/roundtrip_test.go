@@ -40,6 +40,25 @@ func TestRoundTrip_SampleConfigs(t *testing.T) {
 			assert.NotEmpty(t, device.System.Hostname, "hostname empty for %s", name)
 			assert.NotEmpty(t, device.System.Domain, "domain empty for %s", name)
 			assert.NotEmpty(t, device.Interfaces, "no interfaces for %s", name)
+
+			// Sysctl is asserted here because this is the only test that
+			// drives the whole pipeline over every shipped fixture. The
+			// tunables were collapsing into a single entry with empty
+			// Tunable and Value, and both the schema tests and the
+			// converter tests agreed with each other while the CLI path
+			// disagreed with both, so the defect survived them all.
+			//
+			// The count is deliberately not pinned: the fixtures carry 36
+			// tunables each except sample.config.5.xml, which carries 35.
+			// The property that actually broke is that entries arrive
+			// populated, so that is what is asserted.
+			assert.NotEmpty(t, device.Sysctl, "no sysctl tunables for %s", name)
+			for i, item := range device.Sysctl {
+				assert.NotEmptyf(t, item.Tunable,
+					"%s: sysctl[%d] has an empty Tunable, the shape the collapse produced", name, i)
+				assert.NotEmptyf(t, item.Value,
+					"%s: sysctl[%d] (%s) has an empty Value", name, i, item.Tunable)
+			}
 		})
 	}
 }
