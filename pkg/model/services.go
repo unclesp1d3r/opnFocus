@@ -61,6 +61,14 @@ type DHCPAdvancedV4 struct {
 	// only populating path. Vendors still default it to hmac-md5, so surfacing it is
 	// what lets a report call out a deprecated MAC rather than omitting the field.
 	DdnsDomainKeyAlgorithm string `json:"ddnsDomainKeyAlgorithm,omitempty" yaml:"ddnsDomainKeyAlgorithm,omitempty"`
+	// DdnsDomainKeyName names the TSIG key used to sign dynamic DNS updates.
+	// It is the key's identifier, not the key: the secret lives in
+	// <ddnsdomainkey>, which is deliberately not modelled here and is
+	// redacted by the sanitizer. Without the name a report can state the
+	// key's algorithm but not say which key an operator has to rotate.
+	// Modelled on the pfSense side only, on the same evidence as
+	// DdnsDomainKeyAlgorithm above.
+	DdnsDomainKeyName string `json:"ddnsDomainKeyName,omitempty" yaml:"ddnsDomainKeyName,omitempty"`
 	// FailoverPeerIP is the address of the DHCP failover peer, set when the
 	// scope participates in a high-availability pair.
 	FailoverPeerIP string `json:"failoverPeerIp,omitempty" yaml:"failoverPeerIp,omitempty"`

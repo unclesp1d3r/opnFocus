@@ -19,7 +19,8 @@ type DhcpdInterface struct {
 	Gateway                string                      `xml:"gateway,omitempty"                json:"gateway,omitempty"                yaml:"gateway,omitempty"`
 	DdnsDomainAlgorithm    string                      `xml:"ddnsdomainalgorithm,omitempty"    json:"ddnsdomainalgorithm,omitempty"    yaml:"ddnsdomainalgorithm,omitempty"`
 	DdnsDomainKeyAlgorithm string                      `xml:"ddnsdomainkeyalgorithm,omitempty" json:"ddnsdomainkeyalgorithm,omitempty" yaml:"ddnsdomainkeyalgorithm,omitempty"`
-	FailoverPeerIP         string                      `xml:"failover_peerip,omitempty"        json:"failoverPeerIP,omitempty"         yaml:"failoverPeerIP,omitempty"`
+	DdnsDomainKeyName      string                      `xml:"ddnsdomainkeyname,omitempty"      json:"ddnsdomainkeyname,omitempty"      yaml:"ddnsdomainkeyname,omitempty"`
+	FailoverPeerIP         string                      `xml:"failover_peerip,omitempty"        json:"failoverPeerIp,omitempty"         yaml:"failoverPeerIp,omitempty"`
 	NumberOptions          []opnsense.DHCPNumberOption `xml:"numberoptions>item,omitempty"     json:"numberOptions,omitempty"          yaml:"numberOptions,omitempty"`
 	Winsserver             string                      `xml:"winsserver,omitempty"             json:"winsserver,omitempty"             yaml:"winsserver,omitempty"`
 	// Dnsserver repeats once per advertised DNS server. A scalar here would

@@ -39,7 +39,6 @@ type SysctlItem struct {
 	Key     string `xml:"key,omitempty" json:"key,omitempty"         yaml:"key,omitempty"`
 
 	Secret string `xml:"secret,omitempty" json:"secret,omitempty" yaml:"secret,omitempty"`
-	Item   string `xml:"item,omitempty"   json:"item,omitempty"   yaml:"item,omitempty"`
 }
 
 // SysctlItems is the list of kernel tunables held under <sysctl>.
@@ -127,8 +126,7 @@ func (s SysctlItem) IsPlaceholder() bool {
 		s.Tunable == "" &&
 		s.Value == "" &&
 		s.Key == "" &&
-		s.Secret == "" &&
-		s.Item == ""
+		s.Secret == ""
 }
 
 // MarshalXML writes the tunables back in the container shape they were read

@@ -115,6 +115,7 @@ func (c *converter) buildDHCPAdvancedV4(d pfsense.DhcpdInterface) *common.DHCPAd
 		AdvDHCPConfigFileOverridePath: d.AdvDHCPConfigFileOverridePath,
 		DdnsDomainAlgorithm:           d.DdnsDomainAlgorithm,
 		DdnsDomainKeyAlgorithm:        d.DdnsDomainKeyAlgorithm,
+		DdnsDomainKeyName:             d.DdnsDomainKeyName,
 		FailoverPeerIP:                d.FailoverPeerIP,
 	}
 
