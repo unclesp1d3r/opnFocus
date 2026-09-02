@@ -146,7 +146,12 @@ func handleStartElement(dec *xml.Decoder, doc *schema.OpnSenseDocument, se xml.S
 	case "dhcpd":
 		return decodeChild(dec, &doc.Dhcpd, se)
 	case "sysctl":
-		return decodeSysctl(dec, doc, se)
+		// Routed through the ordinary dispatch so SysctlItems.UnmarshalXML
+		// is the single decoder for this section. The bespoke handler that
+		// used to live here understood only the container shape, silently
+		// skipped the legacy flat shape, kept a bare <item/> as a phantom
+		// tunable, and discarded its own decode error.
+		return decodeChild(dec, &doc.Sysctl, se)
 	case "unbound":
 		return decodeChild(dec, &doc.Unbound, se)
 	case "snmpd":
@@ -227,22 +232,6 @@ func handleStartElement(dec *xml.Decoder, doc *schema.OpnSenseDocument, se xml.S
 // for follow-up.
 func decodeChild(dec *xml.Decoder, target any, se xml.StartElement) error {
 	return parser.WrapDecodeError(dec.DecodeElement(target, &se), "/opnsense/"+se.Name.Local)
-}
-
-// decodeSysctl handles the special sysctl section format.
-func decodeSysctl(dec *xml.Decoder, doc *schema.OpnSenseDocument, se xml.StartElement) error {
-	var container struct {
-		Items []schema.SysctlItem `xml:"item"`
-	}
-	if err := dec.DecodeElement(&container, &se); err == nil {
-		doc.Sysctl = append(doc.Sysctl, container.Items...)
-	} else {
-		// Skip non-standard direct format
-		if err := skipElement(dec); err != nil {
-			return fmt.Errorf("failed to skip sysctl element: %w", err)
-		}
-	}
-	return nil
 }
 
 // Validate validates the given OPNsense configuration and returns an error if validation fails.

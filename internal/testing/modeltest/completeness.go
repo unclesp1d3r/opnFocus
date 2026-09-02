@@ -10,6 +10,7 @@
 package modeltest
 
 import (
+	"encoding/xml"
 	"errors"
 	"fmt"
 	"io"
@@ -218,6 +219,33 @@ func getAllXMLPaths(data map[string]any, prefix string) map[string]bool {
 	return paths
 }
 
+// xmlUnmarshalerType is the interface a type implements when it decodes itself
+// rather than letting encoding/xml walk its fields.
+var xmlUnmarshalerType = reflect.TypeFor[xml.Unmarshaler]()
+
+// decodesOwnChildren reports whether t decodes itself AND is shaped to hold
+// child elements.
+//
+// The second half matters. Wildcards here are matched by naive string prefix,
+// so every one weakens the check for any path sharing that prefix. A scalar
+// custom codec such as BoolFlag (an XML leaf) has no children to describe, and
+// wildcarding one per BoolFlag field would blunt the whole suite. Only a
+// struct, map, slice or array can carry the children a codec might accept
+// without declaring them in tags.
+func decodesOwnChildren(t reflect.Type) bool {
+	if t.Kind() == reflect.Ptr {
+		t = t.Elem()
+	}
+
+	switch t.Kind() {
+	case reflect.Struct, reflect.Map, reflect.Slice, reflect.Array:
+	default:
+		return false
+	}
+
+	return t.Implements(xmlUnmarshalerType) || reflect.PointerTo(t).Implements(xmlUnmarshalerType)
+}
+
 // GetModelPaths returns all expected XML element and attribute paths represented by a Go struct type.
 // It recursively traverses the struct, interpreting XML tags (including wildcards, attributes, and nested elements) to build a set of dot-separated paths that describe the model's structure.
 func GetModelPaths(t reflect.Type, prefix string) map[string]bool {
@@ -315,6 +343,22 @@ func GetModelPaths(t reflect.Type, prefix string) map[string]bool {
 		}
 
 		paths[currentPath] = true
+
+		// A type carrying its own UnmarshalXML decodes children this walk
+		// cannot see: the shapes it accepts are expressed in code, not in
+		// struct tags. Treat it as a wildcard, exactly as xml:",any" is
+		// treated above, so its children are not reported missing.
+		//
+		// SysctlItems is the case in point. It accepts both the container
+		// shape (<sysctl><item>) and the legacy flat shape, and declares
+		// neither through a field tag. Before this, the check passed only
+		// because SysctlItem carried a vestigial Item field tagged
+		// xml:"item" -- a field that existed to absorb a mis-parse and
+		// populated nothing. Deleting that field is what surfaced this.
+		if decodesOwnChildren(field.Type) {
+			paths[currentPath+".*"] = true
+			continue
+		}
 
 		// Also add version and UUID attributes if they exist at the top level
 		if strings.Contains(xmlTag, "version,attr") {
