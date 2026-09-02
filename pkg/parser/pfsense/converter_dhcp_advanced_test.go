@@ -22,8 +22,8 @@ func populateAdvancedFields(t *testing.T, d *pfsenseSchema.DhcpdInterface, advan
 	t.Helper()
 
 	target := reflect.ValueOf(d).Elem()
-	for i := range advanced.NumField() {
-		name := advanced.Field(i).Name
+	for structField := range advanced.Fields() {
+		name := structField.Name
 
 		field := target.FieldByName(name)
 		if !field.IsValid() {
@@ -50,8 +50,8 @@ func populateAdvancedFields(t *testing.T, d *pfsenseSchema.DhcpdInterface, advan
 func TestConverter_DHCPAdvanced_EveryFieldSurvivesConversion(t *testing.T) {
 	t.Parallel()
 
-	v4Type := reflect.TypeOf(common.DHCPAdvancedV4{})
-	v6Type := reflect.TypeOf(common.DHCPAdvancedV6{})
+	v4Type := reflect.TypeFor[common.DHCPAdvancedV4]()
+	v6Type := reflect.TypeFor[common.DHCPAdvancedV6]()
 
 	var iface pfsenseSchema.DhcpdInterface
 	populateAdvancedFields(t, &iface, v4Type)
