@@ -76,6 +76,16 @@ func TestConverter_OpenVPNCryptoReachesCommonDevice(t *testing.T) {
 		NCPCiphers:     "AES-256-GCM",
 		Custom_options: "remote-cert-tls server",
 	}}
+	// The server write-site was uncovered while the client one was guarded,
+	// and a server on a weak data-channel cipher is the instance an auditor
+	// most wants to see.
+	doc.OpenVPN.Servers = []opnsense.OpenVPNServer{{
+		VPN_ID:         "2",
+		Crypto:         "AES-128-GCM",
+		Digest:         "SHA256",
+		NCPCiphers:     "AES-128-GCM",
+		Custom_options: "remote-cert-tls client",
+	}}
 
 	device, _, err := pfsense.ConvertDocument(doc)
 	require.NoError(t, err)
@@ -85,4 +95,11 @@ func TestConverter_OpenVPNCryptoReachesCommonDevice(t *testing.T) {
 	assert.Equal(t, "SHA384", client.Digest)
 	assert.Equal(t, "AES-256-GCM", client.NCPCiphers)
 	assert.Equal(t, "remote-cert-tls server", client.CustomOptions)
+
+	require.Len(t, device.VPN.OpenVPN.Servers, 1)
+	server := device.VPN.OpenVPN.Servers[0]
+	assert.Equal(t, "AES-128-GCM", server.Crypto)
+	assert.Equal(t, "SHA256", server.Digest)
+	assert.Equal(t, "AES-128-GCM", server.NCPCiphers)
+	assert.Equal(t, "remote-cert-tls client", server.CustomOptions)
 }
