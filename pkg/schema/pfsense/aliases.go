@@ -1,4 +1,3 @@
-// Package pfsense defines the XML schema types for pfSense configuration files.
 package pfsense
 
 // Alias represents a single pfSense firewall alias definition (a "named

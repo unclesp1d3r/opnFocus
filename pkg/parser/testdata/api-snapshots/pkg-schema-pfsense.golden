@@ -2,10 +2,6 @@ package pfsense // import "github.com/EvilBit-Labs/opnDossier/pkg/schema/pfsense
 
 Package pfsense defines the XML schema types for pfSense configuration files.
 
-Package pfsense defines the XML schema types for pfSense configuration files.
-
-Package pfsense defines the XML schema types for pfSense configuration files.
-
 This package heavily reuses types from
 github.com/EvilBit-Labs/opnDossier/pkg/schema/opnsense and only forks types
 where the pfSense XML structure differs from OPNsense. The most common reason
@@ -15,18 +11,6 @@ as opnsense.BoolFlag) where OPNsense uses plain strings.
 Forked types that contain BoolFlag fields require a custom MarshalXML method and
 a private type alias (e.g., interfaceAlias) to ensure correct XML serialization.
 See the BoolFlag addressability pattern documented in GOTCHAS.md section 15.
-
-Package pfsense defines the XML schema types for pfSense configuration files.
-
-Package pfsense defines the XML schema types for pfSense configuration files.
-
-Package pfsense defines the XML schema types for pfSense configuration files.
-
-Package pfsense defines the XML schema types for pfSense configuration files.
-
-Package pfsense defines the XML schema types for pfSense configuration files.
-
-Package pfsense defines the XML schema types for pfSense configuration files.
 
 TYPES
 

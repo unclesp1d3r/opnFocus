@@ -2,38 +2,8 @@ package opnsense // import "github.com/EvilBit-Labs/opnDossier/pkg/schema/opnsen
 
 Package opnsense defines the data structures for OPNsense configurations.
 
-Package opnsense defines the data structures for OPNsense configurations.
-
 This package provides comprehensive data models for OPNsense firewall
 configurations, supporting XML, JSON, and YAML serialization formats.
-
-Package opnsense defines the data structures for OPNsense configurations.
-
-Package opnsense defines the data structures for OPNsense configurations.
-
-Package opnsense defines the data structures for OPNsense configurations.
-
-Package opnsense defines the data structures for OPNsense configurations.
-
-Package opnsense defines the data structures for OPNsense configurations.
-
-Package opnsense defines the data structures for OPNsense configurations.
-
-Package opnsense defines the data structures for OPNsense configurations.
-
-Package opnsense defines the data structures for OPNsense configurations.
-
-Package opnsense defines the data structures for OPNsense configurations.
-
-Package opnsense defines the data structures for OPNsense configurations.
-
-Package opnsense defines the data structures for OPNsense configurations.
-
-Package opnsense defines the data structures for OPNsense configurations.
-
-Package opnsense defines the data structures for OPNsense configurations.
-
-Package opnsense defines the data structures for OPNsense configurations.
 
 CONSTANTS
 
