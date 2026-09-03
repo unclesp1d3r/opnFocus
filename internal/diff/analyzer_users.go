@@ -94,5 +94,6 @@ func usersEqual(a, b common.User) bool {
 		a.GroupName == b.GroupName &&
 		a.Disabled == b.Disabled &&
 		a.UID == b.UID &&
+		a.Privileges == b.Privileges &&
 		slices.Equal(a.APIKeys, b.APIKeys)
 }

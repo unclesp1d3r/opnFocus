@@ -125,6 +125,8 @@ func (c *converter) buildDHCPAdvancedV4(d schema.DhcpdInterface) *common.DHCPAdv
 		AdvDHCPConfigAdvanced:         d.AdvDHCPConfigAdvanced,
 		AdvDHCPConfigFileOverride:     d.AdvDHCPConfigFileOverride,
 		AdvDHCPConfigFileOverridePath: d.AdvDHCPConfigFileOverridePath,
+		DdnsDomainAlgorithm:           d.DdnsDomainAlgorithm,
+		FailoverPeerIP:                d.FailoverPeerIP,
 	}
 
 	if (v4 == common.DHCPAdvancedV4{}) {
@@ -456,6 +458,10 @@ func (c *converter) convertOpenVPNServers(servers []schema.OpenVPNServer) []comm
 			NetBIOSEnable:    bool(s.Netbios_enable),
 			NetBIOSNType:     s.Netbios_ntype,
 			NetBIOSScope:     s.Netbios_scope,
+			Crypto:           s.Crypto,
+			Digest:           s.Digest,
+			NCPCiphers:       s.NCPCiphers,
+			CustomOptions:    s.Custom_options,
 		})
 	}
 
@@ -483,6 +489,10 @@ func (c *converter) convertOpenVPNClients(clients []schema.OpenVPNClient) []comm
 			CARef:          cl.CA_ref,
 			Compression:    cl.Compression,
 			VerbosityLevel: cl.Verbosity_level,
+			Crypto:         cl.Crypto,
+			Digest:         cl.Digest,
+			NCPCiphers:     cl.NCPCiphers,
+			CustomOptions:  cl.Custom_options,
 		})
 	}
 
@@ -733,6 +743,7 @@ func (c *converter) convertUsers(doc *schema.OpnSenseDocument) []common.User {
 			Scope:       u.Scope,
 			GroupName:   u.Groupname,
 			UID:         u.UID,
+			Privileges:  strings.Join(u.Priv, ", "),
 		}
 
 		if len(u.APIKeys) > 0 {
@@ -769,8 +780,8 @@ func (c *converter) convertGroups(doc *schema.OpnSenseDocument) []common.Group {
 			Description: g.Description,
 			Scope:       g.Scope,
 			GID:         g.Gid,
-			Member:      g.Member,
-			Privileges:  g.Priv,
+			Member:      strings.Join(g.Member, ", "),
+			Privileges:  strings.Join(g.Priv, ", "),
 		})
 	}
 

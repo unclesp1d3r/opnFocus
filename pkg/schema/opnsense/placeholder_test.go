@@ -47,6 +47,12 @@ func TestIsPlaceholder_EveryFieldDefeatsPlaceholder_NoFieldIsSilentlyUncovered(t
 		{name: "LAGG", zero: LAGG{}},
 		{name: "VIP", zero: VIP{}},
 		{name: "VLAN", zero: VLAN{}},
+		// SysctlItem's guard runs in SysctlItems.UnmarshalXML rather than at a
+		// converter boundary, but the predicate carries the same risk: drop a
+		// field from it and an entry holding only that field is discarded with
+		// the whole suite still green. It has no XMLName, so no harness change
+		// is needed to enrol it.
+		{name: "SysctlItem", zero: SysctlItem{}},
 	}
 
 	for _, tt := range types {

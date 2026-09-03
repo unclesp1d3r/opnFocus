@@ -50,6 +50,28 @@ type DHCPAdvancedV4 struct {
 	AdvDHCPConfigFileOverride string `json:"advDhcpConfigFileOverride,omitempty" yaml:"advDhcpConfigFileOverride,omitempty"`
 	// AdvDHCPConfigFileOverridePath is the filesystem path for the DHCP config override file.
 	AdvDHCPConfigFileOverridePath string `json:"advDhcpConfigFileOverridePath,omitempty" yaml:"advDhcpConfigFileOverridePath,omitempty"`
+
+	// Dynamic DNS and failover fields.
+
+	// DdnsDomainAlgorithm is the TSIG algorithm used to sign dynamic DNS updates.
+	DdnsDomainAlgorithm string `json:"ddnsDomainAlgorithm,omitempty" yaml:"ddnsDomainAlgorithm,omitempty"`
+	// DdnsDomainKeyAlgorithm is the algorithm of the TSIG key itself. Only the
+	// pfSense schema models it: it is declared nowhere in testdata/opnsense-config.dtd
+	// and no OPNsense fixture carries the element, so the pfSense converter is its
+	// only populating path. Vendors still default it to hmac-md5, so surfacing it is
+	// what lets a report call out a deprecated MAC rather than omitting the field.
+	DdnsDomainKeyAlgorithm string `json:"ddnsDomainKeyAlgorithm,omitempty" yaml:"ddnsDomainKeyAlgorithm,omitempty"`
+	// DdnsDomainKeyName names the TSIG key used to sign dynamic DNS updates.
+	// It is the key's identifier, not the key: the secret lives in
+	// <ddnsdomainkey>, which is deliberately not modelled here and is
+	// redacted by the sanitizer. Without the name a report can state the
+	// key's algorithm but not say which key an operator has to rotate.
+	// Modelled on the pfSense side only, on the same evidence as
+	// DdnsDomainKeyAlgorithm above.
+	DdnsDomainKeyName string `json:"ddnsDomainKeyName,omitempty" yaml:"ddnsDomainKeyName,omitempty"`
+	// FailoverPeerIP is the address of the DHCP failover peer, set when the
+	// scope participates in a high-availability pair.
+	FailoverPeerIP string `json:"failoverPeerIp,omitempty" yaml:"failoverPeerIp,omitempty"`
 }
 
 // DHCPAdvancedV6 contains advanced DHCPv6 configuration fields including tracking,

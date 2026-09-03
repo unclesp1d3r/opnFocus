@@ -73,15 +73,43 @@ func (fp *Plugin) checkUniqueAdministratorAccounts(device *common.CommonDevice) 
 	return checkResult{Result: true, Known: true}
 }
 
+// grantsPageAll reports whether a privilege list grants page-all.
+//
+// The list arrives as the converters' joined form. Both vendors join with
+// ", " (a comma AND a space), so splitting on a bare comma leaves every
+// entry after the first with a leading space: " page-all" does not equal
+// "page-all", and a group holding page-all alongside anything else reads
+// as compliant. Trim each element rather than the whole string, since the
+// separator is what introduces the padding.
+func grantsPageAll(privileges string) bool {
+	for priv := range strings.SplitSeq(privileges, ",") {
+		if strings.TrimSpace(priv) == pageAllPrivilege {
+			return true
+		}
+	}
+
+	return false
+}
+
 // checkLeastPrivilegeAccess checks that no user or group is granted the
 // page-all privilege, which provides unrestricted web GUI access.
+//
+// Users are checked as well as groups: both vendors can grant a privilege
+// directly on a user, so a page-all user with no group membership would
+// otherwise be invisible to the one control meant to catch it.
 func (fp *Plugin) checkLeastPrivilegeAccess(device *common.CommonDevice) checkResult {
 	if device == nil {
 		return checkResult{Result: true, Known: true}
 	}
 
 	for _, group := range device.Groups {
-		if slices.Contains(strings.Split(group.Privileges, ","), pageAllPrivilege) {
+		if grantsPageAll(group.Privileges) {
+			return checkResult{Result: false, Known: true}
+		}
+	}
+
+	for _, user := range device.Users {
+		if grantsPageAll(user.Privileges) {
 			return checkResult{Result: false, Known: true}
 		}
 	}

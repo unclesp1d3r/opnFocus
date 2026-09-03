@@ -102,6 +102,17 @@ type OpenVPNServer struct {
 	NetBIOSNType string `json:"netBiosNType,omitempty" yaml:"netBiosNType,omitempty"`
 	// NetBIOSScope is the NetBIOS scope ID.
 	NetBIOSScope string `json:"netBiosScope,omitempty" yaml:"netBiosScope,omitempty"`
+	// Crypto is the data-channel cipher (e.g. "AES-256-GCM"). An empty value
+	// means the OpenVPN built-in default applies, not that none is configured.
+	Crypto string `json:"crypto,omitempty" yaml:"crypto,omitempty"`
+	// Digest is the control-channel HMAC digest (e.g. "SHA384").
+	Digest string `json:"digest,omitempty" yaml:"digest,omitempty"`
+	// NCPCiphers is the negotiable cipher list offered during NCP.
+	NCPCiphers string `json:"ncpCiphers,omitempty" yaml:"ncpCiphers,omitempty"`
+	// CustomOptions holds free-form OpenVPN directives appended verbatim to the
+	// generated config. They can override anything above, so an instance read
+	// without them reports the wrong effective configuration.
+	CustomOptions string `json:"customOptions,omitempty" yaml:"customOptions,omitempty"`
 }
 
 // OpenVPNClient represents an OpenVPN client instance.
@@ -130,6 +141,17 @@ type OpenVPNClient struct {
 	Compression string `json:"compression,omitempty" yaml:"compression,omitempty"`
 	// VerbosityLevel is the logging verbosity level.
 	VerbosityLevel string `json:"verbosityLevel,omitempty" yaml:"verbosityLevel,omitempty"`
+	// Crypto is the data-channel cipher (e.g. "AES-256-GCM"). An empty value
+	// means the OpenVPN built-in default applies, not that none is configured.
+	Crypto string `json:"crypto,omitempty" yaml:"crypto,omitempty"`
+	// Digest is the control-channel HMAC digest (e.g. "SHA384").
+	Digest string `json:"digest,omitempty" yaml:"digest,omitempty"`
+	// NCPCiphers is the negotiable cipher list offered during NCP.
+	NCPCiphers string `json:"ncpCiphers,omitempty" yaml:"ncpCiphers,omitempty"`
+	// CustomOptions holds free-form OpenVPN directives appended verbatim to the
+	// generated config. They can override anything above, so an instance read
+	// without them reports the wrong effective configuration.
+	CustomOptions string `json:"customOptions,omitempty" yaml:"customOptions,omitempty"`
 }
 
 // WireGuardConfig contains WireGuard VPN configuration.

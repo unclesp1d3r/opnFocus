@@ -106,7 +106,7 @@ func newControlDefinitions() []compliance.Control {
 			Description: "Administrative access should follow the principle of least privilege",
 			Category:    "Authentication",
 			Severity:    "medium",
-			Rationale:   "Granting page-all privileges to groups provides unrestricted access beyond what most roles require",
+			Rationale:   "Granting page-all privileges to a user or group provides unrestricted access beyond what most roles require",
 			Remediation: "Replace page-all privileges with specific page-level permissions matched to each role",
 			Tags:        []string{"authentication", "least-privilege", "firewall-controls"},
 		},

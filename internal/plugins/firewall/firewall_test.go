@@ -657,6 +657,58 @@ func TestFirewallPlugin_LeastPrivilegeAccess(t *testing.T) {
 			},
 			expectFinding: false,
 		},
+		{
+			// The converters join repeated <priv> elements with ", ", so
+			// page-all is not the first entry here and carries a leading
+			// space once split on a bare comma. Regression guard: this is
+			// the shape a real multi-privilege admin group produces, and
+			// an untrimmed comparison reports it compliant.
+			name: "Group with page-all after another privilege - finding expected",
+			config: &common.CommonDevice{
+				Groups: []common.Group{
+					{Name: "admins", Privileges: "page-system-root, page-all"},
+				},
+			},
+			expectFinding: true,
+		},
+		{
+			name: "Group with page-all first among several - finding expected",
+			config: &common.CommonDevice{
+				Groups: []common.Group{
+					{Name: "admins", Privileges: "page-all, page-system-root"},
+				},
+			},
+			expectFinding: true,
+		},
+		{
+			// page-all-ish names must not trip the check: only an exact
+			// element match counts, which trimming must not loosen.
+			name: "Group with a privilege merely containing page-all - no finding",
+			config: &common.CommonDevice{
+				Groups: []common.Group{
+					{Name: "ops", Privileges: "page-all-logs, page-system-config"},
+				},
+			},
+			expectFinding: false,
+		},
+		{
+			name: "User granted page-all directly - finding expected",
+			config: &common.CommonDevice{
+				Users: []common.User{
+					{Name: "admin", Privileges: "page-system-root, page-all"},
+				},
+			},
+			expectFinding: true,
+		},
+		{
+			name: "User with specific privileges - no finding",
+			config: &common.CommonDevice{
+				Users: []common.User{
+					{Name: "operator", Privileges: "page-system-config"},
+				},
+			},
+			expectFinding: false,
+		},
 	}
 
 	for _, tt := range tests {

@@ -56,10 +56,13 @@ func (fp *Plugin) newChecksTable() []newCheckEntry {
 			tags:           []string{"authentication", "accountability", "firewall-controls"},
 		},
 		{
-			controlID: "FIREWALL-018", checkFn: (*Plugin).checkLeastPrivilegeAccess,
-			title: "Overly Broad Privileges", description: "Groups are configured with page-all unrestricted access",
+			controlID:      "FIREWALL-018",
+			checkFn:        (*Plugin).checkLeastPrivilegeAccess,
+			title:          "Overly Broad Privileges",
+			description:    "Users or groups are configured with page-all unrestricted access",
 			recommendation: "Replace page-all privileges with specific page-level permissions",
-			component:      "user-privileges", tags: []string{"authentication", "least-privilege", "firewall-controls"},
+			component:      "user-privileges",
+			tags:           []string{"authentication", "least-privilege", "firewall-controls"},
 		},
 		{
 			controlID: "FIREWALL-020", checkFn: (*Plugin).checkDisabledUnusedAccounts,

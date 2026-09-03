@@ -219,3 +219,23 @@ func TestDocumentXMLRoundTrip_DhcpdEnable(t *testing.T) {
 	assert.False(t, wanScope.Enable.Bool(), "WAN Enable must be false after document round-trip")
 	assert.Equal(t, "10.0.0.1", wanScope.Gateway)
 }
+
+// TestDhcpdInterface_DdnsDomainKeyAlgorithm covers a field pfSense writes and
+// OPNsense does not: testdata/opnsense-config.dtd declares no
+// <ddnsdomainkeyalgorithm>, and no OPNsense fixture carries one, so the
+// element is modelled on this side only. See GOTCHAS.md section 3.3 on
+// checking the two schemas against each other rather than assuming symmetry.
+func TestDhcpdInterface_DdnsDomainKeyAlgorithm(t *testing.T) {
+	const cfg = `<lan>
+		<ddnsdomainalgorithm>hmac-md5</ddnsdomainalgorithm>
+		<ddnsdomainkeyalgorithm>hmac-md5</ddnsdomainkeyalgorithm>
+		<failover_peerip>10.1.1.12</failover_peerip>
+	</lan>`
+
+	var iface DhcpdInterface
+	require.NoError(t, xml.Unmarshal([]byte(cfg), &iface))
+
+	assert.Equal(t, "hmac-md5", iface.DdnsDomainKeyAlgorithm)
+	assert.Equal(t, "hmac-md5", iface.DdnsDomainAlgorithm)
+	assert.Equal(t, "10.1.1.12", iface.FailoverPeerIP)
+}

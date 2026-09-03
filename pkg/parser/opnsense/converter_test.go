@@ -894,8 +894,8 @@ func TestConverter_Groups(t *testing.T) {
 			Description: "System Administrators",
 			Scope:       "local",
 			Gid:         "1999",
-			Member:      "0",
-			Priv:        "page-all",
+			Member:      []string{"0"},
+			Priv:        []string{"page-all"},
 		},
 	}
 

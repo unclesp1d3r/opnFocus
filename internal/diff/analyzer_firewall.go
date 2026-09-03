@@ -357,7 +357,9 @@ func rulesOptionsEqual(a, b common.FirewallRule) bool {
 		a.AllowOpts == b.AllowOpts &&
 		a.DisableReplyTo == b.DisableReplyTo &&
 		a.NoPfSync == b.NoPfSync &&
-		a.NoSync == b.NoSync
+		a.NoSync == b.NoSync &&
+		a.Tag == b.Tag &&
+		a.Tagged == b.Tagged
 }
 
 // objectRefsEqual compares two optional named-object references by value, so a

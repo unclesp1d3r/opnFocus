@@ -1,6 +1,8 @@
 // Package opnsense defines the data structures for OPNsense configurations.
 package opnsense
 
+import "encoding/xml"
+
 // WebGUIConfig represents the web management interface configuration, including
 // protocol (HTTP/HTTPS), SSL certificate reference, login autocomplete, and process limits.
 type WebGUIConfig struct {
@@ -24,8 +26,8 @@ type SSHConfig struct {
 // SystemConfig groups system-related configuration, combining the core [System] settings
 // with kernel tunables ([SysctlItem] entries).
 type SystemConfig struct {
-	System System       `json:"system"           yaml:"system,omitempty" validate:"required"`
-	Sysctl []SysctlItem `json:"sysctl,omitempty" yaml:"sysctl,omitempty"`
+	System System      `json:"system"           yaml:"system,omitempty" validate:"required"`
+	Sysctl SysctlItems `json:"sysctl,omitempty" yaml:"sysctl,omitempty"`
 }
 
 // SysctlItem represents a single kernel tunable (sysctl) entry with its name, value, and description.
@@ -37,7 +39,122 @@ type SysctlItem struct {
 	Key     string `xml:"key,omitempty" json:"key,omitempty"         yaml:"key,omitempty"`
 
 	Secret string `xml:"secret,omitempty" json:"secret,omitempty" yaml:"secret,omitempty"`
-	Item   string `xml:"item,omitempty"   json:"item,omitempty"   yaml:"item,omitempty"`
+}
+
+// SysctlItems is the list of kernel tunables held under <sysctl>.
+//
+// It exists because the vendor shape and the Go shape disagree. OPNsense
+// writes ONE <sysctl> container holding repeated <item> children:
+//
+//	<sysctl>
+//	  <item><descr/><tunable/><value/></item>
+//	  <item>...</item>
+//	</sysctl>
+//
+// Binding a plain []SysctlItem to xml:"sysctl" tells encoding/xml to expect
+// <sysctl> itself to repeat, so every tunable in the file collapsed into a
+// single entry with empty Tunable and Value -- silently, because a config
+// with no tunables and a config with two hundred decoded to the same thing.
+// Decoding the container explicitly is what restores them.
+//
+// Older configs wrote the fields directly under <sysctl> (the "simple
+// format" [SysctlItem] documents), so both shapes are accepted.
+type SysctlItems []SysctlItem
+
+// UnmarshalXML decodes one <sysctl> container into zero or more tunables.
+//
+// It appends rather than assigns: encoding/xml calls this once per <sysctl>
+// element it encounters, and a config carrying more than one container must
+// accumulate across the calls instead of keeping only the last.
+func (s *SysctlItems) UnmarshalXML(d *xml.Decoder, start xml.StartElement) error {
+	// The anonymous struct captures both layouts in a single pass: Items
+	// takes the <item> children, the remaining fields take a tunable
+	// written directly under <sysctl>. Only one of the two is populated by
+	// any given container.
+	var container struct {
+		Items   []SysctlItem `xml:"item"`
+		Descr   string       `xml:"descr"`
+		Tunable string       `xml:"tunable"`
+		Value   string       `xml:"value"`
+		Key     string       `xml:"key"`
+		Secret  string       `xml:"secret"`
+	}
+	if err := d.DecodeElement(&container, &start); err != nil {
+		return err
+	}
+
+	for i := range container.Items {
+		if container.Items[i].IsPlaceholder() {
+			continue
+		}
+		*s = append(*s, container.Items[i])
+	}
+
+	// Keep a directly-written tunable only when it carries content, by the
+	// same predicate the <item> children go through above. An
+	// OPNsense-shaped container leaves these fields empty, so appending
+	// unconditionally would put a blank entry after every real one.
+	direct := SysctlItem{
+		Descr:   container.Descr,
+		Tunable: container.Tunable,
+		Value:   container.Value,
+		Key:     container.Key,
+		Secret:  container.Secret,
+	}
+	if !direct.IsPlaceholder() {
+		*s = append(*s, direct)
+	}
+
+	return nil
+}
+
+// IsPlaceholder reports whether the entry carries no configuration at all.
+//
+// The DTD's content model for <item> makes every child optional --
+// "<!ELEMENT item (((number,type)|(descr,tunable))?,(value|(key,secret))?)>" --
+// so a bare <item/> is valid and unmarshals into an entry whose fields are all
+// zero. Appending it would report a tunable that is not configured, the same
+// phantom-entry problem GOTCHAS.md section 3.4 describes for the EMPTY-declared
+// elements. No shipped fixture contains one; the guard is here because the
+// schema permits it, not because a fixture forced it.
+//
+// Conservative by the same rule as the section 3.4 predicates: an entry is
+// dropped only when every configuration field is zero, so one carrying just a
+// description survives.
+func (s SysctlItem) IsPlaceholder() bool {
+	return s.Descr == "" &&
+		s.Tunable == "" &&
+		s.Value == "" &&
+		s.Key == "" &&
+		s.Secret == ""
+}
+
+// MarshalXML writes the tunables back in the container shape they were read
+// from: one <sysctl> element holding a repeated <item> per tunable.
+//
+// Without this, the default encoder would emit one <sysctl> per tunable with
+// the fields as direct children -- the legacy flat shape. That still decodes,
+// because UnmarshalXML accepts both, so the values survive a round trip; but
+// the document would no longer match what the vendor writes, and every other
+// custom container in this package (Dhcpd, Interfaces, InterfaceList) pairs
+// its unmarshaler with a marshaler for exactly that reason.
+func (s SysctlItems) MarshalXML(e *xml.Encoder, start xml.StartElement) error {
+	if len(s) == 0 {
+		return nil
+	}
+
+	if err := e.EncodeToken(start); err != nil {
+		return err
+	}
+
+	itemStart := xml.StartElement{Name: xml.Name{Local: "item"}}
+	for i := range s {
+		if err := e.EncodeElement(s[i], itemStart); err != nil {
+			return err
+		}
+	}
+
+	return e.EncodeToken(xml.EndElement{Name: start.Name})
 }
 
 // System contains the core system configuration including hostname, domain, DNS, users, groups,
@@ -108,12 +225,12 @@ type Widgets struct {
 // Group represents a user group with a name, GID, scope (system or local), member list,
 // and assigned privileges.
 type Group struct {
-	Name        string `xml:"name"        json:"name"                  yaml:"name"                  validate:"required,alphanum"`
-	Description string `xml:"description" json:"description,omitempty" yaml:"description,omitempty"`
-	Scope       string `xml:"scope"       json:"scope"                 yaml:"scope"                 validate:"required,oneof=system local"`
-	Gid         string `xml:"gid"         json:"gid"                   yaml:"gid"                   validate:"required,numeric"` //nolint:staticcheck // Field name matches OPNsense schema
-	Member      string `xml:"member"      json:"member,omitempty"      yaml:"member,omitempty"`
-	Priv        string `xml:"priv"        json:"privileges,omitempty"  yaml:"privileges,omitempty"`
+	Name        string   `xml:"name"        json:"name"                  yaml:"name"                  validate:"required,alphanum"`
+	Description string   `xml:"description" json:"description,omitempty" yaml:"description,omitempty"`
+	Scope       string   `xml:"scope"       json:"scope"                 yaml:"scope"                 validate:"required,oneof=system local"`
+	Gid         string   `xml:"gid"         json:"gid"                   yaml:"gid"                   validate:"required,numeric"` //nolint:staticcheck // Field name matches OPNsense schema
+	Member      []string `xml:"member"      json:"member,omitempty"      yaml:"member,omitempty"`
+	Priv        []string `xml:"priv"        json:"privileges,omitempty"  yaml:"privileges,omitempty"`
 }
 
 // Firmware represents the OPNsense firmware configuration, including the update mirror,
@@ -137,13 +254,14 @@ type User struct {
 	Scope     string   `xml:"scope"     json:"scope"                 yaml:"scope"                 validate:"required,oneof=system local"`
 	Groupname string   `xml:"groupname" json:"groupname"             yaml:"groupname"             validate:"required"`
 
-	Password       string   `xml:"password"       json:"password"          yaml:"password"                 validate:"required"`
-	UID            string   `xml:"uid"            json:"uid"               yaml:"uid"                      validate:"required,numeric"`
-	APIKeys        []APIKey `xml:"apikeys>item"   json:"apiKeys,omitempty" yaml:"apiKeys,omitempty"`
-	Expires        BoolFlag `xml:"expires"        json:"expires"           yaml:"expires,omitempty"`
-	AuthorizedKeys BoolFlag `xml:"authorizedkeys" json:"authorizedKeys"    yaml:"authorizedKeys,omitempty"`
-	IPSecPSK       BoolFlag `xml:"ipsecpsk"       json:"ipsecPsk"          yaml:"ipsecPsk,omitempty"`
-	OTPSeed        BoolFlag `xml:"otp_seed"       json:"otpSeed"           yaml:"otpSeed,omitempty"`
+	Password       string   `xml:"password"       json:"password"             yaml:"password"                 validate:"required"`
+	UID            string   `xml:"uid"            json:"uid"                  yaml:"uid"                      validate:"required,numeric"`
+	Priv           []string `xml:"priv"           json:"privileges,omitempty" yaml:"privileges,omitempty"`
+	APIKeys        []APIKey `xml:"apikeys>item"   json:"apiKeys,omitempty"    yaml:"apiKeys,omitempty"`
+	Expires        BoolFlag `xml:"expires"        json:"expires"              yaml:"expires,omitempty"`
+	AuthorizedKeys BoolFlag `xml:"authorizedkeys" json:"authorizedKeys"       yaml:"authorizedKeys,omitempty"`
+	IPSecPSK       BoolFlag `xml:"ipsecpsk"       json:"ipsecPsk"             yaml:"ipsecPsk,omitempty"`
+	OTPSeed        BoolFlag `xml:"otp_seed"       json:"otpSeed"              yaml:"otpSeed,omitempty"`
 }
 
 // APIKey represents a user API key pair with its key, secret, associated privileges,
