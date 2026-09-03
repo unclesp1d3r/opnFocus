@@ -5,6 +5,56 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.7.3] - 2026-09-03
+
+### Changed
+
+- Fix binary-name contradiction, nav gaps, and duplicate pages ([#787](https://github.com/EvilBit-Labs/opnDossier/pull/787))
+
+- Stop running the race detector on GitHub ([#790](https://github.com/EvilBit-Labs/opnDossier/pull/790))
+
+- **sanitizer**: Remove the unreachable domain mapper ([#791](https://github.com/EvilBit-Labs/opnDossier/pull/791))
+
+- **security**: Correct the CWE-312 redaction claim ([#803](https://github.com/EvilBit-Labs/opnDossier/pull/803))
+
+- Align the golangci-lint pin with mise.toml ([#819](https://github.com/EvilBit-Labs/opnDossier/pull/819))
+
+- Refresh solutions store against the current codebase ([#823](https://github.com/EvilBit-Labs/opnDossier/pull/823))
+
+
+### Fixed
+
+- **parser**: Skip empty XML placeholder entries in PPP and static route converters ([#789](https://github.com/EvilBit-Labs/opnDossier/pull/789))
+
+- **action**: Run the container as the workspace owner ([#794](https://github.com/EvilBit-Labs/opnDossier/pull/794))
+
+- **release**: Point the action and README at the current release ([#802](https://github.com/EvilBit-Labs/opnDossier/pull/802))
+
+- **sanitizer**: Accept configs that declare a charset ([#795](https://github.com/EvilBit-Labs/opnDossier/pull/795))
+
+- **parser**: Accept every documented charset at device detection ([#796](https://github.com/EvilBit-Labs/opnDossier/pull/796))
+
+- **sanitizer**: Emit well-formed comments and keep their line breaks ([#797](https://github.com/EvilBit-Labs/opnDossier/pull/797))
+
+- **cli**: Report the injected version from --version ([#801](https://github.com/EvilBit-Labs/opnDossier/pull/801))
+
+- **diff**: Report the rule and user changes the diff was dropping ([#812](https://github.com/EvilBit-Labs/opnDossier/pull/812))
+
+- **audit**: Detect wide-open rules however the config spells "any" ([#811](https://github.com/EvilBit-Labs/opnDossier/pull/811))
+
+- **lint**: Correct GOTCHAS §19.1 and resolve the mise/CI linter skew ([#813](https://github.com/EvilBit-Labs/opnDossier/pull/813))
+
+- **parser**: Report an oversized config as oversized, not as corrupt XML ([#800](https://github.com/EvilBit-Labs/opnDossier/pull/800))
+
+- **sanitizer**: Redact bare ldap_bindpw and DHCP TSIG keys ([#798](https://github.com/EvilBit-Labs/opnDossier/pull/798))
+
+- **parser**: Retain every repeated dnsserver element ([#799](https://github.com/EvilBit-Labs/opnDossier/pull/799))
+
+- **sanitizer**: Stop rewriting DHCP TSIG metadata as hostnames ([#821](https://github.com/EvilBit-Labs/opnDossier/pull/821))
+
+- **parser**: [**breaking**] Stop silently dropping configured values before the report ([#822](https://github.com/EvilBit-Labs/opnDossier/pull/822))
+
+
 ## [1.7.2] - 2026-08-25
 
 ### Changed
@@ -18,6 +68,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Add AshSgDe29071999 as a contributor for code ([#786](https://github.com/EvilBit-Labs/opnDossier/pull/786))
 
 - Update third-party license URLs to reflect new versions
+
+- Update changelog for version 1.7.2 release
+
+- Format CONTRIBUTORS.md for better readability
 
 
 ### Fixed
