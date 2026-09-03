@@ -1,10 +1,12 @@
 package opnsense_test
 
 import (
+	"bytes"
 	"context"
+	"encoding/xml"
+	"io"
 	"os"
 	"path/filepath"
-	"regexp"
 	"testing"
 
 	"github.com/EvilBit-Labs/opnDossier/internal/cfgparser"
@@ -68,22 +70,59 @@ func TestRoundTrip_SampleConfigs(t *testing.T) {
 	}
 }
 
-// countSysctlItems reports how many <item> elements the fixture declares
-// inside its <sysctl> container, which is the number the parser should
-// return.
+// countSysctlItems reports how many sysctl tunables the fixture declares,
+// which is the number the parser should return.
 //
-// It counts the opening tag, so a self-closing placeholder <item/> is not
-// counted, matching the parser dropping it. A placeholder spelled
-// <item></item> would be counted here and dropped there; no shipped fixture
-// contains one, and if that changes this is the assertion that will say so.
+// It decodes the file with encoding/xml rather than matching tag spellings:
+// a regex oracle breaks on an attribute or stray whitespace (<item attr="x">,
+// <sysctl >), which are valid XML and would silently skew the count.
+//
+// Items carrying no content are excluded, because the parser drops them.
+// That rule is applied here by inspecting the decoded fields directly rather
+// than by calling IsPlaceholder, so the oracle stays independent of the code
+// it is checking: coupling it would let both sides agree while both were
+// wrong, which is how the original defect survived its tests.
 func countSysctlItems(t *testing.T, path string) int {
 	t.Helper()
 
 	raw, err := os.ReadFile(path)
 	require.NoError(t, err)
 
-	section := regexp.MustCompile(`(?s)<sysctl>(.*?)</sysctl>`).FindSubmatch(raw)
-	require.NotNil(t, section, "%s has no <sysctl> container", filepath.Base(path))
+	// Mirrors only the shape this count needs, not the real schema.
+	var doc struct {
+		Sysctl []struct {
+			Items []struct {
+				Descr   string `xml:"descr"`
+				Tunable string `xml:"tunable"`
+				Value   string `xml:"value"`
+				Key     string `xml:"key"`
+				Secret  string `xml:"secret"`
+			} `xml:"item"`
+		} `xml:"sysctl"`
+	}
 
-	return len(regexp.MustCompile(`<item>`).FindAll(section[1], -1))
+	decoder := xml.NewDecoder(bytes.NewReader(raw))
+	decoder.CharsetReader = charsetReaderPassthrough
+	require.NoError(t, decoder.Decode(&doc), "%s: could not decode", filepath.Base(path))
+	require.NotEmpty(t, doc.Sysctl, "%s has no <sysctl> container", filepath.Base(path))
+
+	count := 0
+	for _, container := range doc.Sysctl {
+		for _, item := range container.Items {
+			if item.Descr != "" || item.Tunable != "" || item.Value != "" ||
+				item.Key != "" || item.Secret != "" {
+				count++
+			}
+		}
+	}
+
+	return count
+}
+
+// charsetReaderPassthrough lets the decoder accept the us-ascii declaration
+// the shipped fixtures carry. encoding/xml refuses any non-UTF-8 charset
+// without one, and us-ascii is a UTF-8 subset so the bytes need no
+// conversion.
+func charsetReaderPassthrough(_ string, input io.Reader) (io.Reader, error) {
+	return input, nil
 }
