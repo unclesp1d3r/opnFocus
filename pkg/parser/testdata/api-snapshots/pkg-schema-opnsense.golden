@@ -1,0 +1,2496 @@
+package opnsense // import "github.com/EvilBit-Labs/opnDossier/pkg/schema/opnsense"
+
+Package opnsense defines the data structures for OPNsense configurations.
+
+Package opnsense defines the data structures for OPNsense configurations.
+
+This package provides comprehensive data models for OPNsense firewall
+configurations, supporting XML, JSON, and YAML serialization formats.
+
+Package opnsense defines the data structures for OPNsense configurations.
+
+Package opnsense defines the data structures for OPNsense configurations.
+
+Package opnsense defines the data structures for OPNsense configurations.
+
+Package opnsense defines the data structures for OPNsense configurations.
+
+Package opnsense defines the data structures for OPNsense configurations.
+
+Package opnsense defines the data structures for OPNsense configurations.
+
+Package opnsense defines the data structures for OPNsense configurations.
+
+Package opnsense defines the data structures for OPNsense configurations.
+
+Package opnsense defines the data structures for OPNsense configurations.
+
+Package opnsense defines the data structures for OPNsense configurations.
+
+Package opnsense defines the data structures for OPNsense configurations.
+
+Package opnsense defines the data structures for OPNsense configurations.
+
+Package opnsense defines the data structures for OPNsense configurations.
+
+Package opnsense defines the data structures for OPNsense configurations.
+
+CONSTANTS
+
+const NetworkAny = "any"
+    NetworkAny represents the "any" network in firewall rules.
+
+
+TYPES
+
+type APIKey struct {
+	Key string `xml:"key" json:"key" yaml:"key"`
+
+	Secret      string `xml:"secret"               json:"secret"                yaml:"secret"`
+	Privileges  string `xml:"privileges,omitempty" json:"privileges,omitempty"  yaml:"privileges,omitempty"`
+	Priv        string `xml:"priv,omitempty"       json:"priv,omitempty"        yaml:"priv,omitempty"`
+	Scope       string `xml:"scope,omitempty"      json:"scope,omitempty"       yaml:"scope,omitempty"`
+	UID         int    `xml:"uid,omitempty"        json:"uid,omitempty"         yaml:"uid,omitempty"`
+	GID         int    `xml:"gid,omitempty"        json:"gid,omitempty"         yaml:"gid,omitempty"`
+	Description string `xml:"descr,omitempty"      json:"description,omitempty" yaml:"description,omitempty"`
+	CTime       int64  `xml:"ctime,omitempty"      json:"ctime,omitempty"       yaml:"ctime,omitempty"`
+	MTime       int64  `xml:"mtime,omitempty"      json:"mtime,omitempty"       yaml:"mtime,omitempty"`
+	CTimeUSec   int    `xml:"ctime_usec,omitempty" json:"ctimeUsec,omitempty"   yaml:"ctimeUsec,omitempty"`
+	MTimeUSec   int    `xml:"mtime_usec,omitempty" json:"mtimeUsec,omitempty"   yaml:"mtimeUsec,omitempty"`
+	CTimeNSec   int    `xml:"ctime_nsec,omitempty" json:"ctimeNsec,omitempty"   yaml:"ctimeNsec,omitempty"`
+	MTimeNSec   int    `xml:"mtime_nsec,omitempty" json:"mtimeNsec,omitempty"   yaml:"mtimeNsec,omitempty"`
+	CTimeSec    int64  `xml:"ctime_sec,omitempty"  json:"ctimeSec,omitempty"    yaml:"ctimeSec,omitempty"`
+	MTimeSec    int64  `xml:"mtime_sec,omitempty"  json:"mtimeSec,omitempty"    yaml:"mtimeSec,omitempty"`
+}
+    APIKey represents a user API key pair with its key, secret, associated
+    privileges, scope, ownership (UID/GID), and creation/modification
+    timestamps.
+
+type Alias struct {
+	UUID        string `xml:"uuid,attr,omitempty" json:"uuid,omitempty"        yaml:"uuid,omitempty"`
+	Name        string `xml:"name"                json:"name,omitempty"        yaml:"name,omitempty"`
+	Type        string `xml:"type"                json:"type,omitempty"        yaml:"type,omitempty"`
+	Content     string `xml:"content,omitempty"   json:"content,omitempty"     yaml:"content,omitempty"`
+	Address     string `xml:"address,omitempty"   json:"address,omitempty"     yaml:"address,omitempty"`
+	Description string `xml:"descr,omitempty"     json:"description,omitempty" yaml:"description,omitempty"`
+}
+    Alias represents a single OPNsense firewall alias definition (a "named
+    object" in ADR-0002 terms), as it appears both under the MVC-model
+    path (<Firewall><Alias><aliases><alias>) and the legacy top-level path
+    (<aliases><alias>, see OpnSenseDocument.Aliases).
+
+    Type is one of host|network|port|url|geoip|external per
+    common.NamedObjectType, plus vendor variants (e.g. urltable, networkgroup,
+    mac, dynipv6host, authgroup) that the converter treats as unrecognized and
+    warns on rather than silently dropping (GOTCHAS §5.2).
+
+    Content holds members newline-separated — the modern OPNsense MVC convention
+    (mirrors KeaSubnet.Pools, see GOTCHAS §18.2). Legacy configs may instead
+    populate Address; the converter checks both and prefers Content when
+    non-empty.
+
+type AliasList struct {
+	Alias []Alias `xml:"alias,omitempty" json:"alias,omitempty" yaml:"alias,omitempty"`
+}
+    AliasList is the container for a set of firewall alias definitions.
+    It is shared by both the MVC-model path (<Firewall><Alias><aliases>) and the
+    legacy top-level path (<opnsense><aliases>, see OpnSenseDocument.Aliases)
+    since both use the same <alias> child-element shape.
+
+type BoolFlag bool
+    BoolFlag represents a presence-based boolean used throughout OPNsense XML
+    configurations. Absent element means false; <tag/> (empty body) means true;
+    <tag>value</tag> delegates to the liberal value-parser shared.IsValueTrue so
+    "on", "yes", "1", "true", "enable", "enabled", and their case variants are
+    all interpreted correctly. This matches how both OPNsense and pfSense emit
+    boolean-semantic fields in the wild.
+
+    MarshalXML is defined on a POINTER receiver (*BoolFlag). This is
+    critical for correct serialization: when a struct containing a BoolFlag
+    field is marshaled by value (not pointer), encoding/xml cannot find the
+    pointer-receiver method and falls back to default bool serialization,
+    producing <enable>true</enable> instead of <enable/>. When embedding
+    BoolFlag in structs that may be marshaled by value, the parent struct
+    needs special handling for addressability (see GOTCHAS 15.1 in project
+    documentation).
+
+    Compile-time interface compliance is verified below:
+
+        var _ xml.Marshaler   = (*BoolFlag)(nil)
+        var _ xml.Unmarshaler = (*BoolFlag)(nil)
+
+func (bf *BoolFlag) Bool() bool
+    Bool returns the underlying boolean value.
+
+func (bf *BoolFlag) MarshalXML(e *xml.Encoder, start xml.StartElement) error
+    MarshalXML implements xml.Marshaler for BoolFlag on a pointer receiver. When
+    true, it encodes a self-closing empty element (e.g., <enable/>). When false,
+    it encodes nothing (element absence means false in OPNsense).
+
+func (bf *BoolFlag) Set(value bool)
+    Set sets the boolean flag value.
+
+func (bf *BoolFlag) String() string
+    String returns string representation of the boolean flag.
+
+func (bf *BoolFlag) UnmarshalXML(d *xml.Decoder, start xml.StartElement) error
+    UnmarshalXML implements xml.Unmarshaler for BoolFlag with presence+value
+    semantics:
+      - Absent element (UnmarshalXML never called) → false (Go zero value).
+      - <tag/> or <tag></tag> (empty body) → true (presence means enabled,
+        preserving the historical OPNsense convention).
+      - <tag>body</tag> → shared.IsValueTrue(body): "on", "yes", "1", "true",
+        "enable", "enabled" (any casing) → true; "off", "no", "0", "false",
+        "disable", "disabled" → false; unknown values → false.
+
+    The delegation to shared.IsValueTrue unifies the liberal boolean vocabulary
+    used by OPNsense and pfSense configuration exports.
+
+type Bridge struct {
+	XMLName  xml.Name `xml:"bridged"`
+	Members  string   `xml:"members,omitempty"`
+	Descr    string   `xml:"descr,omitempty"`
+	Bridgeif string   `xml:"bridgeif,omitempty"`
+	STP      BoolFlag `xml:"stp,omitempty"`
+	Created  string   `xml:"created,omitempty"`
+	Updated  string   `xml:"updated,omitempty"`
+}
+    Bridge represents a network bridge configuration, combining multiple
+    interfaces into a single Layer 2 broadcast domain with optional STP
+    (Spanning Tree Protocol).
+
+func (b Bridge) IsPlaceholder() bool
+    IsPlaceholder reports whether b is an empty <bridged/> marker
+    rather than a configured bridge. OPNsense writes that self-closing
+    element inside <bridges> when nothing is configured -- the shipped
+    testdata/opnsense-config.dtd declares it as "<!ELEMENT bridged EMPTY>" for
+    exactly this reason -- and it unmarshals into an entry whose configuration
+    fields are all zero.
+
+    The check is deliberately conservative: an entry is dropped only when every
+    field is zero. A bridge carrying any data at all -- even just a description
+    -- is retained, because under-reporting configured resources is the more
+    dangerous direction for an auditing tool.
+
+    Fields are compared by name rather than against the zero value: encoding/xml
+    populates XMLName on unmarshal, so a decoded <bridged/> never equals
+    Bridge{}.
+
+type Bridges struct {
+	XMLName xml.Name `xml:"bridges"`
+	Bridge  []Bridge `xml:"bridged,omitempty"`
+}
+    Bridges represents the <bridges> container element holding all bridge
+    configurations. OPNsense stores each entry as <bridged>, not <bridge>.
+
+func NewBridges() *Bridges
+    NewBridges returns a pointer to a Bridges struct with an initialized empty
+    slice of Bridge.
+
+type Cert struct {
+	Text  string `xml:",chardata" json:"text,omitempty"`
+	Refid string `xml:"refid"`
+	Descr string `xml:"descr"`
+	Crt   string `xml:"crt"`
+	Prv   string `xml:"prv"`
+}
+    Cert represents an X.509 certificate entry in the OPNsense configuration,
+    containing the certificate body (Crt), private key (Prv), reference ID,
+    and description.
+
+type CertificateAuthority struct {
+	XMLName xml.Name `xml:"ca"               json:"-"                yaml:"-"`
+	Refid   string   `xml:"refid,omitempty"  json:"refid,omitempty"  yaml:"refid,omitempty"`
+	Descr   string   `xml:"descr,omitempty"  json:"descr,omitempty"  yaml:"descr,omitempty"`
+	Crt     string   `xml:"crt,omitempty"    json:"crt,omitempty"    yaml:"crt,omitempty"`
+	Prv     string   `xml:"prv,omitempty"    json:"prv,omitempty"    yaml:"prv,omitempty"`
+	Serial  string   `xml:"serial,omitempty" json:"serial,omitempty" yaml:"serial,omitempty"`
+}
+    CertificateAuthority represents a certificate authority entry in the
+    OPNsense trust store, containing the CA certificate (Crt), private key
+    (Prv), reference ID, serial number, and description.
+
+type ChangeMeta struct {
+	Created  string `xml:"created,omitempty"`
+	Updated  string `xml:"updated,omitempty"`
+	Username string `xml:"username,omitempty"`
+}
+    ChangeMeta tracks creation and modification metadata for configuration
+    items, recording who made the change and when it was created or last
+    updated.
+
+type ClientExport struct {
+	XMLName           xml.Name `xml:"openvpn-client-export"`
+	Server_list       []string `xml:"server_list,omitempty"` //nolint:revive,staticcheck // XML field name requires underscore
+	Hostname          string   `xml:"hostname,omitempty"`
+	Random_local_port BoolFlag `xml:"random_local_port,omitempty"` //nolint:revive,staticcheck // XML field name requires underscore
+	Silent_install    BoolFlag `xml:"silent_install,omitempty"`    //nolint:revive,staticcheck // XML field name requires underscore
+	Use_token         BoolFlag `xml:"use_token,omitempty"`         //nolint:revive,staticcheck // XML field name requires underscore
+}
+    ClientExport represents client export options for OpenVPN, used to generate
+    downloadable client configuration packages.
+
+func NewClientExport() *ClientExport
+    NewClientExport returns a new ClientExport instance with an empty server
+    list.
+
+type Created struct {
+	Username    string `xml:"username"`
+	Time        string `xml:"time"`
+	Description string `xml:"description"`
+}
+    Created records the user, timestamp, and description from when a rule or
+    configuration item was first created.
+
+type DHCPNumberOption struct {
+	Number string `xml:"number"`
+	Type   string `xml:"type,omitempty"`
+	Value  string `xml:"value,omitempty"`
+}
+    DHCPNumberOption represents a DHCP option with a number and value.
+
+type DHCPStaticLease struct {
+	Mac              string `xml:"mac"`
+	Cid              string `xml:"cid,omitempty"`
+	IPAddr           string `xml:"ipaddr"`
+	Hostname         string `xml:"hostname,omitempty"`
+	Descr            string `xml:"descr,omitempty"`
+	Filename         string `xml:"filename,omitempty"`
+	Rootpath         string `xml:"rootpath,omitempty"`
+	Defaultleasetime string `xml:"defaultleasetime,omitempty"`
+	Maxleasetime     string `xml:"maxleasetime,omitempty"`
+}
+    DHCPStaticLease represents a static DHCP lease.
+
+type DHCPv6Server struct {
+	XMLName xml.Name `xml:"dhcpdv6" json:"-" yaml:"-"`
+}
+    DHCPv6Server represents the DHCPv6 server configuration container. This is
+    currently a placeholder struct for the <dhcpdv6> XML element.
+
+type DNSMasq struct {
+	XMLName            xml.Name         `xml:"dnsmasq"`
+	Enable             BoolFlag         `xml:"enable,omitempty"`
+	Regdhcp            BoolFlag         `xml:"regdhcp,omitempty"`
+	Regdhcpstatic      BoolFlag         `xml:"regdhcpstatic,omitempty"`
+	Dhcpfirst          BoolFlag         `xml:"dhcpfirst,omitempty"`
+	Strict_order       BoolFlag         `xml:"strict_order,omitempty"`       //nolint:revive,staticcheck // XML field name requires underscore
+	Domain_needed      BoolFlag         `xml:"domain_needed,omitempty"`      //nolint:revive,staticcheck // XML field name requires underscore
+	No_private_reverse BoolFlag         `xml:"no_private_reverse,omitempty"` //nolint:revive,staticcheck // XML field name requires underscore
+	Forwarders         []ForwarderGroup `xml:"forwarders,omitempty"`
+	Custom_options     string           `xml:"custom_options,omitempty"` //nolint:revive,staticcheck // XML field name requires underscore
+	Hosts              []DNSMasqHost    `xml:"hosts>host,omitempty"`
+	DomainOverrides    []DomainOverride `xml:"domainoverrides>domainoverride,omitempty"`
+	Created            string           `xml:"created,omitempty"`
+	Updated            string           `xml:"updated,omitempty"`
+}
+    DNSMasq represents the dnsmasq DNS forwarder configuration, including host
+    overrides, domain overrides, forwarder groups, DHCP registration, and custom
+    options.
+
+func NewDNSMasq() *DNSMasq
+    NewDNSMasq returns a new DNSMasq configuration with initialized empty slices
+    for hosts, forwarders, and domain overrides.
+
+type DNSMasqHost struct {
+	XMLName xml.Name `xml:"host"`
+	Host    string   `xml:"host,omitempty"`
+	Domain  string   `xml:"domain,omitempty"`
+	IP      string   `xml:"ip,omitempty"`
+	Descr   string   `xml:"descr,omitempty"`
+	Aliases []string `xml:"aliases,omitempty"`
+}
+    DNSMasqHost represents a static DNS host override entry mapping a
+    hostname/domain to an IP address.
+
+func NewDNSMasqHost() DNSMasqHost
+    NewDNSMasqHost returns a DNSMasqHost instance with an initialized empty
+    Aliases slice.
+
+type Destination struct {
+	Any     *string  `xml:"any,omitempty"     json:"any,omitempty"     yaml:"any,omitempty"`
+	Network string   `xml:"network,omitempty" json:"network,omitempty" yaml:"network,omitempty"`
+	Address string   `xml:"address,omitempty" json:"address,omitempty" yaml:"address,omitempty"`
+	Port    string   `xml:"port,omitempty"    json:"port,omitempty"    yaml:"port,omitempty"`
+	Not     BoolFlag `xml:"not,omitempty"     json:"not,omitempty"     yaml:"not,omitempty"`
+}
+    Destination represents a firewall rule destination. Any is a pointer for the
+    same reason as Source.Any.
+
+    Any, Network, and Address are mutually exclusive per OPNsense semantics.
+    Resolution priority: Network > Address > Any (per legacyMoveAddressFields).
+
+func (d Destination) AliasAddress() string
+    AliasAddress returns the literal <address> value, following the same Network
+    > Address precedence as EffectiveAddress: it returns "" when the effective
+    address came from an interface/network macro (e.g. "lan"), and otherwise
+    returns Address (itself "" for a bare "any" wildcard).
+
+    See Source.AliasAddress for the full rationale: this exists so named-object
+    (alias) resolution never mistakes a macro for an alias reference, even when
+    an alias happens to share the same name.
+
+func (d Destination) EffectiveAddress() string
+    EffectiveAddress returns the resolved address target following OPNsense
+    priority: Network > Address > "any" (if Any is present) > "" (empty).
+
+func (d Destination) Equal(other Destination) bool
+    Equal reports whether two Destination values are semantically equal. Any is
+    compared by presence only (nil vs non-nil), not by value, because OPNsense
+    treats <any> as a presence-based flag.
+
+func (d Destination) IsAny() bool
+    IsAny returns true if the destination represents "any" (the <any> element
+    is present). OPNsense treats <any> as a presence-based flag; the element's
+    value is irrelevant.
+
+type DhcpOption struct {
+	Number string `xml:"number,omitempty" json:"number,omitempty" yaml:"number,omitempty"`
+	Value  string `xml:"value,omitempty"  json:"value,omitempty"  yaml:"value,omitempty"`
+}
+    DhcpOption represents a numbered DHCP option with its value, used in
+    interface-level DHCP configuration.
+
+type DhcpRange struct {
+	From string `xml:"from,omitempty" json:"from,omitempty" yaml:"from,omitempty"`
+	To   string `xml:"to,omitempty"   json:"to,omitempty"   yaml:"to,omitempty"`
+}
+    DhcpRange represents a DHCP address range on an interface, defined by From
+    and To IP addresses.
+
+type Dhcpd struct {
+	Items map[string]DhcpdInterface `xml:",any" json:"dhcp,omitempty" yaml:"dhcp,omitempty"`
+}
+    Dhcpd contains the DHCP server configuration for all interfaces.
+    Uses a map-based representation to store all interface blocks generically,
+    supporting wan, lan, opt0, opt1, etc., and any custom interface elements.
+
+func (d *Dhcpd) Get(key string) (DhcpdInterface, bool)
+    Get returns a DHCP interface configuration by its key name (e.g., "wan",
+    "lan", "opt0"). Returns the DHCP interface configuration and a boolean
+    indicating if it was found.
+
+    Example:
+
+        if lanDhcp, ok := dhcpd.Get("lan"); ok {
+        	fmt.Printf("LAN DHCP range: %s - %s\n", lanDhcp.Range.From, lanDhcp.Range.To)
+        }
+
+func (d *Dhcpd) Lan() (DhcpdInterface, bool)
+    Lan returns the LAN DHCP interface configuration if it exists, otherwise
+    returns a zero-value DhcpdInterface and false. This is a convenience method
+    for backward compatibility.
+
+func (d *Dhcpd) MarshalXML(e *xml.Encoder, start xml.StartElement) error
+    MarshalXML implements custom XML marshaling for the Dhcpd map.
+
+func (d *Dhcpd) Names() []string
+    Names returns a slice of all DHCP interface key names in the configuration.
+    This includes standard interfaces like "wan", "lan" and optional ones like
+    "opt0", "opt1", etc.
+
+    Example:
+
+        names := dhcpd.Names()
+        fmt.Printf("DHCP configured on interfaces: %s\n", strings.Join(names, ", "))
+
+func (d *Dhcpd) UnmarshalXML(decoder *xml.Decoder, start xml.StartElement) error
+    UnmarshalXML implements custom XML unmarshaling for the Dhcpd map.
+
+func (d *Dhcpd) Wan() (DhcpdInterface, bool)
+    Wan returns the WAN DHCP interface configuration if it exists, otherwise
+    returns a zero-value DhcpdInterface and false. This is a convenience method
+    for backward compatibility.
+
+type DhcpdInterface struct {
+	Enable              string             `xml:"enable,omitempty"`
+	Range               Range              `xml:"range,omitempty"`
+	Gateway             string             `xml:"gateway,omitempty"`
+	DdnsDomainAlgorithm string             `xml:"ddnsdomainalgorithm,omitempty"`
+	FailoverPeerIP      string             `xml:"failover_peerip,omitempty"`
+	NumberOptions       []DHCPNumberOption `xml:"numberoptions>item,omitempty"`
+	Winsserver          string             `xml:"winsserver,omitempty"`
+	// Dnsserver repeats once per advertised DNS server. A scalar here would
+	// silently keep only the last element (GOTCHAS §3.3).
+	Dnsserver []string          `xml:"dnsserver,omitempty"`
+	Ntpserver string            `xml:"ntpserver,omitempty"`
+	Staticmap []DHCPStaticLease `xml:"staticmap,omitempty"`
+
+	// Advanced DHCP fields
+	AliasAddress   string `xml:"alias-address,omitempty"`
+	AliasSubnet    string `xml:"alias-subnet,omitempty"`
+	DHCPRejectFrom string `xml:"dhcprejectfrom,omitempty"`
+
+	// Advanced DHCP options
+	AdvDHCPPTTimeout              string `xml:"adv_dhcp_pt_timeout,omitempty"`
+	AdvDHCPPTRetry                string `xml:"adv_dhcp_pt_retry,omitempty"`
+	AdvDHCPPTSelectTimeout        string `xml:"adv_dhcp_pt_select_timeout,omitempty"`
+	AdvDHCPPTReboot               string `xml:"adv_dhcp_pt_reboot,omitempty"`
+	AdvDHCPPTBackoffCutoff        string `xml:"adv_dhcp_pt_backoff_cutoff,omitempty"`
+	AdvDHCPPTInitialInterval      string `xml:"adv_dhcp_pt_initial_interval,omitempty"`
+	AdvDHCPPTValues               string `xml:"adv_dhcp_pt_values,omitempty"`
+	AdvDHCPSendOptions            string `xml:"adv_dhcp_send_options,omitempty"`
+	AdvDHCPRequestOptions         string `xml:"adv_dhcp_request_options,omitempty"`
+	AdvDHCPRequiredOptions        string `xml:"adv_dhcp_required_options,omitempty"`
+	AdvDHCPOptionModifiers        string `xml:"adv_dhcp_option_modifiers,omitempty"`
+	AdvDHCPConfigAdvanced         string `xml:"adv_dhcp_config_advanced,omitempty"`
+	AdvDHCPConfigFileOverride     string `xml:"adv_dhcp_config_file_override,omitempty"`
+	AdvDHCPConfigFileOverridePath string `xml:"adv_dhcp_config_file_override_path,omitempty"`
+
+	// Advanced DHCPv6 fields
+	Track6Interface                                 string `xml:"track6-interface,omitempty"`
+	Track6PrefixID                                  string `xml:"track6-prefix-id,omitempty"`
+	AdvDHCP6InterfaceStatementSendOptions           string `xml:"adv_dhcp6_interface_statement_send_options,omitempty"`
+	AdvDHCP6InterfaceStatementRequestOptions        string `xml:"adv_dhcp6_interface_statement_request_options,omitempty"`
+	AdvDHCP6InterfaceStatementInformationOnlyEnable string `xml:"adv_dhcp6_interface_statement_information_only_enable,omitempty"`
+	AdvDHCP6InterfaceStatementScript                string `xml:"adv_dhcp6_interface_statement_script,omitempty"`
+	AdvDHCP6IDAssocStatementAddressEnable           string `xml:"adv_dhcp6_id_assoc_statement_address_enable,omitempty"`
+	AdvDHCP6IDAssocStatementAddress                 string `xml:"adv_dhcp6_id_assoc_statement_address,omitempty"`
+	AdvDHCP6IDAssocStatementAddressID               string `xml:"adv_dhcp6_id_assoc_statement_address_id,omitempty"`
+	AdvDHCP6IDAssocStatementAddressPLTime           string `xml:"adv_dhcp6_id_assoc_statement_address_pltime,omitempty"`
+	AdvDHCP6IDAssocStatementAddressVLTime           string `xml:"adv_dhcp6_id_assoc_statement_address_vltime,omitempty"`
+	AdvDHCP6IDAssocStatementPrefixEnable            string `xml:"adv_dhcp6_id_assoc_statement_prefix_enable,omitempty"`
+	AdvDHCP6IDAssocStatementPrefix                  string `xml:"adv_dhcp6_id_assoc_statement_prefix,omitempty"`
+	AdvDHCP6IDAssocStatementPrefixID                string `xml:"adv_dhcp6_id_assoc_statement_prefix_id,omitempty"`
+	AdvDHCP6IDAssocStatementPrefixPLTime            string `xml:"adv_dhcp6_id_assoc_statement_prefix_pltime,omitempty"`
+	AdvDHCP6IDAssocStatementPrefixVLTime            string `xml:"adv_dhcp6_id_assoc_statement_prefix_vltime,omitempty"`
+	AdvDHCP6PrefixInterfaceStatementSLALen          string `xml:"adv_dhcp6_prefix_interface_statement_sla_len,omitempty"`
+	AdvDHCP6AuthenticationStatementAuthName         string `xml:"adv_dhcp6_authentication_statement_authname,omitempty"`
+	AdvDHCP6AuthenticationStatementProtocol         string `xml:"adv_dhcp6_authentication_statement_protocol,omitempty"`
+	AdvDHCP6AuthenticationStatementAlgorithm        string `xml:"adv_dhcp6_authentication_statement_algorithm,omitempty"`
+	AdvDHCP6AuthenticationStatementRDM              string `xml:"adv_dhcp6_authentication_statement_rdm,omitempty"`
+	AdvDHCP6KeyInfoStatementKeyName                 string `xml:"adv_dhcp6_key_info_statement_keyname,omitempty"`
+	AdvDHCP6KeyInfoStatementRealm                   string `xml:"adv_dhcp6_key_info_statement_realm,omitempty"`
+	AdvDHCP6KeyInfoStatementKeyID                   string `xml:"adv_dhcp6_key_info_statement_keyid,omitempty"`
+	AdvDHCP6KeyInfoStatementSecret                  string `xml:"adv_dhcp6_key_info_statement_secret,omitempty"`
+	AdvDHCP6KeyInfoStatementExpire                  string `xml:"adv_dhcp6_key_info_statement_expire,omitempty"`
+	AdvDHCP6ConfigAdvanced                          string `xml:"adv_dhcp6_config_advanced,omitempty"`
+	AdvDHCP6ConfigFileOverride                      string `xml:"adv_dhcp6_config_file_override,omitempty"`
+	AdvDHCP6ConfigFileOverridePath                  string `xml:"adv_dhcp6_config_file_override_path,omitempty"`
+}
+    DhcpdInterface contains the DHCP server configuration for a specific
+    interface.
+
+func NewDhcpdInterface() DhcpdInterface
+    NewDhcpdInterface returns a new DhcpdInterface with empty NumberOptions and
+    Staticmap slices initialized.
+
+type DomainOverride struct {
+	XMLName xml.Name `xml:"domainoverride"`
+	Domain  string   `xml:"domain,omitempty"`
+	IP      string   `xml:"ip,omitempty"`
+	Descr   string   `xml:"descr,omitempty"`
+}
+    DomainOverride represents a DNS domain override entry, forwarding queries
+    for a specific domain to a designated DNS server IP.
+
+type Filter struct {
+	Rule []Rule `xml:"rule"`
+}
+    Filter represents the legacy firewall filter configuration containing an
+    ordered list of firewall rules.
+
+type Firewall struct {
+	XMLName    xml.Name `xml:"Firewall"`
+	Text       string   `xml:",chardata"  json:"text,omitempty"`
+	Lvtemplate struct {
+		Text      string `xml:",chardata" json:"text,omitempty"`
+		Version   string `xml:"version,attr" json:"version,omitempty"`
+		Templates string `xml:"templates"`
+	} `xml:"Lvtemplate" json:"lvtemplate"`
+	Alias struct {
+		Text    string `xml:",chardata" json:"text,omitempty"`
+		Version string `xml:"version,attr" json:"version,omitempty"`
+		Geoip   struct {
+			Text string `xml:",chardata" json:"text,omitempty"`
+			URL  string `xml:"url"`
+		} `xml:"geoip" json:"geoip"`
+		Aliases AliasList `xml:"aliases" json:"aliases"`
+	} `xml:"Alias"      json:"alias"`
+	Category struct {
+		Text       string `xml:",chardata" json:"text,omitempty"`
+		Version    string `xml:"version,attr" json:"version,omitempty"`
+		Categories string `xml:"categories"`
+	} `xml:"Category"   json:"category"`
+	Filter struct {
+		Text      string `xml:",chardata" json:"text,omitempty"`
+		Version   string `xml:"version,attr" json:"version,omitempty"`
+		Rules     string `xml:"rules"`
+		Snatrules string `xml:"snatrules"`
+		Npt       string `xml:"npt"`
+		Onetoone  string `xml:"onetoone"`
+	} `xml:"Filter"     json:"filter"`
+}
+    Firewall represents the OPNsense MVC-based firewall configuration, including
+    live templates, alias definitions, category groupings, and filter/SNAT
+    rules.
+
+func NewFirewall() *Firewall
+    NewFirewall returns a pointer to a new, empty Firewall configuration.
+
+type Firmware struct {
+	Version      string   `xml:"version,attr"           json:"version,omitempty" yaml:"version,omitempty"`
+	Mirror       string   `xml:"mirror"                 json:"mirror,omitempty"  yaml:"mirror,omitempty"`
+	Flavour      string   `xml:"flavour"                json:"flavour,omitempty" yaml:"flavour,omitempty"`
+	Plugins      string   `xml:"plugins"                json:"plugins,omitempty" yaml:"plugins,omitempty"`
+	Type         BoolFlag `xml:"type,omitempty"         json:"type"              yaml:"type,omitempty"`
+	Subscription BoolFlag `xml:"subscription,omitempty" json:"subscription"      yaml:"subscription,omitempty"`
+	Reboot       BoolFlag `xml:"reboot,omitempty"       json:"reboot"            yaml:"reboot,omitempty"`
+}
+    Firmware represents the OPNsense firmware configuration, including the
+    update mirror, flavour, installed plugins, and subscription/reboot flags.
+
+type ForwarderGroup struct {
+	XMLName xml.Name `xml:"forwarder"`
+	IP      string   `xml:"ip,omitempty"`
+	Port    string   `xml:"port,omitempty"`
+	Descr   string   `xml:"descr,omitempty"`
+}
+    ForwarderGroup represents a DNS forwarder entry specifying an upstream DNS
+    server IP and port.
+
+type GIF struct {
+	XMLName xml.Name `xml:"gif"`
+	Gifif   string   `xml:"gifif,omitempty"`
+	If      string   `xml:"if,omitempty"`
+	Remote  string   `xml:"remote,omitempty"`
+	Descr   string   `xml:"descr,omitempty"`
+	Created string   `xml:"created,omitempty"`
+	Updated string   `xml:"updated,omitempty"`
+}
+    GIF represents a GIF (Generic Tunnel Interface) configuration entry for
+    IPv4/IPv6-in-IPv4/IPv6 tunneling.
+
+func (g GIF) IsPlaceholder() bool
+    IsPlaceholder reports whether the value is an empty <gif/> marker rather
+    than a configured tunnel. OPNsense writes that self-closing element inside
+    <gifs> when nothing is configured -- testdata/opnsense-config.dtd declares
+    it as "<!ELEMENT gif EMPTY>" -- and it unmarshals into an entry whose
+    configuration fields are all zero.
+
+    The check is deliberately conservative: an entry is dropped only when every
+    field is zero. See GOTCHAS.md section 3.4 for why fields are compared by
+    name rather than against the zero value.
+
+type GIFInterfaces struct {
+	XMLName xml.Name `xml:"gifs"                   json:"-"                 yaml:"-"`
+	Version string   `xml:"version,attr,omitempty" json:"version,omitempty" yaml:"version,omitempty"`
+	Gif     []GIF    `xml:"gif,omitempty"          json:"gif,omitempty"     yaml:"gif,omitempty"`
+}
+    GIFInterfaces represents GIF interface configuration.
+
+type GRE struct {
+	XMLName xml.Name `xml:"gre"`
+	Greif   string   `xml:"greif,omitempty"`
+	If      string   `xml:"if,omitempty"`
+	Remote  string   `xml:"remote,omitempty"`
+	Descr   string   `xml:"descr,omitempty"`
+	Created string   `xml:"created,omitempty"`
+	Updated string   `xml:"updated,omitempty"`
+}
+    GRE represents a GRE (Generic Routing Encapsulation) tunnel configuration
+    entry for point-to-point encapsulation.
+
+func (g GRE) IsPlaceholder() bool
+    IsPlaceholder reports whether the value is an empty <gre/> marker rather
+    than a configured tunnel. OPNsense writes that self-closing element inside
+    <gres> when nothing is configured -- testdata/opnsense-config.dtd declares
+    it as "<!ELEMENT gre EMPTY>" -- and it unmarshals into an entry whose
+    configuration fields are all zero.
+
+    The check is deliberately conservative: an entry is dropped only when every
+    field is zero. See GOTCHAS.md section 3.4 for why fields are compared by
+    name rather than against the zero value.
+
+type GREInterfaces struct {
+	XMLName xml.Name `xml:"gres"                   json:"-"                 yaml:"-"`
+	Version string   `xml:"version,attr,omitempty" json:"version,omitempty" yaml:"version,omitempty"`
+	Gre     []GRE    `xml:"gre,omitempty"          json:"gre,omitempty"     yaml:"gre,omitempty"`
+}
+    GREInterfaces represents GRE interface configuration.
+
+type Gateway struct {
+	XMLName        xml.Name `xml:"gateway_item"`
+	Interface      string   `xml:"interface,omitempty"`
+	Gateway        string   `xml:"gateway,omitempty"`
+	Name           string   `xml:"name,omitempty"`
+	Weight         string   `xml:"weight,omitempty"`
+	IPProtocol     string   `xml:"ipprotocol,omitempty"`
+	Interval       string   `xml:"interval,omitempty"`
+	Descr          string   `xml:"descr,omitempty"`
+	Monitor        string   `xml:"monitor,omitempty"`
+	Disabled       BoolFlag `xml:"disabled,omitempty"`
+	Created        string   `xml:"created,omitempty"`
+	Updated        string   `xml:"updated,omitempty"`
+	DefaultGW      string   `xml:"defaultgw,omitempty"`
+	MonitorDisable string   `xml:"monitor_disable,omitempty"`
+	FarGW          string   `xml:"fargw,omitempty"`
+}
+    Gateway represents an individual gateway configuration entry, including the
+    bound interface, gateway address, IP protocol version, monitoring settings,
+    and default gateway designation.
+
+type GatewayGroup struct {
+	XMLName xml.Name `xml:"gateway_group"`
+	Name    string   `xml:"name,omitempty"`
+	Item    []string `xml:"item,omitempty"`
+	Trigger string   `xml:"trigger,omitempty"`
+	Descr   string   `xml:"descr,omitempty"`
+}
+    GatewayGroup represents a group of gateways used for multi-WAN failover or
+    load balancing.
+
+func NewGatewayGroup() GatewayGroup
+    NewGatewayGroup returns a GatewayGroup with an initialized empty slice of
+    items.
+
+type Gateways struct {
+	XMLName xml.Name       `xml:"gateways"`
+	Gateway []Gateway      `xml:"gateway_item,omitempty"`
+	Groups  []GatewayGroup `xml:"gateway_group,omitempty"`
+}
+    Gateways represents the <gateways> container element holding gateway items
+    and gateway groups.
+
+func NewGateways() *Gateways
+    NewGateways returns a pointer to a Gateways struct with empty slices for
+    gateways and gateway groups.
+
+type Group struct {
+	Name        string   `xml:"name"        json:"name"                  yaml:"name"                  validate:"required,alphanum"`
+	Description string   `xml:"description" json:"description,omitempty" yaml:"description,omitempty"`
+	Scope       string   `xml:"scope"       json:"scope"                 yaml:"scope"                 validate:"required,oneof=system local"`
+	Gid         string   `xml:"gid"         json:"gid"                   yaml:"gid"                   validate:"required,numeric"` //nolint:staticcheck // Field name matches OPNsense schema
+	Member      []string `xml:"member"      json:"member,omitempty"      yaml:"member,omitempty"`
+	Priv        []string `xml:"priv"        json:"privileges,omitempty"  yaml:"privileges,omitempty"`
+}
+    Group represents a user group with a name, GID, scope (system or local),
+    member list, and assigned privileges.
+
+type HighAvailabilitySync struct {
+	XMLName         xml.Name `xml:"hasync"                    json:"-"                         yaml:"-"`
+	Version         string   `xml:"version,attr,omitempty"    json:"version,omitempty"         yaml:"version,omitempty"`
+	Disablepreempt  string   `xml:"disablepreempt,omitempty"  json:"disablepreempt,omitempty"  yaml:"disablepreempt,omitempty"`
+	Disconnectppps  string   `xml:"disconnectppps,omitempty"  json:"disconnectppps,omitempty"  yaml:"disconnectppps,omitempty"`
+	Pfsyncinterface string   `xml:"pfsyncinterface,omitempty" json:"pfsyncinterface,omitempty" yaml:"pfsyncinterface,omitempty"`
+	Pfsyncpeerip    string   `xml:"pfsyncpeerip,omitempty"    json:"pfsyncpeerip,omitempty"    yaml:"pfsyncpeerip,omitempty"`
+	Pfsyncversion   string   `xml:"pfsyncversion,omitempty"   json:"pfsyncversion,omitempty"   yaml:"pfsyncversion,omitempty"`
+	Synchronizetoip string   `xml:"synchronizetoip,omitempty" json:"synchronizetoip,omitempty" yaml:"synchronizetoip,omitempty"`
+	Username        string   `xml:"username,omitempty"        json:"username,omitempty"        yaml:"username,omitempty"`
+
+	Password  string `xml:"password,omitempty"  json:"password,omitempty"  yaml:"password,omitempty"`
+	Syncitems string `xml:"syncitems,omitempty" json:"syncitems,omitempty" yaml:"syncitems,omitempty"`
+}
+    HighAvailabilitySync represents high availability synchronization
+    configuration.
+
+type IDS struct {
+	XMLName          xml.Name `xml:"IDS"`
+	Text             string   `xml:",chardata"        json:"text,omitempty"`
+	Version          string   `xml:"version,attr"     json:"version,omitempty"`
+	Rules            string   `xml:"rules"`
+	Policies         string   `xml:"policies"`
+	UserDefinedRules string   `xml:"userDefinedRules"`
+	Files            string   `xml:"files"`
+	FileTags         string   `xml:"fileTags"`
+	General          struct {
+		Text              string `xml:",chardata" json:"text,omitempty"`
+		Enabled           string `xml:"enabled"`
+		Ips               string `xml:"ips"`
+		Promisc           string `xml:"promisc"`
+		Interfaces        string `xml:"interfaces"`
+		Homenet           string `xml:"homenet"`
+		DefaultPacketSize string `xml:"defaultPacketSize"`
+		UpdateCron        string `xml:"UpdateCron"`
+		AlertLogrotate    string `xml:"AlertLogrotate"`
+		AlertSaveLogs     string `xml:"AlertSaveLogs"`
+		MPMAlgo           string `xml:"MPMAlgo"`
+		Detect            struct {
+			Text           string `xml:",chardata" json:"text,omitempty"`
+			Profile        string `xml:"Profile"`
+			ToclientGroups string `xml:"toclient_groups"`
+			ToserverGroups string `xml:"toserver_groups"`
+		} `xml:"detect" json:"detect"`
+		Syslog     string `xml:"syslog"`
+		SyslogEve  string `xml:"syslog_eve"`
+		LogPayload string `xml:"LogPayload"`
+		Verbosity  string `xml:"verbosity"`
+		EveLog     struct {
+			Text string `xml:",chardata" json:"text,omitempty"`
+			HTTP struct {
+				Text           string `xml:",chardata" json:"text,omitempty"`
+				Enable         string `xml:"enable"`
+				Extended       string `xml:"extended"`
+				DumpAllHeaders string `xml:"dumpAllHeaders"`
+			} `xml:"http" json:"http"`
+			TLS struct {
+				Text              string `xml:",chardata" json:"text,omitempty"`
+				Enable            string `xml:"enable"`
+				Extended          string `xml:"extended"`
+				SessionResumption string `xml:"sessionResumption"`
+				Custom            string `xml:"custom"`
+			} `xml:"tls" json:"tls"`
+		} `xml:"eveLog" json:"evelog"`
+	} `xml:"general"          json:"general"`
+}
+    IDS represents the complete Intrusion Detection System configuration,
+    including Suricata general settings, detection profiles, EVE logging,
+    and syslog output.
+
+func NewIDS() *IDS
+    NewIDS returns a pointer to a new IDS configuration with zero-value
+    defaults.
+
+func (ids *IDS) GetDetectionMode() string
+    GetDetectionMode returns a human-readable description of the detection mode.
+
+func (ids *IDS) GetHomeNetworks() []string
+    GetHomeNetworks parses the comma-separated home networks string and returns
+    a slice.
+
+func (ids *IDS) GetMonitoredInterfaces() []string
+    GetMonitoredInterfaces parses the comma-separated interfaces string and
+    returns a slice.
+
+func (ids *IDS) IsEnabled() bool
+    IsEnabled returns true if the IDS is enabled.
+
+func (ids *IDS) IsIPSMode() bool
+    IsIPSMode returns true if the IDS is operating in IPS (Intrusion Prevention)
+    mode.
+
+func (ids *IDS) IsPromiscuousMode() bool
+    IsPromiscuousMode returns true if promiscuous mode is enabled.
+
+func (ids *IDS) IsSyslogEnabled() bool
+    IsSyslogEnabled returns true if syslog output is enabled.
+
+func (ids *IDS) IsSyslogEveEnabled() bool
+    IsSyslogEveEnabled returns true if EVE syslog output is enabled.
+
+type IPsec struct {
+	XMLName xml.Name `xml:"IPsec"`
+	Text    string   `xml:",chardata"     json:"text,omitempty"`
+	Version string   `xml:"version,attr"  json:"version,omitempty"`
+	General struct {
+		Text                string `xml:",chardata" json:"text,omitempty"`
+		Enabled             string `xml:"enabled"`
+		PreferredOldsa      string `xml:"preferred_oldsa"`
+		Disablevpnrules     string `xml:"disablevpnrules"`
+		PassthroughNetworks string `xml:"passthrough_networks"`
+	} `xml:"general"       json:"general"`
+	Charon struct {
+		Text               string `xml:",chardata" json:"text,omitempty"`
+		MaxIkev1Exchanges  string `xml:"max_ikev1_exchanges"`
+		Threads            string `xml:"threads"`
+		IkesaTableSize     string `xml:"ikesa_table_size"`
+		IkesaTableSegments string `xml:"ikesa_table_segments"`
+		InitLimitHalfOpen  string `xml:"init_limit_half_open"`
+		IgnoreAcquireTs    string `xml:"ignore_acquire_ts"` //nolint:staticcheck // XML field name requires underscore
+		MakeBeforeBreak    string `xml:"make_before_break"`
+		RetransmitTries    string `xml:"retransmit_tries"`
+		RetransmitTimeout  string `xml:"retransmit_timeout"`
+		RetransmitBase     string `xml:"retransmit_base"`
+		RetransmitJitter   string `xml:"retransmit_jitter"`
+		RetransmitLimit    string `xml:"retransmit_limit"`
+		Syslog             struct {
+			Text   string `xml:",chardata" json:"text,omitempty"`
+			Daemon struct {
+				Text     string `xml:",chardata" json:"text,omitempty"`
+				IkeName  string `xml:"ike_name"`
+				LogLevel string `xml:"log_level"`
+				App      string `xml:"app"`
+				Asn      string `xml:"asn"`
+				Cfg      string `xml:"cfg"`
+				Chd      string `xml:"chd"`
+				Dmn      string `xml:"dmn"`
+				Enc      string `xml:"enc"`
+				Esp      string `xml:"esp"`
+				Ike      string `xml:"ike"`
+				Imc      string `xml:"imc"`
+				Imv      string `xml:"imv"`
+				Job      string `xml:"job"`
+				Knl      string `xml:"knl"`
+				Lib      string `xml:"lib"`
+				Mgr      string `xml:"mgr"`
+				Net      string `xml:"net"`
+				Pts      string `xml:"pts"`
+				TLS      string `xml:"tls"`
+				Tnc      string `xml:"tnc"`
+			} `xml:"daemon" json:"daemon"`
+		} `xml:"syslog" json:"syslog"`
+	} `xml:"charon"        json:"charon"`
+	KeyPairs      string `xml:"keyPairs"`
+	PreSharedKeys string `xml:"preSharedKeys"`
+}
+    IPsec represents the OPNsense MVC-based IPsec VPN configuration, including
+    general settings, strongSwan charon daemon tuning, key pairs, and pre-shared
+    keys.
+
+func NewIPsec() *IPsec
+    NewIPsec returns a pointer to a new IPsec configuration instance.
+
+type IfGroupEntry struct {
+	XMLName xml.Name `xml:"ifgroupentry"`
+	IfName  string   `xml:"ifname,omitempty"`
+	Members string   `xml:"members,omitempty"`
+}
+    IfGroupEntry represents an interface group entry, binding a group name to
+    its member interfaces.
+
+type InboundRule struct {
+	XMLName          xml.Name      `xml:"rule"`
+	Interface        InterfaceList `xml:"interface,omitempty"          json:"interface,omitempty"        yaml:"interface,omitempty"`
+	IPProtocol       string        `xml:"ipprotocol,omitempty"         json:"ipProtocol,omitempty"       yaml:"ipProtocol,omitempty"`
+	Protocol         string        `xml:"protocol,omitempty"           json:"protocol,omitempty"         yaml:"protocol,omitempty"`
+	Source           Source        `xml:"source"                       json:"source"                     yaml:"source"`
+	Destination      Destination   `xml:"destination"                  json:"destination"                yaml:"destination"`
+	ExternalPort     string        `xml:"externalport,omitempty"       json:"externalPort,omitempty"     yaml:"externalPort,omitempty"`
+	InternalIP       string        `xml:"internalip,omitempty"         json:"internalIP,omitempty"       yaml:"internalIP,omitempty"`
+	InternalPort     string        `xml:"internalport,omitempty"       json:"internalPort,omitempty"     yaml:"internalPort,omitempty"`
+	LocalPort        string        `xml:"local-port,omitempty"         json:"localPort,omitempty"        yaml:"localPort,omitempty"`
+	Reflection       string        `xml:"reflection,omitempty"         json:"reflection,omitempty"       yaml:"reflection,omitempty"`
+	NATReflection    string        `xml:"natreflection,omitempty"      json:"natReflection,omitempty"    yaml:"natReflection,omitempty"`
+	AssociatedRuleID string        `xml:"associated-rule-id,omitempty" json:"associatedRuleID,omitempty" yaml:"associatedRuleID,omitempty"`
+	Priority         int           `xml:"priority,omitempty"           json:"priority,omitempty"         yaml:"priority,omitempty"`
+	NoRDR            BoolFlag      `xml:"nordr,omitempty"              json:"noRDR,omitempty"            yaml:"noRDR,omitempty"`
+	NoSync           BoolFlag      `xml:"nosync,omitempty"             json:"noSync,omitempty"           yaml:"noSync,omitempty"`
+	Disabled         BoolFlag      `xml:"disabled,omitempty"           json:"disabled,omitempty"         yaml:"disabled,omitempty"`
+	Log              BoolFlag      `xml:"log,omitempty"                json:"log,omitempty"              yaml:"log,omitempty"`
+	Descr            string        `xml:"descr,omitempty"              json:"description,omitempty"      yaml:"description,omitempty"`
+	Updated          *Updated      `xml:"updated,omitempty"            json:"updated,omitempty"          yaml:"updated,omitempty"`
+	Created          *Created      `xml:"created,omitempty"            json:"created,omitempty"          yaml:"created,omitempty"`
+	UUID             string        `xml:"uuid,attr,omitempty"          json:"uuid,omitempty"             yaml:"uuid,omitempty"`
+}
+    InboundRule represents an inbound NAT rule (port forwarding). The InternalIP
+    field specifies the port-forward destination address; there is no Target
+    field on InboundRule (unlike NATRule).
+
+type Interface struct {
+	Enable              string       `xml:"enable,omitempty"              json:"enable,omitempty"              yaml:"enable,omitempty"`
+	If                  string       `xml:"if,omitempty"                  json:"if,omitempty"                  yaml:"if,omitempty"`
+	Descr               string       `xml:"descr,omitempty"               json:"descr,omitempty"               yaml:"descr,omitempty"`
+	Spoofmac            string       `xml:"spoofmac,omitempty"            json:"spoofmac,omitempty"            yaml:"spoofmac,omitempty"`
+	InternalDynamic     int          `xml:"internal_dynamic,omitempty"    json:"internalDynamic,omitempty"     yaml:"internalDynamic,omitempty"`
+	Type                string       `xml:"type,omitempty"                json:"type,omitempty"                yaml:"type,omitempty"`
+	Virtual             int          `xml:"virtual,omitempty"             json:"virtual,omitempty"             yaml:"virtual,omitempty"`
+	Lock                int          `xml:"lock,omitempty"                json:"lock,omitempty"                yaml:"lock,omitempty"`
+	MTU                 string       `xml:"mtu,omitempty"                 json:"mtu,omitempty"                 yaml:"mtu,omitempty"`
+	IPAddr              string       `xml:"ipaddr,omitempty"              json:"ipaddr,omitempty"              yaml:"ipaddr,omitempty"`
+	IPAddrv6            string       `xml:"ipaddrv6,omitempty"            json:"ipaddrv6,omitempty"            yaml:"ipaddrv6,omitempty"`
+	Subnet              string       `xml:"subnet,omitempty"              json:"subnet,omitempty"              yaml:"subnet,omitempty"`
+	Subnetv6            string       `xml:"subnetv6,omitempty"            json:"subnetv6,omitempty"            yaml:"subnetv6,omitempty"`
+	Gateway             string       `xml:"gateway,omitempty"             json:"gateway,omitempty"             yaml:"gateway,omitempty"`
+	Gatewayv6           string       `xml:"gatewayv6,omitempty"           json:"gatewayv6,omitempty"           yaml:"gatewayv6,omitempty"`
+	BlockPriv           string       `xml:"blockpriv,omitempty"           json:"blockpriv,omitempty"           yaml:"blockpriv,omitempty"`
+	BlockBogons         string       `xml:"blockbogons,omitempty"         json:"blockbogons,omitempty"         yaml:"blockbogons,omitempty"`
+	DHCPHostname        string       `xml:"dhcphostname,omitempty"        json:"dhcphostname,omitempty"        yaml:"dhcphostname,omitempty"`
+	Media               string       `xml:"media,omitempty"               json:"media,omitempty"               yaml:"media,omitempty"`
+	MediaOpt            string       `xml:"mediaopt,omitempty"            json:"mediaopt,omitempty"            yaml:"mediaopt,omitempty"`
+	DHCP6IaPdLen        int          `xml:"dhcp6-ia-pd-len,omitempty"     json:"dhcp6IaPdLen,omitempty"        yaml:"dhcp6IaPdLen,omitempty"`
+	Track6Interface     string       `xml:"track6-interface,omitempty"    json:"track6Interface,omitempty"     yaml:"track6Interface,omitempty"`
+	Track6PrefixID      string       `xml:"track6-prefix-id,omitempty"    json:"track6PrefixId,omitempty"      yaml:"track6PrefixId,omitempty"`
+	AliasAddress        string       `xml:"alias-address,omitempty"       json:"aliasAddress,omitempty"        yaml:"aliasAddress,omitempty"`
+	AliasSubnet         string       `xml:"alias-subnet,omitempty"        json:"aliasSubnet,omitempty"         yaml:"aliasSubnet,omitempty"`
+	DHCPRejectFrom      string       `xml:"dhcprejectfrom,omitempty"      json:"dhcprejectfrom,omitempty"      yaml:"dhcprejectfrom,omitempty"`
+	DDNSDomainAlgorithm string       `xml:"ddnsdomainalgorithm,omitempty" json:"ddnsdomainalgorithm,omitempty" yaml:"ddnsdomainalgorithm,omitempty"`
+	NumberOptions       []DhcpOption `xml:"numberoptions,omitempty"       json:"numberoptions,omitempty"       yaml:"numberoptions,omitempty"`
+	Range               DhcpRange    `xml:"range,omitempty"               json:"range"                         yaml:"range,omitempty"`
+	Winsserver          string       `xml:"winsserver,omitempty"          json:"winsserver,omitempty"          yaml:"winsserver,omitempty"`
+	// Not mapped into the common model, so a scalar is accurate today. Make it
+	// []string before mapping it: <dnsserver> repeats (GOTCHAS 3.3).
+	Dnsserver string `xml:"dnsserver,omitempty" json:"dnsserver,omitempty" yaml:"dnsserver,omitempty"`
+	Ntpserver string `xml:"ntpserver,omitempty" json:"ntpserver,omitempty" yaml:"ntpserver,omitempty"`
+
+	// Advanced DHCP fields for interfaces
+	AdvDHCPRequestOptions                    string `xml:"adv_dhcp_request_options,omitempty"                      json:"advDhcpRequestOptions,omitempty"                    yaml:"advDhcpRequestOptions,omitempty"`
+	AdvDHCPRequiredOptions                   string `xml:"adv_dhcp_required_options,omitempty"                     json:"advDhcpRequiredOptions,omitempty"                   yaml:"advDhcpRequiredOptions,omitempty"`
+	AdvDHCP6InterfaceStatementRequestOptions string `xml:"adv_dhcp6_interface_statement_request_options,omitempty" json:"advDhcp6InterfaceStatementRequestOptions,omitempty" yaml:"advDhcp6InterfaceStatementRequestOptions,omitempty"`
+	AdvDHCP6ConfigFileOverride               string `xml:"adv_dhcp6_config_file_override,omitempty"                json:"advDhcp6ConfigFileOverride,omitempty"               yaml:"advDhcp6ConfigFileOverride,omitempty"`
+	AdvDHCP6IDAssocStatementPrefixPLTime     string `xml:"adv_dhcp6_id_assoc_statement_prefix_pltime,omitempty"    json:"advDhcp6IdAssocStatementPrefixPltime,omitempty"     yaml:"advDhcp6IdAssocStatementPrefixPltime,omitempty"`
+}
+    Interface represents a single network interface configuration, including
+    IP addressing, VLAN settings, gateway bindings, DHCP options, and advanced
+    DHCPv6 fields.
+
+type InterfaceGroups struct {
+	XMLName      xml.Name       `xml:"ifgroups"               json:"-"                      yaml:"-"`
+	Version      string         `xml:"version,attr,omitempty" json:"version,omitempty"      yaml:"version,omitempty"`
+	IfGroupEntry []IfGroupEntry `xml:"ifgroupentry,omitempty" json:"ifgroupentry,omitempty" yaml:"ifgroupentry,omitempty"`
+}
+    InterfaceGroups represents interface groups configuration.
+
+type InterfaceList []string
+    InterfaceList represents a comma-separated list of interfaces that can be
+    unmarshaled from XML.
+
+func (il *InterfaceList) Contains(iface string) bool
+    Contains checks if the interface list contains a specific interface.
+
+func (il *InterfaceList) IsEmpty() bool
+    IsEmpty returns true if the interface list is empty.
+
+func (il *InterfaceList) MarshalXML(e *xml.Encoder, start xml.StartElement) error
+    MarshalXML implements custom XML marshaling for comma-separated interface
+    lists.
+
+func (il *InterfaceList) String() string
+    String returns the comma-separated string representation.
+
+func (il *InterfaceList) UnmarshalXML(d *xml.Decoder, start xml.StartElement) error
+    UnmarshalXML implements custom XML unmarshaling for comma-separated
+    interface lists.
+
+type Interfaces struct {
+	Items map[string]Interface `xml:",any" json:"interfaces,omitempty" yaml:"interfaces,omitempty"`
+}
+    Interfaces contains the network interface configurations. Uses a map-based
+    representation to store all interface blocks generically, supporting wan,
+    lan, opt0, opt1, etc., and any custom interface elements.
+
+func (i *Interfaces) Get(key string) (Interface, bool)
+    Get returns an interface by its key name (e.g., "wan", "lan", "opt0").
+    Returns the interface and a boolean indicating if it was found.
+
+    Example:
+
+        if wan, ok := interfaces.Get("wan"); ok {
+        	fmt.Printf("WAN IP: %s\n", wan.IPAddr)
+        }
+
+func (i *Interfaces) Lan() (Interface, bool)
+    Lan returns the LAN interface if it exists, otherwise returns a
+    zero-value Interface and false. This is a convenience method for backward
+    compatibility.
+
+func (i *Interfaces) MarshalXML(e *xml.Encoder, start xml.StartElement) error
+    MarshalXML implements custom XML marshaling for the Interfaces map.
+
+func (i *Interfaces) Names() []string
+    Names returns a slice of all interface key names in the configuration.
+    This includes standard interfaces like "wan", "lan" and optional ones like
+    "opt0", "opt1", etc.
+
+    Example:
+
+        names := interfaces.Names()
+        fmt.Printf("Available interfaces: %s\n", strings.Join(names, ", "))
+
+func (i *Interfaces) UnmarshalXML(d *xml.Decoder, start xml.StartElement) error
+    UnmarshalXML implements custom XML unmarshaling for the Interfaces map.
+
+func (i *Interfaces) Wan() (Interface, bool)
+    Wan returns the WAN interface if it exists, otherwise returns a
+    zero-value Interface and false. This is a convenience method for backward
+    compatibility.
+
+type KeaDhcp4 struct {
+	XMLName xml.Name `xml:"dhcp4"`
+	Text    string   `xml:",chardata"              json:"text,omitempty"`
+	Version string   `xml:"version,attr,omitempty" json:"version,omitempty"`
+	General struct {
+		Text          string `xml:",chardata" json:"text,omitempty"`
+		Enabled       string `xml:"enabled"`
+		Interfaces    string `xml:"interfaces"`
+		FirewallRules string `xml:"fwrules"`
+		ValidLifetime string `xml:"valid_lifetime"`
+	} `xml:"general"                json:"general"`
+	HighAvailability struct {
+		Text              string `xml:",chardata" json:"text,omitempty"`
+		Enabled           string `xml:"enabled"`
+		ThisServerName    string `xml:"this_server_name"`
+		MaxUnackedClients string `xml:"max_unacked_clients"`
+	} `xml:"ha"                     json:"ha"`
+	// Subnets are MVC ArrayField elements named "subnet4" under <subnets>.
+	Subnets []KeaSubnet `xml:"subnets>subnet4"`
+	// Reservations reference their parent subnet by UUID.
+	Reservations []KeaReservation `xml:"reservations>reservation"`
+	HAPeers      string           `xml:"ha_peers"`
+}
+    KeaDhcp4 contains the full Kea DHCP4 configuration including subnets and
+    reservations as stored in the OPNsense MVC model (KeaDhcpv4.xml v1.0.4).
+    Element names ("subnet4", "reservation") are pinned to this MVC model
+    version; if a future OPNsense release renames these elements, the Go
+    XML decoder will silently produce empty slices — no error, no warning,
+    just missing data. See GOTCHAS 18.1 for version compatibility notes.
+
+type KeaOptionData struct {
+	DomainNameServers string `xml:"domain_name_servers"` // Comma-separated IPs
+	DomainSearch      string `xml:"domain_search"`       // Comma-separated domains
+	Routers           string `xml:"routers"`             // Gateway — comma-separated IPs
+	DomainName        string `xml:"domain_name"`
+	NTPServers        string `xml:"ntp_servers"` // Comma-separated IPs
+	TFTPServerName    string `xml:"tftp_server_name"`
+	BootFileName      string `xml:"boot_file_name"`
+}
+    KeaOptionData contains DHCP options for a subnet or reservation. These map
+    to standard DHCP option fields that Kea advertises to clients.
+
+type KeaReservation struct {
+	UUID        string        `xml:"uuid,attr"`
+	Subnet      string        `xml:"subnet"` // UUID of parent subnet
+	IPAddress   string        `xml:"ip_address"`
+	HWAddress   string        `xml:"hw_address"`
+	Hostname    string        `xml:"hostname"`
+	Description string        `xml:"description"`
+	OptionData  KeaOptionData `xml:"option_data"`
+}
+    KeaReservation represents a single Kea DHCP4 host reservation. The Subnet
+    field references the parent subnet's UUID.
+
+type KeaSubnet struct {
+	UUID                  string        `xml:"uuid,attr"`
+	Subnet                string        `xml:"subnet"`                  // CIDR notation (e.g., "192.168.1.0/24")
+	OptionDataAutocollect string        `xml:"option_data_autocollect"` // "0" or "1"
+	OptionData            KeaOptionData `xml:"option_data"`
+	// Pools contains newline-separated pool range strings from KeaPoolsField.
+	// Each entry is either "start-end" (e.g., "192.168.1.100-192.168.1.200") or CIDR notation.
+	Pools       string `xml:"pools"`
+	NextServer  string `xml:"next_server"`
+	Description string `xml:"description"`
+}
+    KeaSubnet represents a single Kea DHCP4 subnet definition.
+
+type LAGG struct {
+	XMLName xml.Name `xml:"lagg"`
+	Laggif  string   `xml:"laggif,omitempty"`
+	Members string   `xml:"members,omitempty"`
+	Proto   string   `xml:"proto,omitempty"`
+	Descr   string   `xml:"descr,omitempty"`
+	Created string   `xml:"created,omitempty"`
+	Updated string   `xml:"updated,omitempty"`
+}
+    LAGG represents a LAGG (Link Aggregation) interface configuration entry for
+    bonding multiple physical interfaces using protocols like LACP, failover,
+    or round-robin.
+
+func (l LAGG) IsPlaceholder() bool
+    IsPlaceholder reports whether the value is an empty <lagg/> marker
+    rather than a configured link aggregation. OPNsense writes that
+    self-closing element inside <laggs> when nothing is configured --
+    testdata/opnsense-config.dtd declares it as "<!ELEMENT lagg EMPTY>" -- and
+    it unmarshals into an entry whose configuration fields are all zero.
+
+    The check is deliberately conservative: an entry is dropped only when every
+    field is zero. See GOTCHAS.md section 3.4 for why fields are compared by
+    name rather than against the zero value.
+
+type LAGGInterfaces struct {
+	XMLName xml.Name `xml:"laggs"                  json:"-"                 yaml:"-"`
+	Version string   `xml:"version,attr,omitempty" json:"version,omitempty" yaml:"version,omitempty"`
+	Lagg    []LAGG   `xml:"lagg,omitempty"         json:"lagg,omitempty"    yaml:"lagg,omitempty"`
+}
+    LAGGInterfaces represents LAGG interface configuration.
+
+type LoadBalancer struct {
+	MonitorType []MonitorType `xml:"monitor_type"`
+}
+    LoadBalancer contains the load balancer configuration with its associated
+    health monitor types.
+
+type Monit struct {
+	XMLName xml.Name `xml:"monit"`
+	Text    string   `xml:",chardata"    json:"text,omitempty"`
+	Version string   `xml:"version,attr" json:"version,omitempty"`
+	General struct {
+		Text       string `xml:",chardata" json:"text,omitempty"`
+		Enabled    string `xml:"enabled"`
+		Interval   string `xml:"interval"`
+		Startdelay string `xml:"startdelay"`
+		Mailserver string `xml:"mailserver"`
+		Port       string `xml:"port"`
+		Username   string `xml:"username"`
+
+		Password                  string `xml:"password"`
+		Ssl                       string `xml:"ssl"`
+		Sslversion                string `xml:"sslversion"`
+		Sslverify                 string `xml:"sslverify"`
+		Logfile                   string `xml:"logfile"`
+		Statefile                 string `xml:"statefile"`
+		EventqueuePath            string `xml:"eventqueuePath"`
+		EventqueueSlots           string `xml:"eventqueueSlots"`
+		HttpdEnabled              string `xml:"httpdEnabled"`
+		HttpdUsername             string `xml:"httpdUsername"`
+		HttpdPassword             string `xml:"httpdPassword"`
+		HttpdPort                 string `xml:"httpdPort"`
+		HttpdAllow                string `xml:"httpdAllow"`
+		MmonitURL                 string `xml:"mmonitUrl"`
+		MmonitTimeout             string `xml:"mmonitTimeout"`
+		MmonitRegisterCredentials string `xml:"mmonitRegisterCredentials"`
+	} `xml:"general"      json:"general"`
+	Alert struct {
+		Text        string `xml:",chardata" json:"text,omitempty"`
+		UUID        string `xml:"uuid,attr" json:"uuid,omitempty"`
+		Enabled     string `xml:"enabled"`
+		Recipient   string `xml:"recipient"`
+		Noton       string `xml:"noton"`
+		Events      string `xml:"events"`
+		Format      string `xml:"format"`
+		Reminder    string `xml:"reminder"`
+		Description string `xml:"description"`
+	} `xml:"alert"        json:"alert"`
+	Service []MonitService `xml:"service"      json:"service,omitempty"`
+	Test    []MonitTest    `xml:"test"         json:"test,omitempty"`
+}
+    Monit represents the Monit system monitoring daemon configuration, including
+    mail server settings, HTTP dashboard, M/Monit integration, alert rules,
+    monitored services, and tests.
+
+func NewMonit() *Monit
+    NewMonit returns a pointer to a new Monit configuration with initialized
+    empty slices for services and tests.
+
+type MonitService struct {
+	Text         string `xml:",chardata"    json:"text,omitempty"`
+	UUID         string `xml:"uuid,attr"    json:"uuid,omitempty"`
+	Enabled      string `xml:"enabled"`
+	Name         string `xml:"name"`
+	Description  string `xml:"description"`
+	Type         string `xml:"type"`
+	Pidfile      string `xml:"pidfile"`
+	Match        string `xml:"match"`
+	Path         string `xml:"path"`
+	Timeout      string `xml:"timeout"`
+	Starttimeout string `xml:"starttimeout"`
+	Address      string `xml:"address"`
+	Interface    string `xml:"interface"`
+	Start        string `xml:"start"`
+	Stop         string `xml:"stop"`
+	Tests        string `xml:"tests"`
+	Depends      string `xml:"depends"`
+	Polltime     string `xml:"polltime"`
+}
+    MonitService represents a single monitored service entry with its type
+    (process, host, system, etc.), start/stop commands, health tests, polling
+    interval, and dependencies.
+
+type MonitTest struct {
+	Text      string `xml:",chardata" json:"text,omitempty"`
+	UUID      string `xml:"uuid,attr" json:"uuid,omitempty"`
+	Name      string `xml:"name"`
+	Type      string `xml:"type"`
+	Condition string `xml:"condition"`
+	Action    string `xml:"action"`
+	Path      string `xml:"path"`
+}
+    MonitTest represents a Monit health check test with a condition expression,
+    action to take on failure, and optional file path for filesystem checks.
+
+type MonitorType struct {
+	Name    string  `xml:"name"`
+	Type    string  `xml:"type"`
+	Descr   string  `xml:"descr"`
+	Options Options `xml:"options"`
+}
+    MonitorType represents a load balancer health monitor type with its name,
+    check type, description, and protocol-specific options.
+
+type NATRule struct {
+	XMLName            xml.Name      `xml:"rule"`
+	Interface          InterfaceList `xml:"interface,omitempty"              json:"interface,omitempty"          yaml:"interface,omitempty"`
+	IPProtocol         string        `xml:"ipprotocol,omitempty"             json:"ipProtocol,omitempty"         yaml:"ipProtocol,omitempty"`
+	Protocol           string        `xml:"protocol,omitempty"               json:"protocol,omitempty"           yaml:"protocol,omitempty"`
+	Source             Source        `xml:"source"                           json:"source"                       yaml:"source"`
+	Destination        Destination   `xml:"destination"                      json:"destination"                  yaml:"destination"`
+	Target             string        `xml:"target,omitempty"                 json:"target,omitempty"             yaml:"target,omitempty"`
+	SourcePort         string        `xml:"sourceport,omitempty"             json:"sourcePort,omitempty"         yaml:"sourcePort,omitempty"`
+	DstPort            string        `xml:"dstport,omitempty"                json:"dstPort,omitempty"            yaml:"dstPort,omitempty"`
+	NatPort            string        `xml:"natport,omitempty"                json:"natPort,omitempty"            yaml:"natPort,omitempty"`
+	PoolOpts           string        `xml:"poolopts,omitempty"               json:"poolOpts,omitempty"           yaml:"poolOpts,omitempty"`
+	PoolOptsSrcHashKey string        `xml:"poolopts_sourcehashkey,omitempty" json:"poolOptsSrcHashKey,omitempty" yaml:"poolOptsSrcHashKey,omitempty"`
+	StaticNatPort      BoolFlag      `xml:"staticnatport,omitempty"          json:"staticNatPort,omitempty"      yaml:"staticNatPort,omitempty"`
+	NoNat              BoolFlag      `xml:"nonat,omitempty"                  json:"noNat,omitempty"              yaml:"noNat,omitempty"`
+	Disabled           BoolFlag      `xml:"disabled,omitempty"               json:"disabled,omitempty"           yaml:"disabled,omitempty"`
+	Log                BoolFlag      `xml:"log,omitempty"                    json:"log,omitempty"                yaml:"log,omitempty"`
+	Descr              string        `xml:"descr,omitempty"                  json:"description,omitempty"        yaml:"description,omitempty"`
+	Category           string        `xml:"category,omitempty"               json:"category,omitempty"           yaml:"category,omitempty"`
+	Tag                string        `xml:"tag,omitempty"                    json:"tag,omitempty"                yaml:"tag,omitempty"`
+	Tagged             string        `xml:"tagged,omitempty"                 json:"tagged,omitempty"             yaml:"tagged,omitempty"`
+	Updated            *Updated      `xml:"updated,omitempty"                json:"updated,omitempty"            yaml:"updated,omitempty"`
+	Created            *Created      `xml:"created,omitempty"                json:"created,omitempty"            yaml:"created,omitempty"`
+	UUID               string        `xml:"uuid,attr,omitempty"              json:"uuid,omitempty"               yaml:"uuid,omitempty"`
+}
+    NATRule represents an outbound NAT rule. The Target field specifies the NAT
+    target address. Tag and Tagged fields are available on outbound rules only
+    (not on InboundRule or Rule).
+
+func (r NATRule) EffectiveDestinationPort() string
+    EffectiveDestinationPort returns the destination port this rule matches on.
+
+    Outbound NAT rules record the destination port in a <dstport> sibling
+    of <destination> rather than in <destination><port>, so reading only
+    Destination.Port made every port-scoped outbound rule look like it
+    matched all ports. Inbound and filter rules use the nested form, hence the
+    preference order.
+
+type NATSummary struct {
+	Mode               string        `json:"mode"                    yaml:"mode"`
+	ReflectionDisabled bool          `json:"reflectionDisabled"      yaml:"reflectionDisabled"`
+	PfShareForward     bool          `json:"pfShareForward"          yaml:"pfShareForward"`
+	OutboundRules      []NATRule     `json:"outboundRules,omitempty" yaml:"outboundRules,omitempty"`
+	InboundRules       []InboundRule `json:"inboundRules,omitempty"  yaml:"inboundRules,omitempty"`
+}
+    NATSummary provides a flattened view of NAT configuration for security
+    analysis, combining outbound mode, reflection settings, and both inbound and
+    outbound rule sets.
+
+type Nat struct {
+	Outbound Outbound      `xml:"outbound"     json:"outbound"          yaml:"outbound"`
+	Inbound  []InboundRule `xml:"inbound>rule" json:"inbound,omitempty" yaml:"inbound,omitempty"`
+}
+    Nat represents the complete NAT configuration, including outbound NAT rules
+    and inbound port-forwarding rules.
+
+type NetworkConfig struct {
+	Interfaces Interfaces   `json:"interfaces"         yaml:"interfaces,omitempty" validate:"required"`
+	VLANs      []VLANConfig `json:"vlans,omitempty"    yaml:"vlans,omitempty"`
+	Gateways   []Gateway    `json:"gateways,omitempty" yaml:"gateways,omitempty"`
+}
+    NetworkConfig groups network-related configuration.
+
+func NewNetworkConfig() NetworkConfig
+    NewNetworkConfig returns a NetworkConfig with initialized empty slices for
+    VLANs and Gateways, and an initialized map for Interfaces.
+
+type Ntpd struct {
+	Prefer string `xml:"prefer"`
+}
+    Ntpd contains the NTP daemon configuration with the preferred time server
+    setting.
+
+type OPNsense struct {
+	XMLName xml.Name `xml:"OPNsense"`
+	Text    string   `xml:",chardata" json:"text,omitempty"`
+
+	Captiveportal struct {
+		Text      string `xml:",chardata" json:"text,omitempty"`
+		Version   string `xml:"version,attr" json:"version,omitempty"`
+		Zones     string `xml:"zones"`
+		Templates string `xml:"templates"`
+	} `xml:"captiveportal" json:"captiveportal"`
+	Cron struct {
+		Text    string `xml:",chardata" json:"text,omitempty"`
+		Version string `xml:"version,attr" json:"version,omitempty"`
+		Jobs    string `xml:"jobs"`
+	} `xml:"cron"          json:"cron"`
+
+	DHCPRelay struct {
+		Text    string `xml:",chardata" json:"text,omitempty"`
+		Version string `xml:"version,attr" json:"version,omitempty"`
+	} `xml:"DHCRelay" json:"dhcrelay"`
+
+	// Security components - now using references
+	Firewall                 *Firewall `xml:"Firewall,omitempty" json:"firewall,omitempty"`
+	IntrusionDetectionSystem *IDS      `xml:"IDS,omitempty"      json:"ids,omitempty"`
+	IPsec                    *IPsec    `xml:"IPsec,omitempty"    json:"ipsec,omitempty"`
+	Swanctl                  *Swanctl  `xml:"Swanctl,omitempty"  json:"swanctl,omitempty"`
+
+	// VPN components - now using references
+	OpenVPNExport *OpenVPNExport `xml:"OpenVPNExport,omitempty" json:"openvpnexport,omitempty"`
+	OpenVPN       *OpenVPNSystem `xml:"OpenVPN,omitempty"       json:"openvpn_system,omitempty"`
+	Wireguard     *WireGuard     `xml:"wireguard,omitempty"     json:"wireguard,omitempty"`
+
+	// Monitoring components - now using references
+	Monit *Monit `xml:"monit,omitempty" json:"monit,omitempty"`
+
+	// Network components
+	Interfaces struct {
+		Text      string `xml:",chardata" json:"text,omitempty"`
+		Loopbacks struct {
+			Text    string `xml:",chardata" json:"text,omitempty"`
+			Version string `xml:"version,attr" json:"version,omitempty"`
+		} `xml:"loopbacks" json:"loopbacks"`
+		Neighbors struct {
+			Text    string `xml:",chardata" json:"text,omitempty"`
+			Version string `xml:"version,attr" json:"version,omitempty"`
+		} `xml:"neighbors" json:"neighbors"`
+		Vxlans struct {
+			Text    string `xml:",chardata" json:"text,omitempty"`
+			Version string `xml:"version,attr" json:"version,omitempty"`
+		} `xml:"vxlans" json:"vxlans"`
+	} `xml:"Interfaces" json:"interfaces"`
+
+	// DHCP components
+	Kea struct {
+		Text      string   `xml:",chardata" json:"text,omitempty"`
+		Version   string   `xml:"version,attr" json:"version,omitempty"`
+		Dhcp4     KeaDhcp4 `xml:"dhcp4" json:"dhcp4"`
+		CtrlAgent struct {
+			Text    string `xml:",chardata" json:"text,omitempty"`
+			Version string `xml:"version,attr" json:"version,omitempty"`
+			General struct {
+				Text     string `xml:",chardata" json:"text,omitempty"`
+				Enabled  string `xml:"enabled"`
+				HTTPHost string `xml:"http_host"`
+				HTTPPort string `xml:"http_port"`
+			} `xml:"general" json:"general"`
+		} `xml:"ctrl_agent" json:"ctrlAgent"`
+	} `xml:"Kea" json:"kea"`
+
+	// Other system components
+	Gateways struct {
+		Text    string `xml:",chardata" json:"text,omitempty"`
+		Version string `xml:"version,attr" json:"version,omitempty"`
+	} `xml:"Gateways" json:"gateways_internal"`
+
+	Netflow struct {
+		Text    string `xml:",chardata" json:"text,omitempty"`
+		Version string `xml:"version,attr" json:"version,omitempty"`
+		Capture struct {
+			Text       string `xml:",chardata" json:"text,omitempty"`
+			Interfaces string `xml:"interfaces"`
+			Version    string `xml:"version"`
+			EgressOnly string `xml:"egress_only"`
+			Targets    string `xml:"targets"`
+		} `xml:"capture" json:"capture"`
+		Collect struct {
+			Text   string `xml:",chardata" json:"text,omitempty"`
+			Enable string `xml:"enable"`
+		} `xml:"collect" json:"collect"`
+		InactiveTimeout string `xml:"inactiveTimeout"`
+		ActiveTimeout   string `xml:"activeTimeout"`
+	} `xml:"Netflow" json:"netflow"`
+
+	SyslogInternal struct {
+		Text    string `xml:",chardata" json:"text,omitempty"`
+		Version string `xml:"version,attr" json:"version,omitempty"`
+		General struct {
+			Text        string `xml:",chardata" json:"text,omitempty"`
+			Enabled     string `xml:"enabled"`
+			Loglocal    string `xml:"loglocal"`
+			Maxpreserve string `xml:"maxpreserve"`
+			Maxfilesize string `xml:"maxfilesize"`
+		} `xml:"general" json:"general"`
+		Destinations string `xml:"destinations"`
+	} `xml:"Syslog" json:"syslog_internal"`
+
+	TrafficShaper struct {
+		Text    string `xml:",chardata" json:"text,omitempty"`
+		Version string `xml:"version,attr" json:"version,omitempty"`
+		Pipes   string `xml:"pipes"`
+		Queues  string `xml:"queues"`
+		Rules   string `xml:"rules"`
+	} `xml:"TrafficShaper" json:"trafficshaper"`
+
+	Trust struct {
+		Text    string `xml:",chardata" json:"text,omitempty"`
+		General struct {
+			Text                    string `xml:",chardata" json:"text,omitempty"`
+			Version                 string `xml:"version,attr" json:"version,omitempty"`
+			StoreIntermediateCerts  string `xml:"store_intermediate_certs"`
+			InstallCrls             string `xml:"install_crls"`
+			FetchCrls               string `xml:"fetch_crls"`
+			EnableLegacySect        string `xml:"enable_legacy_sect"`
+			EnableConfigConstraints string `xml:"enable_config_constraints"`
+			CipherString            string `xml:"CipherString"`
+			Ciphersuites            string `xml:"Ciphersuites"`
+			Groups                  string `xml:"groups"`
+			MinProtocol             string `xml:"MinProtocol"`
+			MinProtocolDTLS         string `xml:"MinProtocol_DTLS"`
+		} `xml:"general" json:"general"`
+	} `xml:"trust" json:"trust"`
+
+	UnboundPlus UnboundPlus `xml:"unboundplus" json:"unboundplus"`
+
+	Routes struct {
+		Text    string `xml:",chardata" json:"text,omitempty"`
+		Version string `xml:"version,attr" json:"version,omitempty"`
+		Route   string `xml:"route"`
+	} `xml:"routes"            json:"routes"`
+	UnboundDNS struct {
+		Text    string `xml:",chardata" json:"text,omitempty"`
+		Version string `xml:"version,attr" json:"version,omitempty"`
+		Unbound string `xml:"unbound"`
+	} `xml:"unbound"           json:"unbound_internal"`
+	Created string `xml:"created,omitempty"`
+	Updated string `xml:"updated,omitempty"`
+}
+    OPNsense represents the <OPNsense> sub-element within the configuration,
+    containing MVC-model-based components such as Firewall, IDS, IPsec, Kea
+    DHCP, WireGuard, and other subsystems that use the OPNsense MVC framework
+    rather than legacy XML structures.
+
+type OpenVPN struct {
+	XMLName      xml.Name        `xml:"openvpn"`
+	Servers      []OpenVPNServer `xml:"openvpn-server,omitempty"`
+	Clients      []OpenVPNClient `xml:"openvpn-client,omitempty"`
+	ClientExport *ClientExport   `xml:"openvpn-client-export,omitempty"`
+	CSC          []OpenVPNCSC    `xml:"openvpn-csc,omitempty"`
+	Created      string          `xml:"created,omitempty"`
+	Updated      string          `xml:"updated,omitempty"`
+}
+    OpenVPN represents the legacy OpenVPN configuration container, holding
+    server instances, client instances, client-specific configurations (CSC),
+    and client export settings.
+
+func NewOpenVPN() *OpenVPN
+    NewOpenVPN returns a new OpenVPN configuration with empty server, client,
+    and client-specific configuration lists.
+
+type OpenVPNCSC struct {
+	XMLName          xml.Name `xml:"openvpn-csc"`
+	Common_name      string   `xml:"common_name,omitempty"` //nolint:revive,staticcheck // XML field name requires underscore
+	Block            BoolFlag `xml:"block,omitempty"`
+	Tunnel_network   string   `xml:"tunnel_network,omitempty"`   //nolint:revive,staticcheck // XML field name requires underscore
+	Tunnel_networkv6 string   `xml:"tunnel_networkv6,omitempty"` //nolint:revive,staticcheck // XML field name requires underscore
+	Local_network    string   `xml:"local_network,omitempty"`    //nolint:revive,staticcheck // XML field name requires underscore
+	Local_networkv6  string   `xml:"local_networkv6,omitempty"`  //nolint:revive,staticcheck // XML field name requires underscore
+	Remote_network   string   `xml:"remote_network,omitempty"`   //nolint:revive,staticcheck // XML field name requires underscore
+	Remote_networkv6 string   `xml:"remote_networkv6,omitempty"` //nolint:revive,staticcheck // XML field name requires underscore
+	Gwredir          BoolFlag `xml:"gwredir,omitempty"`
+	Push_reset       BoolFlag `xml:"push_reset,omitempty"`     //nolint:revive,staticcheck // XML field name requires underscore
+	Remove_route     BoolFlag `xml:"remove_route,omitempty"`   //nolint:revive,staticcheck // XML field name requires underscore
+	DNS_domain       string   `xml:"dns_domain,omitempty"`     //nolint:revive,staticcheck // XML field name requires underscore
+	DNS_server1      string   `xml:"dns_server1,omitempty"`    //nolint:revive,staticcheck // XML field name requires underscore
+	DNS_server2      string   `xml:"dns_server2,omitempty"`    //nolint:revive,staticcheck // XML field name requires underscore
+	DNS_server3      string   `xml:"dns_server3,omitempty"`    //nolint:revive,staticcheck // XML field name requires underscore
+	DNS_server4      string   `xml:"dns_server4,omitempty"`    //nolint:revive,staticcheck // XML field name requires underscore
+	NTP_server1      string   `xml:"ntp_server1,omitempty"`    //nolint:revive,staticcheck // XML field name requires underscore
+	NTP_server2      string   `xml:"ntp_server2,omitempty"`    //nolint:revive,staticcheck // XML field name requires underscore
+	Custom_options   string   `xml:"custom_options,omitempty"` //nolint:revive,staticcheck // XML field name requires underscore
+	Created          string   `xml:"created,omitempty"`
+	Updated          string   `xml:"updated,omitempty"`
+}
+    OpenVPNCSC represents a client-specific configuration (CSC) override for
+    OpenVPN, allowing per-client tunnel networks, DNS settings, and routing
+    overrides.
+
+type OpenVPNClient struct {
+	XMLName         xml.Name `xml:"openvpn-client"`
+	VPN_ID          string   `xml:"vpnid,omitempty"` //nolint:revive,staticcheck // XML field name requires underscore
+	Mode            string   `xml:"mode,omitempty"`
+	Protocol        string   `xml:"protocol,omitempty"`
+	Dev_mode        string   `xml:"dev_mode,omitempty"` //nolint:revive,staticcheck // XML field name requires underscore
+	Interface       string   `xml:"interface,omitempty"`
+	Server_addr     string   `xml:"server_addr,omitempty"` //nolint:revive,staticcheck // XML field name requires underscore
+	Server_port     string   `xml:"server_port,omitempty"` //nolint:revive,staticcheck // XML field name requires underscore
+	Description     string   `xml:"description,omitempty"`
+	Custom_options  string   `xml:"custom_options,omitempty"` //nolint:revive,staticcheck // XML field name requires underscore
+	Cert_ref        string   `xml:"certref,omitempty"`        //nolint:revive,staticcheck // XML field name requires underscore
+	CA_ref          string   `xml:"caref,omitempty"`          //nolint:revive,staticcheck // XML field name requires underscore
+	Compression     string   `xml:"compression,omitempty"`
+	Crypto          string   `xml:"crypto,omitempty"`
+	Digest          string   `xml:"digest,omitempty"`
+	NCPCiphers      string   `xml:"ncp-ciphers,omitempty"`
+	Verbosity_level string   `xml:"verbosity_level,omitempty"` //nolint:revive,staticcheck // XML field name requires underscore
+	Created         string   `xml:"created,omitempty"`
+	Updated         string   `xml:"updated,omitempty"`
+}
+    OpenVPNClient represents a single OpenVPN client instance with server
+    address, TLS settings, compression, and custom options.
+
+type OpenVPNExport struct {
+	XMLName xml.Name `xml:"OpenVPNExport"`
+	Text    string   `xml:",chardata"     json:"text,omitempty"`
+	Version string   `xml:"version,attr"  json:"version,omitempty"`
+	Servers string   `xml:"servers"`
+}
+    OpenVPNExport represents the MVC-based OpenVPN export configuration for
+    client package generation.
+
+func NewOpenVPNExport() *OpenVPNExport
+    NewOpenVPNExport initializes and returns an empty OpenVPNExport
+    configuration.
+
+type OpenVPNServer struct {
+	XMLName           xml.Name `xml:"openvpn-server"`
+	VPN_ID            string   `xml:"vpnid,omitempty"` //nolint:revive,staticcheck // XML field name requires underscore
+	Mode              string   `xml:"mode,omitempty"`
+	Protocol          string   `xml:"protocol,omitempty"`
+	Dev_mode          string   `xml:"dev_mode,omitempty"` //nolint:revive,staticcheck // XML field name requires underscore
+	Interface         string   `xml:"interface,omitempty"`
+	Local_port        string   `xml:"local_port,omitempty"` //nolint:revive,staticcheck // XML field name requires underscore
+	Description       string   `xml:"description,omitempty"`
+	Custom_options    string   `xml:"custom_options,omitempty"` //nolint:revive,staticcheck // XML field name requires underscore
+	TLS               string   `xml:"tls,omitempty"`
+	TLS_type          string   `xml:"tls_type,omitempty"`   //nolint:revive,staticcheck // XML field name requires underscore
+	Cert_ref          string   `xml:"certref,omitempty"`    //nolint:revive,staticcheck // XML field name requires underscore
+	CA_ref            string   `xml:"caref,omitempty"`      //nolint:revive,staticcheck // XML field name requires underscore
+	CRL_ref           string   `xml:"crlref,omitempty"`     //nolint:revive,staticcheck // XML field name requires underscore
+	DH_length         string   `xml:"dh_length,omitempty"`  //nolint:revive,staticcheck // XML field name requires underscore
+	Ecdh_curve        string   `xml:"ecdh_curve,omitempty"` //nolint:revive,staticcheck // XML field name requires underscore
+	Cert_depth        string   `xml:"cert_depth,omitempty"` //nolint:revive,staticcheck // XML field name requires underscore
+	Strictusercn      BoolFlag `xml:"strictusercn,omitempty"`
+	Tunnel_network    string   `xml:"tunnel_network,omitempty"`   //nolint:revive,staticcheck // XML field name requires underscore
+	Tunnel_networkv6  string   `xml:"tunnel_networkv6,omitempty"` //nolint:revive,staticcheck // XML field name requires underscore
+	Remote_network    string   `xml:"remote_network,omitempty"`   //nolint:revive,staticcheck // XML field name requires underscore
+	Remote_networkv6  string   `xml:"remote_networkv6,omitempty"` //nolint:revive,staticcheck // XML field name requires underscore
+	Gwredir           BoolFlag `xml:"gwredir,omitempty"`
+	Local_network     string   `xml:"local_network,omitempty"`   //nolint:revive,staticcheck // XML field name requires underscore
+	Local_networkv6   string   `xml:"local_networkv6,omitempty"` //nolint:revive,staticcheck // XML field name requires underscore
+	Maxclients        string   `xml:"maxclients,omitempty"`
+	Compression       string   `xml:"compression,omitempty"`
+	Crypto            string   `xml:"crypto,omitempty"`
+	Digest            string   `xml:"digest,omitempty"`
+	NCPCiphers        string   `xml:"ncp-ciphers,omitempty"`
+	Passtos           BoolFlag `xml:"passtos,omitempty"`
+	Client2client     BoolFlag `xml:"client2client,omitempty"`
+	Dynamic_ip        BoolFlag `xml:"dynamic_ip,omitempty"` //nolint:revive,staticcheck // XML field name requires underscore
+	Topology          string   `xml:"topology,omitempty"`
+	Serverbridge_dhcp BoolFlag `xml:"serverbridge_dhcp,omitempty"` //nolint:revive,staticcheck // XML field name requires underscore
+	DNS_domain        string   `xml:"dns_domain,omitempty"`        //nolint:revive,staticcheck // XML field name requires underscore
+	DNS_server1       string   `xml:"dns_server1,omitempty"`       //nolint:revive,staticcheck // XML field name requires underscore
+	DNS_server2       string   `xml:"dns_server2,omitempty"`       //nolint:revive,staticcheck // XML field name requires underscore
+	DNS_server3       string   `xml:"dns_server3,omitempty"`       //nolint:revive,staticcheck // XML field name requires underscore
+	DNS_server4       string   `xml:"dns_server4,omitempty"`       //nolint:revive,staticcheck // XML field name requires underscore
+	Push_register_dns BoolFlag `xml:"push_register_dns,omitempty"` //nolint:revive,staticcheck // XML field name requires underscore
+	NTP_server1       string   `xml:"ntp_server1,omitempty"`       //nolint:revive,staticcheck // XML field name requires underscore
+	NTP_server2       string   `xml:"ntp_server2,omitempty"`       //nolint:revive,staticcheck // XML field name requires underscore
+	Netbios_enable    BoolFlag `xml:"netbios_enable,omitempty"`    //nolint:revive,staticcheck // XML field name requires underscore
+	Netbios_ntype     string   `xml:"netbios_ntype,omitempty"`     //nolint:revive,staticcheck // XML field name requires underscore
+	Netbios_scope     string   `xml:"netbios_scope,omitempty"`     //nolint:revive,staticcheck // XML field name requires underscore
+	Verbosity_level   string   `xml:"verbosity_level,omitempty"`   //nolint:revive,staticcheck // XML field name requires underscore
+	Created           string   `xml:"created,omitempty"`
+	Updated           string   `xml:"updated,omitempty"`
+}
+    OpenVPNServer represents a single OpenVPN server instance with TLS settings,
+    tunnel networks, client routing, DNS push options, compression, and topology
+    configuration.
+
+type OpenVPNSystem struct {
+	XMLName    xml.Name `xml:"OpenVPN"`
+	Text       string   `xml:",chardata"    json:"text,omitempty"`
+	Version    string   `xml:"version,attr" json:"version,omitempty"`
+	Overwrites string   `xml:"Overwrites"`
+	Instances  string   `xml:"Instances"`
+	StaticKeys string   `xml:"StaticKeys"`
+}
+    OpenVPNSystem represents the MVC-based OpenVPN system configuration,
+    including instance overwrites, instance definitions, and static key
+    management.
+
+func NewOpenVPNSystem() *OpenVPNSystem
+    NewOpenVPNSystem returns a new, empty OpenVPNSystem configuration instance.
+
+type OpnSenseDocument struct {
+	XMLName              xml.Name               `xml:"opnsense"                         json:"-"                    yaml:"-"`
+	Version              string                 `xml:"version,omitempty"                json:"version,omitempty"    yaml:"version,omitempty"              validate:"omitempty,semver"`
+	TriggerInitialWizard BoolFlag               `xml:"trigger_initial_wizard,omitempty" json:"triggerInitialWizard" yaml:"triggerInitialWizard,omitempty"`
+	Theme                string                 `xml:"theme,omitempty"                  json:"theme,omitempty"      yaml:"theme,omitempty"                validate:"omitempty,oneof=opnsense opnsense-ng bootstrap"`
+	Sysctl               SysctlItems            `xml:"sysctl,omitempty"                 json:"sysctl,omitempty"     yaml:"sysctl,omitempty"               validate:"dive"`
+	System               System                 `xml:"system,omitempty"                 json:"system"               yaml:"system,omitempty"               validate:"required"`
+	Interfaces           Interfaces             `xml:"interfaces,omitempty"             json:"interfaces"           yaml:"interfaces,omitempty"           validate:"required"`
+	Dhcpd                Dhcpd                  `xml:"dhcpd,omitempty"                  json:"dhcpd"                yaml:"dhcpd,omitempty"`
+	Unbound              Unbound                `xml:"unbound,omitempty"                json:"unbound"              yaml:"unbound,omitempty"`
+	Snmpd                Snmpd                  `xml:"snmpd,omitempty"                  json:"snmpd"                yaml:"snmpd,omitempty"`
+	Nat                  Nat                    `xml:"nat,omitempty"                    json:"nat"                  yaml:"nat,omitempty"`
+	Filter               Filter                 `xml:"filter,omitempty"                 json:"filter"               yaml:"filter,omitempty"`
+	Rrd                  Rrd                    `xml:"rrd,omitempty"                    json:"rrd"                  yaml:"rrd,omitempty"`
+	LoadBalancer         LoadBalancer           `xml:"load_balancer,omitempty"          json:"loadBalancer"         yaml:"loadBalancer,omitempty"`
+	Ntpd                 Ntpd                   `xml:"ntpd,omitempty"                   json:"ntpd"                 yaml:"ntpd,omitempty"`
+	Widgets              Widgets                `xml:"widgets,omitempty"                json:"widgets"              yaml:"widgets,omitempty"`
+	Revision             Revision               `xml:"revision,omitempty"               json:"revision"             yaml:"revision,omitempty"`
+	Gateways             Gateways               `xml:"gateways,omitempty"               json:"gateways"             yaml:"gateways,omitempty"`
+	HighAvailabilitySync HighAvailabilitySync   `xml:"hasync,omitempty"                 json:"hasync"               yaml:"hasync,omitempty"`
+	InterfaceGroups      InterfaceGroups        `xml:"ifgroups,omitempty"               json:"ifgroups"             yaml:"ifgroups,omitempty"`
+	GIFInterfaces        GIFInterfaces          `xml:"gifs,omitempty"                   json:"gifs"                 yaml:"gifs,omitempty"`
+	GREInterfaces        GREInterfaces          `xml:"gres,omitempty"                   json:"gres"                 yaml:"gres,omitempty"`
+	LAGGInterfaces       LAGGInterfaces         `xml:"laggs,omitempty"                  json:"laggs"                yaml:"laggs,omitempty"`
+	VirtualIP            VirtualIP              `xml:"virtualip,omitempty"              json:"virtualip"            yaml:"virtualip,omitempty"`
+	VLANs                VLANs                  `xml:"vlans,omitempty"                  json:"vlans"                yaml:"vlans,omitempty"`
+	OpenVPN              OpenVPN                `xml:"openvpn,omitempty"                json:"openvpn"              yaml:"openvpn,omitempty"`
+	StaticRoutes         StaticRoutes           `xml:"staticroutes,omitempty"           json:"staticroutes"         yaml:"staticroutes,omitempty"`
+	Bridges              Bridges                `xml:"bridges,omitempty"                json:"bridges"              yaml:"bridges,omitempty"`
+	PPPInterfaces        PPPInterfaces          `xml:"ppps,omitempty"                   json:"ppps"                 yaml:"ppps,omitempty"`
+	Wireless             Wireless               `xml:"wireless,omitempty"               json:"wireless"             yaml:"wireless,omitempty"`
+	CAs                  []CertificateAuthority `xml:"ca,omitempty"                     json:"ca,omitempty"         yaml:"ca,omitempty"`
+	DHCPv6Server         DHCPv6Server           `xml:"dhcpdv6,omitempty"                json:"dhcpdv6"              yaml:"dhcpdv6,omitempty"`
+	Certs                []Cert                 `xml:"cert,omitempty"                   json:"cert,omitempty"       yaml:"cert,omitempty"`
+	DNSMasquerade        DNSMasq                `xml:"dnsmasq,omitempty"                json:"dnsmasq"              yaml:"dnsmasq,omitempty"`
+	Syslog               Syslog                 `xml:"syslog,omitempty"                 json:"syslog"               yaml:"syslog,omitempty"`
+	// Aliases is the legacy top-level <aliases> element used by older
+	// OPNsense configs that predate the MVC Firewall/Alias subsystem
+	// (modern configs store aliases at OPNsense.Firewall.Alias.Aliases
+	// instead — see Firewall.Alias.Aliases). Both sources share the same
+	// AliasList/Alias element shape and are merged by the converter into a
+	// single common.NamedObjects registry.
+	Aliases  AliasList `xml:"aliases,omitempty"  json:"aliases"  yaml:"aliases,omitempty"`
+	OPNsense OPNsense  `xml:"OPNsense,omitempty" json:"opnsense" yaml:"opnsense,omitempty"`
+}
+    OpnSenseDocument is the root schema type representing a complete OPNsense
+    configuration file. It maps to the top-level <opnsense> XML element and
+    contains all subsystem configurations. Use NewOpnSenseDocument to create an
+    instance with all slice and map fields safely initialized.
+
+func NewOpnSenseDocument() *OpnSenseDocument
+    NewOpnSenseDocument returns a new OpnSenseDocument with all slice and
+    map fields initialized for safe use. This avoids nil-pointer panics
+    when accessing nested collections like Filter.Rule, System.User,
+    Interfaces.Items, and Dhcpd.Items.
+
+func (o *OpnSenseDocument) FilterRules() []Rule
+    FilterRules returns a slice of all firewall filter rules configured in the
+    system.
+
+func (o *OpnSenseDocument) Hostname() string
+    Hostname returns the configured hostname from the system configuration.
+
+func (o *OpnSenseDocument) InterfaceByName(name string) *Interface
+    InterfaceByName returns a network interface by its interface name (e.g.,
+    "em0", "igb0").
+
+func (o *OpnSenseDocument) NATSummary() NATSummary
+    NATSummary returns a NATSummary aggregating NAT configuration from the
+    document's System and Nat fields, providing a consolidated view for security
+    analysis.
+
+func (o *OpnSenseDocument) NetworkConfig() NetworkConfig
+    NetworkConfig returns the network configuration grouped by functionality.
+
+func (o *OpnSenseDocument) SecurityConfig() SecurityConfig
+    SecurityConfig returns the security configuration grouped by functionality.
+
+func (o *OpnSenseDocument) ServiceConfig() ServiceConfig
+    ServiceConfig returns the service configuration grouped by functionality.
+
+func (o *OpnSenseDocument) SystemConfig() SystemConfig
+    SystemConfig returns the system configuration grouped by functionality.
+
+type Options struct {
+	Path   string `xml:"path,omitempty"`
+	Host   string `xml:"host,omitempty"`
+	Code   string `xml:"code,omitempty"`
+	Send   string `xml:"send,omitempty"`
+	Expect string `xml:"expect,omitempty"`
+}
+    Options contains protocol-specific options for a load balancer MonitorType,
+    such as HTTP path/host/code or TCP send/expect strings.
+
+type Outbound struct {
+	Mode string    `xml:"mode" json:"mode"            yaml:"mode"`
+	Rule []NATRule `xml:"rule" json:"rules,omitempty" yaml:"rules,omitempty"`
+}
+    Outbound represents outbound NAT configuration, including the NAT mode
+    (automatic, hybrid, advanced, or disabled) and the list of outbound NAT
+    rules.
+
+type PPP struct {
+	XMLName xml.Name `xml:"ppp"`
+	If      string   `xml:"if,omitempty"`
+	Type    string   `xml:"type,omitempty"`
+	Descr   string   `xml:"descr,omitempty"`
+}
+    PPP represents a PPP (Point-to-Point Protocol) interface configuration
+    entry, covering PPPoE, PPTP, and L2TP connection types.
+
+func (p PPP) IsPlaceholder() bool
+    IsPlaceholder reports whether p is an empty <ppp/> marker rather than a
+    configured PPP link. OPNsense writes that self-closing element inside
+    <ppps> when nothing is configured, and it unmarshals into an entry whose
+    configuration fields are all zero.
+
+    The check is deliberately conservative: an entry is dropped only when every
+    field is zero. A link carrying any data at all -- even just a description
+    -- is retained, because under-reporting configured resources is the more
+    dangerous direction for an auditing tool.
+
+    Fields are compared by name rather than against the zero value: encoding/xml
+    populates XMLName on unmarshal, so a decoded <ppp/> never equals PPP{}.
+
+    The pfSense parser shares this type, and pkg/schema/pfsense/README.md
+    records <ppps> as an "Identical base" rather than a full mirror: real
+    pfSense entries can also carry ptpid, ports, username, password, provider,
+    and mtu, none of which this struct declares. An entry populating only
+    those unparsed fields would be read as a placeholder. No committed fixture
+    exhibits that shape, and a usable PPP link sets if and type in practice,
+    so this is an accepted assumption rather than a known defect -- but a fuller
+    pfSense PPP fork must extend this predicate along with the struct.
+
+type PPPInterfaces struct {
+	XMLName xml.Name `xml:"ppps"          json:"-"             yaml:"-"`
+	Ppp     []PPP    `xml:"ppp,omitempty" json:"ppp,omitempty" yaml:"ppp,omitempty"`
+}
+    PPPInterfaces represents PPP interface configuration.
+
+type Package struct {
+	Name      string `xml:"name"      json:"name"                  yaml:"name"                  validate:"required"`
+	Version   string `xml:"version"   json:"version,omitempty"     yaml:"version,omitempty"`
+	Installed bool   `xml:"installed" json:"installed"             yaml:"installed"`
+	Locked    bool   `xml:"locked"    json:"locked"                yaml:"locked"`
+	Automatic bool   `xml:"automatic" json:"automatic"             yaml:"automatic"`
+	Descr     string `xml:"descr"     json:"description,omitempty" yaml:"description,omitempty"`
+}
+    Package represents a software package in the system. This struct is used for
+    aggregating package statistics and filtering.
+
+func NewPackage() Package
+    NewPackage returns a new Package instance with default values.
+
+type Range struct {
+	From string `xml:"from"`
+	To   string `xml:"to"`
+}
+    Range represents a DHCP address range.
+
+type Revision struct {
+	Username    string `xml:"username,omitempty"    json:"username,omitempty"    yaml:"username,omitempty"`
+	Time        string `xml:"time,omitempty"        json:"time,omitempty"        yaml:"time,omitempty"`
+	Description string `xml:"description,omitempty" json:"description,omitempty" yaml:"description,omitempty"`
+}
+    Revision represents configuration revision information.
+
+type Rrd struct {
+	Enable BoolFlag `xml:"enable"`
+}
+    Rrd contains the RRDtool (Round-Robin Database) configuration for
+    time-series data collection.
+
+type Rule struct {
+	XMLName     xml.Name      `xml:"rule"`
+	Type        string        `xml:"type"`
+	Descr       string        `xml:"descr,omitempty"`
+	Interface   InterfaceList `xml:"interface,omitempty"`
+	IPProtocol  string        `xml:"ipprotocol,omitempty"`
+	StateType   string        `xml:"statetype,omitempty"`
+	Direction   string        `xml:"direction,omitempty"`
+	Floating    string        `xml:"floating,omitempty"`
+	Quick       BoolFlag      `xml:"quick,omitempty"`
+	Protocol    string        `xml:"protocol,omitempty"`
+	Source      Source        `xml:"source"`
+	Destination Destination   `xml:"destination"`
+	Target      string        `xml:"target,omitempty"`
+	Gateway     string        `xml:"gateway,omitempty"`
+	SourcePort  string        `xml:"sourceport,omitempty"`
+	Log         BoolFlag      `xml:"log,omitempty"`
+	Disabled    BoolFlag      `xml:"disabled,omitempty"`
+	Tracker     string        `xml:"tracker,omitempty"`
+	// Rate-limiting fields (DoS protection)
+	MaxSrcNodes     string `xml:"max-src-nodes,omitempty"`
+	MaxSrcConn      string `xml:"max-src-conn,omitempty"`
+	MaxSrcConnRate  string `xml:"max-src-conn-rate,omitempty"`
+	MaxSrcConnRates string `xml:"max-src-conn-rates,omitempty"`
+	// TCP/ICMP fields
+	TCPFlags1   string   `xml:"tcpflags1,omitempty"`
+	TCPFlags2   string   `xml:"tcpflags2,omitempty"`
+	TCPFlagsAny BoolFlag `xml:"tcpflags_any,omitempty"`
+	ICMPType    string   `xml:"icmptype,omitempty"`
+	ICMP6Type   string   `xml:"icmp6-type,omitempty"`
+	// State and advanced fields
+	StateTimeout   string   `xml:"statetimeout,omitempty"`
+	AllowOpts      BoolFlag `xml:"allowopts,omitempty"`
+	DisableReplyTo BoolFlag `xml:"disablereplyto,omitempty"`
+	NoPfSync       BoolFlag `xml:"nopfsync,omitempty"`
+	NoSync         BoolFlag `xml:"nosync,omitempty"`
+	Tag            string   `xml:"tag,omitempty"`
+	Tagged         string   `xml:"tagged,omitempty"`
+	Updated        *Updated `xml:"updated,omitempty"`
+	Created        *Created `xml:"created,omitempty"`
+	UUID           string   `xml:"uuid,attr,omitempty"`
+}
+    Rule represents a firewall filter rule with full source/destination
+    specification, protocol matching, rate limiting, TCP flag filtering,
+    and state tracking options.
+
+type RuleLocation struct {
+	XMLName xml.Name `xml:",omitempty"`
+
+	Network string   `xml:"network,omitempty"`
+	Address string   `xml:"address,omitempty"`
+	Subnet  string   `xml:"subnet,omitempty"`
+	Port    string   `xml:"port,omitempty"`
+	Not     BoolFlag `xml:"not,omitempty"`
+}
+    RuleLocation provides granular source/destination address and port
+    specification for firewall and NAT rules. It supports network aliases,
+    CIDR addresses, and negation via the Not flag. The Network, Address,
+    and Subnet fields are used in combination: Network is a named alias (e.g.,
+    "lan", "wanip"), while Address holds a literal IP and Subnet holds the CIDR
+    prefix length.
+
+func (rl *RuleLocation) IsAny() bool
+    IsAny returns true if this location represents "any" -- either because
+    Network is explicitly set to NetworkAny, or because all address fields are
+    empty.
+
+func (rl *RuleLocation) String() string
+    String returns a human-readable representation of the rule location.
+
+type SSHConfig struct {
+	Enabled BoolFlag `xml:"enabled,omitempty" json:"enabled"        yaml:"enabled,omitempty"`
+	Port    string   `xml:"port,omitempty"    json:"port,omitempty" yaml:"port,omitempty"`
+	Group   string   `xml:"group"             json:"group"          yaml:"group"             validate:"required"`
+}
+    SSHConfig represents the SSH daemon configuration, including whether it is
+    enabled, the listening port, and the permitted login group.
+
+type SecurityConfig struct {
+	Nat    Nat    `json:"nat"    yaml:"nat,omitempty"`
+	Filter Filter `json:"filter" yaml:"filter,omitempty"`
+}
+    SecurityConfig groups security-related configuration, combining NAT and
+    firewall filter settings.
+
+func NewSecurityConfig() SecurityConfig
+    NewSecurityConfig returns a new SecurityConfig instance with an empty filter
+    rule set.
+
+type Service struct {
+	Name        string `xml:"name"        json:"name"                  yaml:"name"                  validate:"required"`
+	Status      string `xml:"status"      json:"status"                yaml:"status"                validate:"required,oneof=running stopped disabled"`
+	Description string `xml:"description" json:"description,omitempty" yaml:"description,omitempty"`
+	Enabled     bool   `xml:"enabled"     json:"enabled"               yaml:"enabled"`
+	PID         int    `xml:"pid"         json:"pid,omitempty"         yaml:"pid,omitempty"`
+}
+    Service represents a system service. This struct is used for service status
+    grouping and analysis.
+
+func NewService() Service
+    NewService returns a new Service instance with default values.
+
+type ServiceConfig struct {
+	Dhcpd        Dhcpd        `json:"dhcpd"        yaml:"dhcpd,omitempty"`
+	Unbound      Unbound      `json:"unbound"      yaml:"unbound,omitempty"`
+	Snmpd        Snmpd        `json:"snmpd"        yaml:"snmpd,omitempty"`
+	Rrd          Rrd          `json:"rrd"          yaml:"rrd,omitempty"`
+	LoadBalancer LoadBalancer `json:"loadBalancer" yaml:"loadBalancer,omitempty"`
+	Ntpd         Ntpd         `json:"ntpd"         yaml:"ntpd,omitempty"`
+}
+    ServiceConfig groups service-related configuration including DHCP, DNS,
+    SNMP, RRD, load balancing, and NTP subsystems.
+
+type Snmpd struct {
+	SysLocation string `xml:"syslocation"`
+	SysContact  string `xml:"syscontact"`
+	ROCommunity string `xml:"rocommunity"`
+}
+    Snmpd contains the SNMP daemon configuration, including system location,
+    contact, and read-only community string. The ROCommunity field is a
+    sensitive credential.
+
+type Source struct {
+	Any     *string  `xml:"any,omitempty"     json:"any,omitempty"     yaml:"any,omitempty"`
+	Network string   `xml:"network,omitempty" json:"network,omitempty" yaml:"network,omitempty"`
+	Address string   `xml:"address,omitempty" json:"address,omitempty" yaml:"address,omitempty"`
+	Port    string   `xml:"port,omitempty"    json:"port,omitempty"    yaml:"port,omitempty"`
+	Not     BoolFlag `xml:"not,omitempty"     json:"not,omitempty"     yaml:"not,omitempty"`
+}
+    Source represents a firewall rule source. Any is a pointer to distinguish
+    XML element presence (<any/> → non-nil "") from absence (nil), since Go's
+    encoding/xml produces "" for both self-closing tags and absent elements when
+    using a plain string.
+
+    Any, Network, and Address are mutually exclusive per OPNsense semantics.
+    Resolution priority: Network > Address > Any (per legacyMoveAddressFields).
+
+func (s Source) AliasAddress() string
+    AliasAddress returns the literal <address> value, following the same
+    Network > Address precedence as EffectiveAddress: it returns "" when the
+    effective address came from an interface/network macro (e.g. "lan"),
+    and otherwise returns Address (which is itself "" for a bare "any" wildcard,
+    since <any/> carries no address). Matching EffectiveAddress's precedence is
+    deliberate — an endpoint that sets both <address> and <any/> resolves to its
+    Address under EffectiveAddress, so its AddressRef must resolve to that same
+    alias rather than being dropped.
+
+    This exists specifically for named-object (alias) resolution: a macro must
+    never be looked up against the alias table, even if an alias happens to
+    share the same name (e.g. an alias literally named "lan"). EffectiveAddress
+    is unsuitable for that lookup because it also surfaces the Network macro
+    and the "any" sentinel; callers deriving RuleEndpoint.AddressRef must use
+    AliasAddress instead.
+
+func (s Source) EffectiveAddress() string
+    EffectiveAddress returns the resolved address target following OPNsense
+    priority: Network > Address > "any" (if Any is present) > "" (empty).
+
+func (s Source) Equal(other Source) bool
+    Equal reports whether two Source values are semantically equal. Any is
+    compared by presence only (nil vs non-nil), not by value, because OPNsense
+    treats <any> as a presence-based flag.
+
+func (s Source) IsAny() bool
+    IsAny returns true if the source represents "any" (the <any> element is
+    present). OPNsense treats <any> as a presence-based flag; the element's
+    value is irrelevant.
+
+type StaticRoute struct {
+	XMLName  xml.Name `xml:"route"`
+	Network  string   `xml:"network,omitempty"`
+	Gateway  string   `xml:"gateway,omitempty"`
+	Descr    string   `xml:"descr,omitempty"`
+	Disabled BoolFlag `xml:"disabled,omitempty"`
+	Created  string   `xml:"created,omitempty"`
+	Updated  string   `xml:"updated,omitempty"`
+}
+    StaticRoute represents a single static route entry mapping a destination
+    network to a gateway.
+
+func (r StaticRoute) IsPlaceholder() bool
+    IsPlaceholder reports whether r is an empty <route/> marker rather than a
+    configured static route. OPNsense writes that self-closing element inside
+    <staticroutes> when nothing is configured, and it unmarshals into an entry
+    whose configuration fields are all zero.
+
+    The check is deliberately conservative: an entry is dropped only when every
+    field is zero. A route carrying any data at all -- even just a description
+    -- is retained, because under-reporting configured resources is the more
+    dangerous direction for an auditing tool.
+
+    Fields are compared by name rather than against the zero value: encoding/xml
+    populates XMLName on unmarshal, so a decoded <route/> never equals
+    StaticRoute{}.
+
+type StaticRoutes struct {
+	XMLName xml.Name      `xml:"staticroutes"`
+	Route   []StaticRoute `xml:"route,omitempty"`
+}
+    StaticRoutes represents the <staticroutes> container element holding all
+    static route entries.
+
+func NewStaticRoutes() *StaticRoutes
+    NewStaticRoutes returns a pointer to a StaticRoutes struct with an
+    initialized empty slice of StaticRoute.
+
+type Swanctl struct {
+	XMLName     xml.Name `xml:"Swanctl"`
+	Text        string   `xml:",chardata"    json:"text,omitempty"`
+	Version     string   `xml:"version,attr" json:"version,omitempty"`
+	Connections string   `xml:"Connections"`
+	Locals      string   `xml:"locals"`
+	Remotes     string   `xml:"remotes"`
+	Children    string   `xml:"children"`
+	Pools       string   `xml:"Pools"`
+	VTIs        string   `xml:"VTIs"`
+	SPDs        string   `xml:"SPDs"`
+}
+    Swanctl represents the StrongSwan swanctl configuration, including
+    connections, local/remote authentication, child SAs, address pools, VTIs,
+    and SPD entries.
+
+func NewSwanctl() *Swanctl
+    NewSwanctl returns a new instance of the Swanctl configuration struct.
+
+type SysctlItem struct {
+	Descr   string `xml:"descr"         json:"description,omitempty" yaml:"description,omitempty"`
+	Tunable string `xml:"tunable"       json:"tunable"               yaml:"tunable"               validate:"required"`
+	Value   string `xml:"value"         json:"value"                 yaml:"value"                 validate:"required"`
+	Key     string `xml:"key,omitempty" json:"key,omitempty"         yaml:"key,omitempty"`
+
+	Secret string `xml:"secret,omitempty" json:"secret,omitempty" yaml:"secret,omitempty"`
+}
+    SysctlItem represents a single kernel tunable (sysctl) entry with its name,
+    value, and description. This supports both the simple format (direct
+    elements) and nested item format used in OPNsense XML.
+
+func (s SysctlItem) IsPlaceholder() bool
+    IsPlaceholder reports whether the entry carries no configuration at all.
+
+    The DTD's content model for <item> makes every child optional -- "<!ELEMENT
+    item (((number,type)|(descr,tunable))?,(value|(key,secret))?)>" -- so
+    a bare <item/> is valid and unmarshals into an entry whose fields are
+    all zero. Appending it would report a tunable that is not configured,
+    the same phantom-entry problem GOTCHAS.md section 3.4 describes for the
+    EMPTY-declared elements. No shipped fixture contains one; the guard is here
+    because the schema permits it, not because a fixture forced it.
+
+    Conservative by the same rule as the section 3.4 predicates: an entry is
+    dropped only when every configuration field is zero, so one carrying just a
+    description survives.
+
+type SysctlItems []SysctlItem
+    SysctlItems is the list of kernel tunables held under <sysctl>.
+
+    It exists because the vendor shape and the Go shape disagree. OPNsense
+    writes ONE <sysctl> container holding repeated <item> children:
+
+        <sysctl>
+          <item><descr/><tunable/><value/></item>
+          <item>...</item>
+        </sysctl>
+
+    Binding a plain []SysctlItem to xml:"sysctl" tells encoding/xml to expect
+    <sysctl> itself to repeat, so every tunable in the file collapsed into a
+    single entry with empty Tunable and Value -- silently, because a config
+    with no tunables and a config with two hundred decoded to the same thing.
+    Decoding the container explicitly is what restores them.
+
+    Older configs wrote the fields directly under <sysctl> (the "simple format"
+    SysctlItem documents), so both shapes are accepted.
+
+func (s SysctlItems) MarshalXML(e *xml.Encoder, start xml.StartElement) error
+    MarshalXML writes the tunables back in the container shape they were read
+    from: one <sysctl> element holding a repeated <item> per tunable.
+
+    Without this, the default encoder would emit one <sysctl> per tunable with
+    the fields as direct children -- the legacy flat shape. That still decodes,
+    because UnmarshalXML accepts both, so the values survive a round trip;
+    but the document would no longer match what the vendor writes, and every
+    other custom container in this package (Dhcpd, Interfaces, InterfaceList)
+    pairs its unmarshaler with a marshaler for exactly that reason.
+
+func (s *SysctlItems) UnmarshalXML(d *xml.Decoder, start xml.StartElement) error
+    UnmarshalXML decodes one <sysctl> container into zero or more tunables.
+
+    It appends rather than assigns: encoding/xml calls this once per <sysctl>
+    element it encounters, and a config carrying more than one container must
+    accumulate across the calls instead of keeping only the last.
+
+type Syslog struct {
+	XMLName       xml.Name `xml:"syslog"`
+	Reverse       []string `xml:"reverse,omitempty"`
+	Nentries      string   `xml:"nentries,omitempty"`
+	Remoteserver  string   `xml:"remoteserver,omitempty"`
+	Remoteserver2 string   `xml:"remoteserver2,omitempty"`
+	Remoteserver3 string   `xml:"remoteserver3,omitempty"`
+	Sourceip      string   `xml:"sourceip,omitempty"`
+	IPProtocol    string   `xml:"ipprotocol,omitempty"`
+	Filter        BoolFlag `xml:"filter,omitempty"`
+	Dhcp          BoolFlag `xml:"dhcp,omitempty"`
+	Auth          BoolFlag `xml:"auth,omitempty"`
+	Portalauth    BoolFlag `xml:"portalauth,omitempty"`
+	VPN           BoolFlag `xml:"vpn,omitempty"`
+	DPinger       BoolFlag `xml:"dpinger,omitempty"`
+	Hostapd       BoolFlag `xml:"hostapd,omitempty"`
+	System        BoolFlag `xml:"system,omitempty"`
+	Resolver      BoolFlag `xml:"resolver,omitempty"`
+	PPP           BoolFlag `xml:"ppp,omitempty"`
+	Enable        BoolFlag `xml:"enable,omitempty"`
+	LogFilesize   string   `xml:"logfilesize,omitempty"`
+	RotateCount   string   `xml:"rotatecount,omitempty"`
+	Format        string   `xml:"format,omitempty"`
+	IgmpProxy     BoolFlag `xml:"igmpproxy,omitempty"`
+	Created       string   `xml:"created,omitempty"`
+	Updated       string   `xml:"updated,omitempty"`
+}
+    Syslog represents system logging configuration, including remote syslog
+    servers, per-facility enable flags (firewall, DHCP, auth, VPN, etc.),
+    log rotation, and format settings.
+
+func NewSyslog() *Syslog
+    NewSyslog returns a pointer to a new Syslog configuration with an
+    initialized empty Reverse slice.
+
+type System struct {
+	Optimization                  string       `xml:"optimization"                  json:"optimization,omitempty"                  yaml:"optimization,omitempty"                  validate:"omitempty,oneof=normal high-latency conservative aggressive"`
+	Hostname                      string       `xml:"hostname"                      json:"hostname"                                yaml:"hostname"                                validate:"required,hostname"`
+	Domain                        string       `xml:"domain"                        json:"domain"                                  yaml:"domain"                                  validate:"required,fqdn"`
+	DNSAllowOverride              BoolFlag     `xml:"dnsallowoverride"              json:"dnsAllowOverride,omitempty"              yaml:"dnsAllowOverride,omitempty"`
+	DNSServers                    []string     `xml:"dnsserver"                     json:"dnsServers,omitempty"                    yaml:"dnsServers,omitempty"`
+	Language                      string       `xml:"language"                      json:"language,omitempty"                      yaml:"language,omitempty"`
+	Firmware                      Firmware     `xml:"firmware"                      json:"firmware"                                yaml:"firmware,omitempty"`
+	Group                         []Group      `xml:"group"                         json:"groups,omitempty"                        yaml:"groups,omitempty"                        validate:"dive"`
+	User                          []User       `xml:"user"                          json:"users,omitempty"                         yaml:"users,omitempty"                         validate:"dive"`
+	WebGUI                        WebGUIConfig `xml:"webgui"                        json:"webgui"                                  yaml:"webgui,omitempty"`
+	SSH                           SSHConfig    `xml:"ssh"                           json:"ssh"                                     yaml:"ssh,omitempty"`
+	Timezone                      string       `xml:"timezone"                      json:"timezone,omitempty"                      yaml:"timezone,omitempty"`
+	TimeServers                   string       `xml:"timeservers"                   json:"timeServers,omitempty"                   yaml:"timeServers,omitempty"`
+	UseVirtualTerminal            BoolFlag     `xml:"usevirtualterminal"            json:"useVirtualTerminal,omitempty"            yaml:"useVirtualTerminal,omitempty"`
+	DisableVLANHWFilter           BoolFlag     `xml:"disablevlanhwfilter"           json:"disableVlanHwFilter,omitempty"           yaml:"disableVlanHwFilter,omitempty"`
+	DisableChecksumOffloading     BoolFlag     `xml:"disablechecksumoffloading"     json:"disableChecksumOffloading,omitempty"     yaml:"disableChecksumOffloading,omitempty"`
+	DisableSegmentationOffloading BoolFlag     `xml:"disablesegmentationoffloading" json:"disableSegmentationOffloading,omitempty" yaml:"disableSegmentationOffloading,omitempty"`
+	DisableLargeReceiveOffloading BoolFlag     `xml:"disablelargereceiveoffloading" json:"disableLargeReceiveOffloading,omitempty" yaml:"disableLargeReceiveOffloading,omitempty"`
+	IPv6Allow                     string       `xml:"ipv6allow"                     json:"ipv6Allow,omitempty"                     yaml:"ipv6Allow,omitempty"`
+	DisableNATReflection          string       `xml:"disablenatreflection"          json:"disableNatReflection,omitempty"          yaml:"disableNatReflection,omitempty"`
+	DisableConsoleMenu            BoolFlag     `xml:"disableconsolemenu"            json:"disableConsoleMenu"                      yaml:"disableConsoleMenu,omitempty"`
+	NextUID                       int          `xml:"nextuid"                       json:"nextUid,omitempty"                       yaml:"nextUid,omitempty"`
+	NextGID                       int          `xml:"nextgid"                       json:"nextGid,omitempty"                       yaml:"nextGid,omitempty"`
+	PowerdACMode                  string       `xml:"powerd_ac_mode"                json:"powerdAcMode,omitempty"                  yaml:"powerdAcMode,omitempty"                  validate:"omitempty,oneof=hadp hiadp adaptive minimum maximum"`
+	PowerdBatteryMode             string       `xml:"powerd_battery_mode"           json:"powerdBatteryMode,omitempty"             yaml:"powerdBatteryMode,omitempty"             validate:"omitempty,oneof=hadp hiadp adaptive minimum maximum"`
+	PowerdNormalMode              string       `xml:"powerd_normal_mode"            json:"powerdNormalMode,omitempty"              yaml:"powerdNormalMode,omitempty"              validate:"omitempty,oneof=hadp hiadp adaptive minimum maximum"`
+	Bogons                        struct {
+		Interval string `xml:"interval" json:"interval,omitempty" yaml:"interval,omitempty" validate:"omitempty,oneof=monthly weekly daily never"`
+	} `xml:"bogons"                        json:"bogons"                                  yaml:"bogons,omitempty"`
+	PfShareForward BoolFlag `xml:"pf_share_forward"              json:"pfShareForward,omitempty"                yaml:"pfShareForward,omitempty"`
+	LbUseSticky    BoolFlag `xml:"lb_use_sticky"                 json:"lbUseSticky,omitempty"                   yaml:"lbUseSticky,omitempty"`
+	RrdBackup      BoolFlag `xml:"rrdbackup"                     json:"rrdBackup,omitempty"                     yaml:"rrdBackup,omitempty"`
+	NetflowBackup  BoolFlag `xml:"netflowbackup"                 json:"netflowBackup,omitempty"                 yaml:"netflowBackup,omitempty"`
+
+	// Missing service configurations
+	NTPD struct {
+		Prefer string `xml:"prefer" json:"prefer,omitempty" yaml:"prefer,omitempty"`
+	} `xml:"ntpd"          json:"ntpd"         yaml:"ntpd,omitempty"`
+	SNMPD struct {
+		SysLocation string `xml:"syslocation"`
+		SysContact  string `xml:"syscontact"`
+		ROCommunity string `xml:"rocommunity"`
+	} `xml:"snmpd"         json:"snmpd"        yaml:"snmpd,omitempty"`
+	RRD struct {
+		Enable BoolFlag `xml:"enable"`
+	} `xml:"rrd"           json:"rrd"          yaml:"rrd,omitempty"`
+	LoadBalancer struct {
+		MonitorType []MonitorType `xml:"monitor_type"`
+	} `xml:"load_balancer" json:"loadBalancer" yaml:"loadBalancer,omitempty"`
+	Unbound Unbound `xml:"unbound"       json:"unbound"      yaml:"unbound,omitempty"`
+
+	// System notes for additional configuration information
+	Notes []string `xml:"notes>note" json:"notes,omitempty" yaml:"notes,omitempty"`
+}
+    System contains the core system configuration including hostname,
+    domain, DNS, users, groups, web GUI settings, SSH access, firmware, power
+    management, and hardware offloading options.
+
+type SystemConfig struct {
+	System System      `json:"system"           yaml:"system,omitempty" validate:"required"`
+	Sysctl SysctlItems `json:"sysctl,omitempty" yaml:"sysctl,omitempty"`
+}
+    SystemConfig groups system-related configuration, combining the core System
+    settings with kernel tunables (SysctlItem entries).
+
+func NewSystemConfig() SystemConfig
+    NewSystemConfig returns a SystemConfig instance with the Sysctl slice
+    initialized as empty.
+
+type Unbound struct {
+	Enable         string `xml:"enable"                   json:"enable"                   yaml:"enable"`
+	Dnssec         string `xml:"dnssec,omitempty"         json:"dnssec,omitempty"         yaml:"dnssec,omitempty"`
+	Dnssecstripped string `xml:"dnssecstripped,omitempty" json:"dnssecstripped,omitempty" yaml:"dnssecstripped,omitempty"`
+}
+    Unbound represents the Unbound DNS resolver configuration.
+
+type UnboundPlus struct {
+	XMLName    xml.Name              `xml:"unboundplus"  json:"-"`
+	Text       string                `xml:",chardata"    json:"text,omitempty"`
+	Version    string                `xml:"version,attr" json:"version,omitempty"` // OPNsense MVC model version, e.g., "1.0.0"
+	General    UnboundPlusGeneral    `xml:"general"      json:"general"`
+	Advanced   UnboundPlusAdvanced   `xml:"advanced"     json:"advanced"`
+	Acls       UnboundPlusAcls       `xml:"acls"         json:"acls"`
+	Dnsbl      UnboundPlusDnsbl      `xml:"dnsbl"        json:"dnsbl"`
+	Forwarding UnboundPlusForwarding `xml:"forwarding"   json:"forwarding"`
+	// Dots, Hosts, Aliases, Domains are container references typed as *string
+	// so absent vs. present-but-empty elements survive XML round-trip.
+	// Explicit PascalCase `json` tags with `omitempty` preserve the pre-refactor
+	// Go-field-name casing and keep zero-value JSON output compact (nil pointers
+	// are omitted instead of emitting `null`).
+	Dots    *string `xml:"dots"    json:"Dots,omitempty"`    // DNS-over-TLS config reference
+	Hosts   *string `xml:"hosts"   json:"Hosts,omitempty"`   // host override references
+	Aliases *string `xml:"aliases" json:"Aliases,omitempty"` // host alias references
+	Domains *string `xml:"domains" json:"Domains,omitempty"` // domain override references
+}
+    UnboundPlus contains the full Unbound DNS resolver MVC configuration
+    as stored under <OPNsense><unboundplus> in config.xml. Element names
+    are pinned to the OPNsense Unbound MVC model (validated against version
+    attributes listed in `knownUnboundPlusVersions` in the OPNsense converter).
+    If a future OPNsense release renames any of these elements (for example,
+    <privateaddress>), the Go XML decoder will silently produce empty values
+    — no error, no warning. The converter emits a drift warning when the
+    <unboundplus version="..."> attr falls outside the known-good set. See
+    GOTCHAS 18.1 for the analogous Kea MVC version-pinning concern.
+
+    Fields are intentionally typed as `string` to preserve XML round-trip
+    fidelity. Truthy parsing (strict exact-match against "1") is performed by
+    the converter, not the schema. The top-level container fields (Dots, Hosts,
+    Aliases, Domains) use `*string` so "element absent" (nil) and "element
+    present but empty" ("") are distinguishable across a marshal/unmarshal
+    round-trip (GOTCHAS 3.2).
+
+    JSON tags are omitted on the leaf *config* fields (Enabled, Port,
+    Hideidentity, Privateaddress, etc.) so JSON marshaling uses Go field names
+    (PascalCase), matching the pre-refactor inline-struct serialization shape.
+    Fields that map to XML text/attributes (Text, Version) retain their json
+    tags. The *string container fields (Dots/Hosts/Aliases/Domains) carry
+    explicit PascalCase json tags with `omitempty` — without the tag a nil
+    pointer would emit `null` (a shape change from the previous empty-string
+    behavior), and without the PascalCase name JSON would downcase the Go field
+    name. `omitempty` omits nil pointers entirely; populated pointers emit as
+    strings. Changing any of these conventions is a breaking JSON-export change
+    for downstream consumers of the OpnSenseDocument model.
+
+type UnboundPlusAcls struct {
+	Text          string `xml:",chardata"      json:"text,omitempty"`
+	DefaultAction string `xml:"default_action"` // e.g., "allow", "deny"
+}
+    UnboundPlusAcls mirrors the <acls> block under <unboundplus>.
+
+type UnboundPlusAdvanced struct {
+	Text                      string `xml:",chardata"                 json:"text,omitempty"`
+	Hideidentity              string `xml:"hideidentity"`              // "0" or "1"; hides Unbound identity in responses
+	Hideversion               string `xml:"hideversion"`               // "0" or "1"; hides Unbound version string
+	Prefetch                  string `xml:"prefetch"`                  // "0" or "1"; cache-warm near-expiry messages
+	Prefetchkey               string `xml:"prefetchkey"`               // "0" or "1"
+	Dnssecstripped            string `xml:"dnssecstripped"`            // "0" or "1"
+	Aggressivensec            string `xml:"aggressivensec"`            // "0" or "1"
+	Serveexpired              string `xml:"serveexpired"`              // "0" or "1"
+	Serveexpiredreplyttl      string `xml:"serveexpiredreplyttl"`      // seconds, decimal
+	Serveexpiredttl           string `xml:"serveexpiredttl"`           // seconds, decimal
+	Serveexpiredttlreset      string `xml:"serveexpiredttlreset"`      // "0" or "1"
+	Serveexpiredclienttimeout string `xml:"serveexpiredclienttimeout"` // milliseconds, decimal
+	Qnameminstrict            string `xml:"qnameminstrict"`            // "0" or "1"
+	Extendedstatistics        string `xml:"extendedstatistics"`        // "0" or "1"
+	Logqueries                string `xml:"logqueries"`                // "0" or "1"
+	Logreplies                string `xml:"logreplies"`                // "0" or "1"
+	Logtagqueryreply          string `xml:"logtagqueryreply"`          // "0" or "1"
+	Logservfail               string `xml:"logservfail"`               // "0" or "1"
+	Loglocalactions           string `xml:"loglocalactions"`           // "0" or "1"
+	Logverbosity              string `xml:"logverbosity"`              // decimal, typically "0".."5"
+	Valloglevel               string `xml:"valloglevel"`               // decimal, typically "0".."2"
+	Privatedomain             string `xml:"privatedomain"`             // separator-delimited domain list
+	// Privateaddress is a separator-delimited CIDR/IP list powering Unbound's
+	// DNS rebind protection. *string so an absent element ("MVC advanced
+	// section never configured") is distinguishable from an element present
+	// but empty ("configured, cleared out") — see GOTCHAS 3.2. The converter
+	// carries this distinction through to common.UnboundConfig so the firewall
+	// plugin can treat unknown and configured-empty differently.
+	Privateaddress         *string `xml:"privateaddress"         json:",omitempty"`
+	Insecuredomain         string  `xml:"insecuredomain"`         // separator-delimited domain list
+	Msgcachesize           string  `xml:"msgcachesize"`           // bytes, decimal
+	Rrsetcachesize         string  `xml:"rrsetcachesize"`         // bytes, decimal
+	Outgoingnumtcp         string  `xml:"outgoingnumtcp"`         // decimal
+	Incomingnumtcp         string  `xml:"incomingnumtcp"`         // decimal
+	Numqueriesperthread    string  `xml:"numqueriesperthread"`    // decimal
+	Outgoingrange          string  `xml:"outgoingrange"`          // decimal
+	Jostletimeout          string  `xml:"jostletimeout"`          // milliseconds, decimal
+	Discardtimeout         string  `xml:"discardtimeout"`         // milliseconds, decimal
+	Cachemaxttl            string  `xml:"cachemaxttl"`            // seconds, decimal
+	Cachemaxnegativettl    string  `xml:"cachemaxnegativettl"`    // seconds, decimal
+	Cacheminttl            string  `xml:"cacheminttl"`            // seconds, decimal
+	Infrahostttl           string  `xml:"infrahostttl"`           // seconds, decimal
+	Infrakeepprobing       string  `xml:"infrakeepprobing"`       // "0" or "1"
+	Infracachenumhosts     string  `xml:"infracachenumhosts"`     // decimal
+	Unwantedreplythreshold string  `xml:"unwantedreplythreshold"` // decimal
+}
+    UnboundPlusAdvanced mirrors the <advanced> block under <unboundplus>. All
+    fields are stored verbatim from config.xml; boolean fields use "0" / "1" and
+    cache/TTL fields are decimal strings unless otherwise noted. Privateaddress
+    holds the DNS rebind protection list (Unbound `private-address` directive):
+    a separator-delimited list of CIDR ranges whose presence in a DNS response
+    causes Unbound to treat the response as a rebinding attempt.
+
+type UnboundPlusDnsbl struct {
+	Text       string `xml:",chardata"  json:"text,omitempty"`
+	Enabled    string `xml:"enabled"`    // "0" or "1"
+	Safesearch string `xml:"safesearch"` // "0" or "1"
+	Type       string `xml:"type"`       // blocklist category keyword, e.g., "ads"
+	Lists      string `xml:"lists"`      // separator-delimited DNSBL feed names
+	Whitelists string `xml:"whitelists"` // separator-delimited allow patterns
+	Blocklists string `xml:"blocklists"` // separator-delimited block patterns
+	Wildcards  string `xml:"wildcards"`  // separator-delimited wildcard patterns
+	Address    string `xml:"address"`    // override IP for blocked lookups
+	Nxdomain   string `xml:"nxdomain"`   // "0" or "1"; return NXDOMAIN for blocked names
+}
+    UnboundPlusDnsbl mirrors the <dnsbl> block under <unboundplus>. All boolean
+    fields use "0" / "1".
+
+type UnboundPlusForwarding struct {
+	Text    string `xml:",chardata" json:"text,omitempty"`
+	Enabled string `xml:"enabled"` // "0" or "1"
+}
+    UnboundPlusForwarding mirrors the <forwarding> block under <unboundplus>.
+
+type UnboundPlusGeneral struct {
+	Text               string `xml:",chardata"          json:"text,omitempty"`
+	Enabled            string `xml:"enabled"`          // "0" or "1"
+	Port               string `xml:"port"`             // numeric port string, e.g., "53"
+	Stats              string `xml:"stats"`            // "0" or "1"
+	ActiveInterface    string `xml:"active_interface"` // interface name, e.g., "lan"
+	Dnssec             string `xml:"dnssec"`           // "0" or "1"
+	DNS64              string `xml:"dns64"`            // "0" or "1"
+	DNS64prefix        string `xml:"dns64prefix"`      // IPv6 prefix, e.g., "64:ff9b::/96"
+	Noarecords         string `xml:"noarecords"`       // "0" or "1"
+	RegisterDHCP       string `xml:"regdhcp"`          // "0" or "1"
+	RegisterDHCPDomain string `xml:"regdhcpdomain"`    // "0" or "1"
+	RegisterDHCPStatic string `xml:"regdhcpstatic"`    // "0" or "1"
+	NoRegisterLLAddr6  string `xml:"noreglladdr6"`     // "0" or "1"
+	NoRegisterRecords  string `xml:"noregrecords"`     // "0" or "1"
+	Txtsupport         string `xml:"txtsupport"`       // "0" or "1"
+	Cacheflush         string `xml:"cacheflush"`       // "0" or "1"
+	LocalZoneType      string `xml:"local_zone_type"`  // e.g., "transparent", "static"
+	OutgoingInterface  string `xml:"outgoing_interface"`
+	EnableWpad         string `xml:"enable_wpad"` // "0" or "1"
+}
+    UnboundPlusGeneral mirrors the <general> block under <unboundplus>.
+    All fields are stored verbatim from config.xml; truthy values are "0" / "1"
+    unless otherwise noted.
+
+type Updated struct {
+	Username    string `xml:"username"`
+	Time        string `xml:"time"`
+	Description string `xml:"description"`
+}
+    Updated records the user, timestamp, and description of the most recent
+    modification to a rule or configuration item.
+
+type User struct {
+	Name      string   `xml:"name"      json:"name"                  yaml:"name"                  validate:"required,alphanum"`
+	Disabled  BoolFlag `xml:"disabled"  json:"disabled"              yaml:"disabled"`
+	Descr     string   `xml:"descr"     json:"description,omitempty" yaml:"description,omitempty"`
+	Scope     string   `xml:"scope"     json:"scope"                 yaml:"scope"                 validate:"required,oneof=system local"`
+	Groupname string   `xml:"groupname" json:"groupname"             yaml:"groupname"             validate:"required"`
+
+	Password       string   `xml:"password"       json:"password"             yaml:"password"                 validate:"required"`
+	UID            string   `xml:"uid"            json:"uid"                  yaml:"uid"                      validate:"required,numeric"`
+	Priv           []string `xml:"priv"           json:"privileges,omitempty" yaml:"privileges,omitempty"`
+	APIKeys        []APIKey `xml:"apikeys>item"   json:"apiKeys,omitempty"    yaml:"apiKeys,omitempty"`
+	Expires        BoolFlag `xml:"expires"        json:"expires"              yaml:"expires,omitempty"`
+	AuthorizedKeys BoolFlag `xml:"authorizedkeys" json:"authorizedKeys"       yaml:"authorizedKeys,omitempty"`
+	IPSecPSK       BoolFlag `xml:"ipsecpsk"       json:"ipsecPsk"             yaml:"ipsecPsk,omitempty"`
+	OTPSeed        BoolFlag `xml:"otp_seed"       json:"otpSeed"              yaml:"otpSeed,omitempty"`
+}
+    User represents a local user account with authentication credentials, group
+    membership, UID, scope, API keys, and optional OTP/IPsec PSK/SSH authorized
+    key flags.
+
+func NewUser() User
+    NewUser returns a User instance with the APIKeys slice initialized as empty.
+
+type VIP struct {
+	XMLName   xml.Name `xml:"vip"`
+	Mode      string   `xml:"mode,omitempty"`
+	Interface string   `xml:"interface,omitempty"`
+	Subnet    string   `xml:"subnet,omitempty"`
+	Descr     string   `xml:"descr,omitempty"`
+}
+    VIP represents a virtual IP address configuration entry used for CARP,
+    IP alias, proxy ARP, or other virtual address modes bound to a specific
+    interface.
+
+func (v VIP) IsPlaceholder() bool
+    IsPlaceholder reports whether the value is an empty <vip/>
+    marker rather than a configured virtual IP. OPNsense writes that
+    self-closing element inside <virtualip> when nothing is configured --
+    testdata/opnsense-config.dtd declares it as "<!ELEMENT vip EMPTY>" -- and it
+    unmarshals into an entry whose configuration fields are all zero.
+
+    The check is deliberately conservative: an entry is dropped only when every
+    field is zero. See GOTCHAS.md section 3.4 for why fields are compared by
+    name rather than against the zero value.
+
+type VLAN struct {
+	XMLName xml.Name `xml:"vlan"`
+	If      string   `xml:"if,omitempty"`
+	Tag     string   `xml:"tag,omitempty"`
+	Descr   string   `xml:"descr,omitempty"`
+	Vlanif  string   `xml:"vlanif,omitempty"`
+	Created string   `xml:"created,omitempty"`
+	Updated string   `xml:"updated,omitempty"`
+}
+    VLAN represents a single VLAN configuration entry with its parent physical
+    interface, 802.1Q tag, virtual interface name (vlanif), and creation/update
+    timestamps.
+
+func (v VLAN) IsPlaceholder() bool
+    IsPlaceholder reports whether the value is an empty <vlan/> marker rather
+    than a configured VLAN. OPNsense writes that self-closing element inside
+    <vlans> when nothing is configured -- testdata/opnsense-config.dtd declares
+    it as "<!ELEMENT vlan EMPTY>" -- and it unmarshals into an entry whose
+    configuration fields are all zero.
+
+    The check is deliberately conservative: an entry is dropped only when every
+    field is zero. See GOTCHAS.md section 3.4 for why fields are compared by
+    name rather than against the zero value.
+
+type VLANConfig struct {
+	Name              string `xml:"vlanif,omitempty"`
+	Tag               string `xml:"tag,omitempty"`
+	PhysicalInterface string `xml:"if,omitempty"`
+	Enable            string `xml:"enable,omitempty"`
+	Description       string `xml:"descr,omitempty"`
+}
+    VLANConfig represents a Virtual Local Area Network configuration used in
+    NetworkConfig. This is a simplified VLAN representation for the common
+    device model.
+
+type VLANs struct {
+	XMLName xml.Name `xml:"vlans"`
+	VLAN    []VLAN   `xml:"vlan,omitempty"`
+}
+    VLANs represents the <vlans> container element holding all VLAN
+    configurations in the OPNsense document.
+
+func NewVLANs() *VLANs
+    NewVLANs returns a pointer to a VLANs struct with an empty VLAN slice
+    initialized.
+
+type VirtualIP struct {
+	XMLName xml.Name `xml:"virtualip"              json:"-"                 yaml:"-"`
+	Version string   `xml:"version,attr,omitempty" json:"version,omitempty" yaml:"version,omitempty"`
+	Vip     []VIP    `xml:"vip,omitempty"          json:"vip,omitempty"     yaml:"vip,omitempty"`
+}
+    VirtualIP represents virtual IP configuration.
+
+type WebGUIConfig struct {
+	Protocol string `xml:"protocol" json:"protocol" yaml:"protocol" validate:"required,oneof=http https"`
+	// Port is the custom WebGUI listening port, if configured. Empty means the
+	// protocol default (80 for http, 443 for https) applies.
+	Port              string   `xml:"port,omitempty"              json:"port,omitempty"         yaml:"port,omitempty"`
+	SSLCertRef        string   `xml:"ssl-certref,omitempty"       json:"sslCertRef,omitempty"   yaml:"sslCertRef,omitempty"`
+	LoginAutocomplete BoolFlag `xml:"loginautocomplete,omitempty" json:"loginAutocomplete"      yaml:"loginAutocomplete,omitempty"`
+	MaxProcesses      string   `xml:"max_procs,omitempty"         json:"maxProcesses,omitempty" yaml:"maxProcesses,omitempty"`
+}
+    WebGUIConfig represents the web management interface configuration,
+    including protocol (HTTP/HTTPS), SSL certificate reference, login
+    autocomplete, and process limits.
+
+type Widgets struct {
+	Sequence    string `xml:"sequence"     json:"sequence,omitempty"    yaml:"sequence,omitempty"`
+	ColumnCount string `xml:"column_count" json:"columnCount,omitempty" yaml:"columnCount,omitempty"`
+}
+    Widgets represents the OPNsense dashboard widgets layout configuration,
+    including the widget display sequence and column count.
+
+type WireGuard struct {
+	XMLName xml.Name `xml:"wireguard"`
+	Text    string   `xml:",chardata" json:"text,omitempty"`
+	General struct {
+		Text    string `xml:",chardata" json:"text,omitempty"`
+		Version string `xml:"version,attr" json:"version,omitempty"`
+		Enabled string `xml:"enabled" json:"enabled,omitempty"`
+	} `xml:"general"   json:"general"`
+	Server struct {
+		Text    string `xml:",chardata" json:"text,omitempty"`
+		Version string `xml:"version,attr" json:"version,omitempty"`
+		Servers struct {
+			Text   string                `xml:",chardata" json:"text,omitempty"`
+			Server []WireGuardServerItem `xml:"server" json:"server,omitempty"`
+		} `xml:"servers" json:"servers"`
+	} `xml:"server"    json:"server"`
+	Client struct {
+		Text    string `xml:",chardata" json:"text,omitempty"`
+		Version string `xml:"version,attr" json:"version,omitempty"`
+		Clients struct {
+			Text   string                `xml:",chardata" json:"text,omitempty"`
+			Client []WireGuardClientItem `xml:"client" json:"client,omitempty"`
+		} `xml:"clients" json:"clients"`
+	} `xml:"client"    json:"client"`
+}
+    WireGuard represents the WireGuard VPN configuration, including global
+    enable state, server (local peer) definitions, and client (remote peer)
+    definitions.
+
+func NewWireGuard() *WireGuard
+    NewWireGuard returns a new WireGuard configuration instance with default
+    values.
+
+type WireGuardClientItem struct {
+	Text          string `xml:",chardata"     json:"text,omitempty"`
+	UUID          string `xml:"uuid,attr"     json:"uuid,omitempty"`
+	Version       string `xml:"version,attr"  json:"version,omitempty"`
+	Enabled       string `xml:"enabled"       json:"enabled,omitempty"`
+	Name          string `xml:"name"          json:"name,omitempty"`
+	Pubkey        string `xml:"pubkey"        json:"pubkey,omitempty"`
+	PSK           string `xml:"psk"           json:"psk,omitempty"`
+	Tunneladdress string `xml:"tunneladdress" json:"tunneladdress,omitempty"`
+	Serveraddress string `xml:"serveraddress" json:"serveraddress,omitempty"`
+	Serverport    string `xml:"serverport"    json:"serverport,omitempty"`
+	Keepalive     string `xml:"keepalive"     json:"keepalive,omitempty"`
+}
+    WireGuardClientItem represents a WireGuard remote peer (client)
+    configuration with public key, optional pre-shared key, allowed tunnel
+    addresses, endpoint, and keepalive interval.
+
+type WireGuardServerItem struct {
+	Text          string `xml:",chardata"     json:"text,omitempty"`
+	UUID          string `xml:"uuid,attr"     json:"uuid,omitempty"`
+	Version       string `xml:"version,attr"  json:"version,omitempty"`
+	Enabled       string `xml:"enabled"       json:"enabled,omitempty"`
+	Name          string `xml:"name"          json:"name,omitempty"`
+	Instance      string `xml:"instance"      json:"instance,omitempty"`
+	Pubkey        string `xml:"pubkey"        json:"pubkey,omitempty"`
+	Privkey       string `xml:"privkey"       json:"privkey,omitempty"`
+	Port          string `xml:"port"          json:"port,omitempty"`
+	MTU           string `xml:"mtu"           json:"mtu,omitempty"`
+	DNS           string `xml:"dns"           json:"dns,omitempty"`
+	Tunneladdress string `xml:"tunneladdress" json:"tunneladdress,omitempty"`
+	Disableroutes string `xml:"disableroutes" json:"disableroutes,omitempty"`
+	Gateway       string `xml:"gateway"       json:"gateway,omitempty"`
+	Peers         string `xml:"peers"         json:"peers,omitempty"`
+}
+    WireGuardServerItem represents a WireGuard local peer (server) configuration
+    with public/private key pair, listen port, tunnel addresses, and assigned
+    peer references.
+
+type Wireless struct {
+	XMLName xml.Name `xml:"wireless"        json:"-"               yaml:"-"`
+	Clone   string   `xml:"clone,omitempty" json:"clone,omitempty" yaml:"clone,omitempty"`
+}
+    Wireless represents wireless interface configuration.
+
