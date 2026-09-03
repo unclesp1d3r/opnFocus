@@ -4,6 +4,7 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"regexp"
 	"testing"
 
 	"github.com/EvilBit-Labs/opnDossier/internal/cfgparser"
@@ -48,11 +49,15 @@ func TestRoundTrip_SampleConfigs(t *testing.T) {
 			// converter tests agreed with each other while the CLI path
 			// disagreed with both, so the defect survived them all.
 			//
-			// The count is deliberately not pinned: the fixtures carry 36
-			// tunables each except sample.config.5.xml, which carries 35.
-			// The property that actually broke is that entries arrive
-			// populated, so that is what is asserted.
-			assert.NotEmpty(t, device.Sysctl, "no sysctl tunables for %s", name)
+			// The expected count is read from the fixture rather than
+			// written here. A hardcoded number would be wrong for
+			// sample.config.5.xml, which carries 35 where the others carry
+			// 36, and would need editing whenever a fixture changes. More
+			// importantly, asserting only that entries arrive populated
+			// does not prove they all survived: a file could collapse to a
+			// single populated tunable and still pass.
+			assert.Len(t, device.Sysctl, countSysctlItems(t, fpath),
+				"%s: sysctl tunable count does not match the fixture", name)
 			for i, item := range device.Sysctl {
 				assert.NotEmptyf(t, item.Tunable,
 					"%s: sysctl[%d] has an empty Tunable, the shape the collapse produced", name, i)
@@ -61,4 +66,24 @@ func TestRoundTrip_SampleConfigs(t *testing.T) {
 			}
 		})
 	}
+}
+
+// countSysctlItems reports how many <item> elements the fixture declares
+// inside its <sysctl> container, which is the number the parser should
+// return.
+//
+// It counts the opening tag, so a self-closing placeholder <item/> is not
+// counted, matching the parser dropping it. A placeholder spelled
+// <item></item> would be counted here and dropped there; no shipped fixture
+// contains one, and if that changes this is the assertion that will say so.
+func countSysctlItems(t *testing.T, path string) int {
+	t.Helper()
+
+	raw, err := os.ReadFile(path)
+	require.NoError(t, err)
+
+	section := regexp.MustCompile(`(?s)<sysctl>(.*?)</sysctl>`).FindSubmatch(raw)
+	require.NotNil(t, section, "%s has no <sysctl> container", filepath.Base(path))
+
+	return len(regexp.MustCompile(`<item>`).FindAll(section[1], -1))
 }
