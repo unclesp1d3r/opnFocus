@@ -32,6 +32,20 @@ jobs:
         with:
           version: v2.13.2
 
+      # The action above runs only the golangci linters. `just lint` also
+      # chains modernize-check, which nothing in CI invoked, so three
+      # modernize findings reached review on #822 with every check green.
+      # Both steps below call the same recipes developers run locally, so
+      # the two gates cannot drift apart again the way the version pins did.
+      - name: Modernize
+        run: just modernize-check
+
+      # The completeness suite sits behind //go:build completeness, so
+      # neither `go test ./...` nor `just ci-check` reached it and it had no
+      # automated runner at all. It is also added to ci-check in this commit.
+      - name: Model completeness
+        run: just completeness-check
+
   # ─────────────────────────────────────────────────────────────────────────
   # Test - Run tests across platforms and Go versions
   #
