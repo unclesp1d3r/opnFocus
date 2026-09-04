@@ -42,8 +42,8 @@ func advDHCPFieldNames(v any) []string {
 	rt := reflect.TypeOf(v)
 	names := make([]string, 0, rt.NumField())
 
-	for i := range rt.NumField() {
-		names = append(names, rt.Field(i).Name)
+	for f := range rt.Fields() {
+		names = append(names, f.Name)
 	}
 
 	return names
@@ -91,7 +91,7 @@ func TestConverter_InterfaceDHCPAdvanced_AllFieldsWired(t *testing.T) {
 
 	v4Fields := advDHCPFieldNames(common.InterfaceDHCPAdvancedV4{})
 	v6Fields := advDHCPFieldNames(common.InterfaceDHCPAdvancedV6{})
-	tags := advDHCPXMLTags(t, reflect.TypeOf(schema.Interface{}), slices.Concat(v4Fields, v6Fields))
+	tags := advDHCPXMLTags(t, reflect.TypeFor[schema.Interface](), slices.Concat(v4Fields, v6Fields))
 
 	var body strings.Builder
 	for _, name := range slices.Concat(v4Fields, v6Fields) {
@@ -121,7 +121,7 @@ func TestConverter_InterfaceDHCPAdvanced_NilWhenUnset(t *testing.T) {
 
 	v4Fields := advDHCPFieldNames(common.InterfaceDHCPAdvancedV4{})
 	v6Fields := advDHCPFieldNames(common.InterfaceDHCPAdvancedV6{})
-	tags := advDHCPXMLTags(t, reflect.TypeOf(schema.Interface{}), slices.Concat(v4Fields, v6Fields))
+	tags := advDHCPXMLTags(t, reflect.TypeFor[schema.Interface](), slices.Concat(v4Fields, v6Fields))
 
 	var empties strings.Builder
 	for _, name := range slices.Concat(v4Fields, v6Fields) {

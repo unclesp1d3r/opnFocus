@@ -48,8 +48,8 @@ func advDHCPFieldNames(v any) []string {
 	rt := reflect.TypeOf(v)
 	names := make([]string, 0, rt.NumField())
 
-	for i := range rt.NumField() {
-		names = append(names, rt.Field(i).Name)
+	for f := range rt.Fields() {
+		names = append(names, f.Name)
 	}
 
 	return names
@@ -97,7 +97,7 @@ func TestConverter_InterfaceDHCPAdvanced_AllFieldsWired(t *testing.T) {
 
 	v4Fields := advDHCPFieldNames(common.InterfaceDHCPAdvancedV4{})
 	v6Fields := advDHCPFieldNames(common.InterfaceDHCPAdvancedV6{})
-	tags := advDHCPXMLTags(t, reflect.TypeOf(schema.Interface{}), slices.Concat(v4Fields, v6Fields))
+	tags := advDHCPXMLTags(t, reflect.TypeFor[schema.Interface](), slices.Concat(v4Fields, v6Fields))
 
 	var body strings.Builder
 	for _, name := range slices.Concat(v4Fields, v6Fields) {
@@ -130,7 +130,7 @@ func TestConverter_InterfaceDHCPAdvanced_NilWhenUnset(t *testing.T) {
 
 	v4Fields := advDHCPFieldNames(common.InterfaceDHCPAdvancedV4{})
 	v6Fields := advDHCPFieldNames(common.InterfaceDHCPAdvancedV6{})
-	tags := advDHCPXMLTags(t, reflect.TypeOf(schema.Interface{}), slices.Concat(v4Fields, v6Fields))
+	tags := advDHCPXMLTags(t, reflect.TypeFor[schema.Interface](), slices.Concat(v4Fields, v6Fields))
 
 	var empties strings.Builder
 	for _, name := range slices.Concat(v4Fields, v6Fields) {
@@ -239,10 +239,10 @@ func TestSchema_Interface_CoversFixtureAdvancedDHCPElements(t *testing.T) {
 	fpath := filepath.Join("..", "..", "..", "testdata", "sample.config.5.xml")
 
 	declared := map[string]struct{}{}
-	ifaceType := reflect.TypeOf(schema.Interface{})
+	ifaceType := reflect.TypeFor[schema.Interface]()
 
-	for i := range ifaceType.NumField() {
-		tag, _, _ := strings.Cut(ifaceType.Field(i).Tag.Get("xml"), ",")
+	for field := range ifaceType.Fields() {
+		tag, _, _ := strings.Cut(field.Tag.Get("xml"), ",")
 		if tag != "" {
 			declared[tag] = struct{}{}
 		}
