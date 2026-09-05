@@ -185,6 +185,9 @@ The stability commitments above are enforced by two mechanisms in addition to hu
 - `pkg-parser-opnsense.golden` — `go doc -all ./pkg/parser/opnsense`
 - `pkg-parser-pfsense.golden` — `go doc -all ./pkg/parser/pfsense`
 - `pkg-model.golden` — `go doc -all ./pkg/model`
+- `pkg-schema-opnsense.golden` — `go doc -all ./pkg/schema/opnsense`
+- `pkg-schema-pfsense.golden` — `go doc -all ./pkg/schema/pfsense`
+- `pkg-schema-shared.golden` — `go doc -all ./pkg/schema/shared`
 
 Any accidental change to the public surface — a renamed type, a new exported method, a rewritten doc comment, a deleted constant — shows up as a diff in one of these fixtures during code review. **This is the authoritative baseline for v1.5 and forward.**
 
@@ -194,7 +197,7 @@ When an intentional API change lands, regenerate the fixtures:
 go test ./pkg/parser/... -run TestPublicAPISnapshot -update
 ```
 
-Then review the diff carefully — everything new in the snapshot becomes a stability commitment. The release checklist in [RELEASING.md](https://github.com/EvilBit-Labs/opnDossier/blob/main/RELEASING.md) requires a snapshot diff review before any tag is pushed.
+Then review the diff carefully — everything new in a `pkg-parser-*` or `pkg-model` snapshot becomes a stability commitment. The three `pkg-schema-*` fixtures are the exception: `pkg/schema/*` is public but vendor-tracking (see above), so a diff there is not a semver commitment. Those fixtures exist so that a field removed or a serialization tag changed to follow the vendor's `config.xml` is visible in review rather than silent, and any PR that touches `pkg/schema/*` must regenerate them. The release checklist in [RELEASING.md](https://github.com/EvilBit-Labs/opnDossier/blob/main/RELEASING.md) requires a snapshot diff review before any tag is pushed.
 
 Packages outside `pkg/` (everything under `cmd/` and `internal/`) are not snapshot-tracked; they can change without regeneration.
 

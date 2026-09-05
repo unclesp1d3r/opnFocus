@@ -6,20 +6,23 @@
 //
 // pkg/schema/* is covered here too. Those packages track the vendor file
 // shape rather than opnDossier's own cadence, so a field type or a
-// serialization tag there changes on the vendor's schedule -- but the change
+// serialization tag there changes on the vendor's schedule — but the change
 // is still visible to anyone marshalling those types, and until these
 // fixtures existed it produced no diff for a reviewer to catch. PR #822
-// removed SysctlItem.Item and renamed a pfSense json key past review for
-// exactly that reason. go doc renders struct tags, so a tag rename shows up
-// here as a one-line diff.
+// removed SysctlItem.Item and retyped Group.Member and Group.Priv from string
+// to []string past review for exactly that reason. go doc renders struct
+// tags, so a tag rename shows up here as a one-line diff.
 //
 // To regenerate the fixtures after an intentional API change:
 //
 //	go test ./pkg/parser/... -run TestPublicAPISnapshot -update
 //
-// Review the diff carefully — every new symbol in the snapshot becomes a
-// stability commitment under the semver rules in
-// docs/development/public-api.md.
+// Review the diff carefully — every new symbol in a pkg/parser or pkg/model
+// snapshot becomes a stability commitment under the semver rules in
+// docs/development/public-api.md. The pkg/schema fixtures are different:
+// those types follow the vendor's config.xml shape and are exempt from that
+// commitment, so a diff there is a change to make visible and deliberate,
+// not one to block.
 package parser_test
 
 import (
@@ -38,12 +41,11 @@ import (
 const apiSnapshotFixtureDir = "testdata/api-snapshots"
 
 // captureGoDoc runs `go doc -all <packagePath>` and returns the raw output.
-// Go doc without `-all` already limits output to exported identifiers; `-all`
-// expands that to include unexported declarations *plus* method bodies for
-// unexported types reachable from exported APIs. The snapshot still filters
-// to the exported surface (unexported identifiers are at most structural
-// context for exported types they back), so `-all` gives the diff-friendly
-// stable shape we want to freeze.
+// Without `-all`, go doc prints a one-line summary per exported symbol;
+// `-all` prints the full doc comment, struct fields and tags for each.
+// Neither flag emits unexported identifiers (that is `-u`) or function
+// bodies (`-src`), so the raw output is exactly the exported surface and
+// needs no further filtering.
 //
 // CombinedOutput is used so `go doc` diagnostics emitted to stderr land in
 // the failure message — otherwise a missing or mistyped package path fails
@@ -100,8 +102,8 @@ func TestPublicAPISnapshot_pkg_parser_pfsense(t *testing.T) {
 }
 
 // TestPublicAPISnapshot_pkg_model captures the go-doc surface of pkg/model.
-// pkg/model is the primary consumer contract; its snapshot is the largest of
-// the four and should be reviewed carefully on every diff.
+// pkg/model is the primary consumer contract; its snapshot is the largest
+// fixture and should be reviewed carefully on every diff.
 func TestPublicAPISnapshot_pkg_model(t *testing.T) {
 	t.Parallel()
 
