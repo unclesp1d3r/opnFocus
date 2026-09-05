@@ -1,4 +1,3 @@
-// Package pfsense defines the data structures for pfSense configurations.
 package pfsense
 
 import (

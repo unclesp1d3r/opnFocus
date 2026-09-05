@@ -1,0 +1,822 @@
+package pfsense // import "github.com/EvilBit-Labs/opnDossier/pkg/schema/pfsense"
+
+Package pfsense defines the XML schema types for pfSense configuration files.
+
+This package heavily reuses types from
+github.com/EvilBit-Labs/opnDossier/pkg/schema/opnsense and only forks types
+where the pfSense XML structure differs from OPNsense. The most common reason
+for forking is pfSense's use of presence-based <enable/> elements (represented
+as opnsense.BoolFlag) where OPNsense uses plain strings.
+
+Forked types that contain BoolFlag fields require a custom MarshalXML method and
+a private type alias (e.g., interfaceAlias) to ensure correct XML serialization.
+See the BoolFlag addressability pattern documented in GOTCHAS.md section 15.
+
+TYPES
+
+type Alias struct {
+	Name    string `xml:"name"              json:"name,omitempty"        yaml:"name,omitempty"`
+	Type    string `xml:"type"              json:"type,omitempty"        yaml:"type,omitempty"`
+	Address string `xml:"address,omitempty" json:"address,omitempty"     yaml:"address,omitempty"`
+	Descr   string `xml:"descr,omitempty"   json:"description,omitempty" yaml:"description,omitempty"`
+	Detail  string `xml:"detail,omitempty"  json:"detail,omitempty"      yaml:"detail,omitempty"`
+}
+    Alias represents a single pfSense firewall alias definition (a "named
+    object" in ADR-0002 terms), as it appears under the top-level <aliases>
+    element in pfSense's config.xml:
+
+        <aliases>
+          <alias>
+            <name>WEB_SERVERS</name>
+            <type>host</type>
+            <address>10.0.0.1 10.0.0.2</address>
+            <descr>Web servers</descr>
+            <detail>comment1||comment2</detail>
+          </alias>
+        </aliases>
+
+    Unlike OPNsense's MVC-model alias (pkg/schema/opnsense.Alias), pfSense has
+    no uuid attribute and stores members SPACE-separated in <address> rather
+    than newline-separated in <content>.
+
+    Type is one of host|network|port|url per common.NamedObjectType. pfSense
+    also supports dynamic alias types (urltable, urltable_ports) that have no
+    direct common.NamedObjectType equivalent — the converter casts Type as-is
+    and emits an "unrecognized named-object type" warning for these per GOTCHAS
+    §5.2, the same fail-open pattern used for OPNsense's own dynamic variants
+    (e.g. urltable, networkgroup).
+
+type AliasList struct {
+	Alias []Alias `xml:"alias,omitempty" json:"alias,omitempty" yaml:"alias,omitempty"`
+}
+    AliasList is the container for a set of pfSense firewall alias definitions,
+    mapping to the top-level <aliases> XML element.
+
+type Cron struct {
+	Items []CronItem `xml:"item,omitempty" json:"items,omitempty" yaml:"items,omitempty"`
+}
+    Cron represents the pfSense cron configuration.
+
+type CronItem struct {
+	Minute  string `xml:"minute"  json:"minute"  yaml:"minute"`
+	Hour    string `xml:"hour"    json:"hour"    yaml:"hour"`
+	MDay    string `xml:"mday"    json:"mday"    yaml:"mday"`
+	Month   string `xml:"month"   json:"month"   yaml:"month"`
+	WDay    string `xml:"wday"    json:"wday"    yaml:"wday"`
+	Who     string `xml:"who"     json:"who"     yaml:"who"`
+	Command string `xml:"command" json:"command" yaml:"command"`
+}
+    CronItem represents a single pfSense cron job entry.
+
+type DHCPv6 struct {
+	Items map[string]DHCPv6Interface `xml:",any" json:"dhcpv6,omitempty" yaml:"dhcpv6,omitempty"`
+}
+    DHCPv6 contains the DHCPv6 server configuration for all pfSense interfaces.
+    Uses a map-based representation identical to Dhcpd, where keys are interface
+    identifiers (wan, lan, opt0, etc.).
+
+    Custom UnmarshalXML and MarshalXML methods handle the dynamic XML element
+    names that cannot be expressed with static struct tags. MarshalXML iterates
+    keys in sorted order to produce deterministic output.
+
+func (d *DHCPv6) Get(key string) (DHCPv6Interface, bool)
+    Get returns a DHCPv6 interface configuration by its key name (e.g., "lan",
+    "opt0"). Returns the DHCPv6 interface configuration and a boolean indicating
+    if it was found.
+
+func (d *DHCPv6) MarshalXML(e *xml.Encoder, start xml.StartElement) error
+    MarshalXML implements custom XML marshaling for the DHCPv6 map.
+
+func (d *DHCPv6) Names() []string
+    Names returns a slice of all DHCPv6 interface key names in the
+    configuration.
+
+func (d *DHCPv6) UnmarshalXML(decoder *xml.Decoder, start xml.StartElement) error
+    UnmarshalXML implements custom XML unmarshaling for the DHCPv6 map.
+
+type DHCPv6Interface struct {
+	Enable     string         `xml:"enable,omitempty"     json:"enable,omitempty"     yaml:"enable,omitempty"`
+	Range      opnsense.Range `xml:"range,omitempty"      json:"range"                yaml:"range,omitempty"`
+	RAMode     string         `xml:"ramode,omitempty"     json:"raMode,omitempty"     yaml:"raMode,omitempty"`
+	RAPriority string         `xml:"rapriority,omitempty" json:"raPriority,omitempty" yaml:"raPriority,omitempty"`
+}
+    DHCPv6Interface contains the DHCPv6 server configuration for a specific
+    interface. It includes pfSense-specific fields for Router Advertisement mode
+    and priority.
+
+type Dhcpd struct {
+	Items map[string]DhcpdInterface `xml:",any" json:"dhcp,omitempty" yaml:"dhcp,omitempty"`
+}
+    Dhcpd contains the DHCP server configuration for all pfSense interfaces.
+    Uses a map-based representation where keys are interface identifiers (wan,
+    lan, opt0, etc.).
+
+    Custom UnmarshalXML and MarshalXML methods handle the dynamic XML
+    element names (e.g., <wan>, <lan>, <opt0>) that cannot be expressed with
+    static struct tags. MarshalXML iterates keys in sorted order to produce
+    deterministic output.
+
+func (d *Dhcpd) Get(key string) (DhcpdInterface, bool)
+    Get returns a DHCP interface configuration by its key name (e.g., "wan",
+    "lan", "opt0"). Returns the DHCP interface configuration and a boolean
+    indicating if it was found.
+
+func (d *Dhcpd) Lan() (DhcpdInterface, bool)
+    Lan returns the LAN DHCP configuration if it exists, otherwise returns a
+    zero-value DhcpdInterface and false.
+
+func (d *Dhcpd) MarshalXML(e *xml.Encoder, start xml.StartElement) error
+    MarshalXML implements custom XML marshaling for the Dhcpd map.
+
+func (d *Dhcpd) Names() []string
+    Names returns a sorted list of all DHCP interface names.
+
+func (d *Dhcpd) UnmarshalXML(decoder *xml.Decoder, start xml.StartElement) error
+    UnmarshalXML implements custom XML unmarshaling for the Dhcpd map.
+
+func (d *Dhcpd) Wan() (DhcpdInterface, bool)
+    Wan returns the WAN DHCP configuration if it exists, otherwise returns a
+    zero-value DhcpdInterface and false.
+
+type DhcpdInterface struct {
+	Enable                 opnsense.BoolFlag           `xml:"enable,omitempty"                 json:"enable,omitempty"                 yaml:"enable,omitempty"`
+	Range                  opnsense.Range              `xml:"range,omitempty"                  json:"range"                            yaml:"range,omitempty"`
+	Gateway                string                      `xml:"gateway,omitempty"                json:"gateway,omitempty"                yaml:"gateway,omitempty"`
+	DdnsDomainAlgorithm    string                      `xml:"ddnsdomainalgorithm,omitempty"    json:"ddnsdomainalgorithm,omitempty"    yaml:"ddnsdomainalgorithm,omitempty"`
+	DdnsDomainKeyAlgorithm string                      `xml:"ddnsdomainkeyalgorithm,omitempty" json:"ddnsdomainkeyalgorithm,omitempty" yaml:"ddnsdomainkeyalgorithm,omitempty"`
+	DdnsDomainKeyName      string                      `xml:"ddnsdomainkeyname,omitempty"      json:"ddnsdomainkeyname,omitempty"      yaml:"ddnsdomainkeyname,omitempty"`
+	FailoverPeerIP         string                      `xml:"failover_peerip,omitempty"        json:"failoverPeerIp,omitempty"         yaml:"failoverPeerIp,omitempty"`
+	NumberOptions          []opnsense.DHCPNumberOption `xml:"numberoptions>item,omitempty"     json:"numberOptions,omitempty"          yaml:"numberOptions,omitempty"`
+	Winsserver             string                      `xml:"winsserver,omitempty"             json:"winsserver,omitempty"             yaml:"winsserver,omitempty"`
+	// Dnsserver repeats once per advertised DNS server. A scalar here would
+	// silently keep only the last element (GOTCHAS §3.3) -- the repo's own
+	// testdata/pfsense/config-pfSense.xml carries two per scope.
+	Dnsserver []string                   `xml:"dnsserver,omitempty" json:"dnsserver,omitempty" yaml:"dnsserver,omitempty"`
+	Ntpserver string                     `xml:"ntpserver,omitempty" json:"ntpserver,omitempty" yaml:"ntpserver,omitempty"`
+	Staticmap []opnsense.DHCPStaticLease `xml:"staticmap,omitempty" json:"staticmap,omitempty" yaml:"staticmap,omitempty"`
+
+	// Advanced DHCP fields
+	AliasAddress   string `xml:"alias-address,omitempty"  json:"aliasAddress,omitempty"   yaml:"aliasAddress,omitempty"`
+	AliasSubnet    string `xml:"alias-subnet,omitempty"   json:"aliasSubnet,omitempty"    yaml:"aliasSubnet,omitempty"`
+	DHCPRejectFrom string `xml:"dhcprejectfrom,omitempty" json:"dhcprejectfrom,omitempty" yaml:"dhcprejectfrom,omitempty"`
+
+	// Advanced DHCP options
+	AdvDHCPPTTimeout              string `xml:"adv_dhcp_pt_timeout,omitempty"                json:"advDhcpPtTimeout,omitempty"              yaml:"advDhcpPtTimeout,omitempty"`
+	AdvDHCPPTRetry                string `xml:"adv_dhcp_pt_retry,omitempty"                  json:"advDhcpPtRetry,omitempty"                yaml:"advDhcpPtRetry,omitempty"`
+	AdvDHCPPTSelectTimeout        string `xml:"adv_dhcp_pt_select_timeout,omitempty"         json:"advDhcpPtSelectTimeout,omitempty"        yaml:"advDhcpPtSelectTimeout,omitempty"`
+	AdvDHCPPTReboot               string `xml:"adv_dhcp_pt_reboot,omitempty"                 json:"advDhcpPtReboot,omitempty"               yaml:"advDhcpPtReboot,omitempty"`
+	AdvDHCPPTBackoffCutoff        string `xml:"adv_dhcp_pt_backoff_cutoff,omitempty"         json:"advDhcpPtBackoffCutoff,omitempty"        yaml:"advDhcpPtBackoffCutoff,omitempty"`
+	AdvDHCPPTInitialInterval      string `xml:"adv_dhcp_pt_initial_interval,omitempty"       json:"advDhcpPtInitialInterval,omitempty"      yaml:"advDhcpPtInitialInterval,omitempty"`
+	AdvDHCPPTValues               string `xml:"adv_dhcp_pt_values,omitempty"                 json:"advDhcpPtValues,omitempty"               yaml:"advDhcpPtValues,omitempty"`
+	AdvDHCPSendOptions            string `xml:"adv_dhcp_send_options,omitempty"              json:"advDhcpSendOptions,omitempty"            yaml:"advDhcpSendOptions,omitempty"`
+	AdvDHCPRequestOptions         string `xml:"adv_dhcp_request_options,omitempty"           json:"advDhcpRequestOptions,omitempty"         yaml:"advDhcpRequestOptions,omitempty"`
+	AdvDHCPRequiredOptions        string `xml:"adv_dhcp_required_options,omitempty"          json:"advDhcpRequiredOptions,omitempty"        yaml:"advDhcpRequiredOptions,omitempty"`
+	AdvDHCPOptionModifiers        string `xml:"adv_dhcp_option_modifiers,omitempty"          json:"advDhcpOptionModifiers,omitempty"        yaml:"advDhcpOptionModifiers,omitempty"`
+	AdvDHCPConfigAdvanced         string `xml:"adv_dhcp_config_advanced,omitempty"           json:"advDhcpConfigAdvanced,omitempty"         yaml:"advDhcpConfigAdvanced,omitempty"`
+	AdvDHCPConfigFileOverride     string `xml:"adv_dhcp_config_file_override,omitempty"      json:"advDhcpConfigFileOverride,omitempty"     yaml:"advDhcpConfigFileOverride,omitempty"`
+	AdvDHCPConfigFileOverridePath string `xml:"adv_dhcp_config_file_override_path,omitempty" json:"advDhcpConfigFileOverridePath,omitempty" yaml:"advDhcpConfigFileOverridePath,omitempty"`
+
+	// Advanced DHCPv6 fields
+	Track6Interface                                 string `xml:"track6-interface,omitempty"                                      json:"track6Interface,omitempty"                                 yaml:"track6Interface,omitempty"`
+	Track6PrefixID                                  string `xml:"track6-prefix-id,omitempty"                                      json:"track6PrefixId,omitempty"                                  yaml:"track6PrefixId,omitempty"`
+	AdvDHCP6InterfaceStatementSendOptions           string `xml:"adv_dhcp6_interface_statement_send_options,omitempty"            json:"advDhcp6InterfaceStatementSendOptions,omitempty"           yaml:"advDhcp6InterfaceStatementSendOptions,omitempty"`
+	AdvDHCP6InterfaceStatementRequestOptions        string `xml:"adv_dhcp6_interface_statement_request_options,omitempty"         json:"advDhcp6InterfaceStatementRequestOptions,omitempty"        yaml:"advDhcp6InterfaceStatementRequestOptions,omitempty"`
+	AdvDHCP6InterfaceStatementInformationOnlyEnable string `xml:"adv_dhcp6_interface_statement_information_only_enable,omitempty" json:"advDhcp6InterfaceStatementInformationOnlyEnable,omitempty" yaml:"advDhcp6InterfaceStatementInformationOnlyEnable,omitempty"`
+	AdvDHCP6InterfaceStatementScript                string `xml:"adv_dhcp6_interface_statement_script,omitempty"                  json:"advDhcp6InterfaceStatementScript,omitempty"                yaml:"advDhcp6InterfaceStatementScript,omitempty"`
+	AdvDHCP6IDAssocStatementAddressEnable           string `xml:"adv_dhcp6_id_assoc_statement_address_enable,omitempty"           json:"advDhcp6IdAssocStatementAddressEnable,omitempty"           yaml:"advDhcp6IdAssocStatementAddressEnable,omitempty"`
+	AdvDHCP6IDAssocStatementAddress                 string `xml:"adv_dhcp6_id_assoc_statement_address,omitempty"                  json:"advDhcp6IdAssocStatementAddress,omitempty"                 yaml:"advDhcp6IdAssocStatementAddress,omitempty"`
+	AdvDHCP6IDAssocStatementAddressID               string `xml:"adv_dhcp6_id_assoc_statement_address_id,omitempty"               json:"advDhcp6IdAssocStatementAddressId,omitempty"               yaml:"advDhcp6IdAssocStatementAddressId,omitempty"`
+	AdvDHCP6IDAssocStatementAddressPLTime           string `xml:"adv_dhcp6_id_assoc_statement_address_pltime,omitempty"           json:"advDhcp6IdAssocStatementAddressPltime,omitempty"           yaml:"advDhcp6IdAssocStatementAddressPltime,omitempty"`
+	AdvDHCP6IDAssocStatementAddressVLTime           string `xml:"adv_dhcp6_id_assoc_statement_address_vltime,omitempty"           json:"advDhcp6IdAssocStatementAddressVltime,omitempty"           yaml:"advDhcp6IdAssocStatementAddressVltime,omitempty"`
+	AdvDHCP6IDAssocStatementPrefixEnable            string `xml:"adv_dhcp6_id_assoc_statement_prefix_enable,omitempty"            json:"advDhcp6IdAssocStatementPrefixEnable,omitempty"            yaml:"advDhcp6IdAssocStatementPrefixEnable,omitempty"`
+	AdvDHCP6IDAssocStatementPrefix                  string `xml:"adv_dhcp6_id_assoc_statement_prefix,omitempty"                   json:"advDhcp6IdAssocStatementPrefix,omitempty"                  yaml:"advDhcp6IdAssocStatementPrefix,omitempty"`
+	AdvDHCP6IDAssocStatementPrefixID                string `xml:"adv_dhcp6_id_assoc_statement_prefix_id,omitempty"                json:"advDhcp6IdAssocStatementPrefixId,omitempty"                yaml:"advDhcp6IdAssocStatementPrefixId,omitempty"`
+	AdvDHCP6IDAssocStatementPrefixPLTime            string `xml:"adv_dhcp6_id_assoc_statement_prefix_pltime,omitempty"            json:"advDhcp6IdAssocStatementPrefixPltime,omitempty"            yaml:"advDhcp6IdAssocStatementPrefixPltime,omitempty"`
+	AdvDHCP6IDAssocStatementPrefixVLTime            string `xml:"adv_dhcp6_id_assoc_statement_prefix_vltime,omitempty"            json:"advDhcp6IdAssocStatementPrefixVltime,omitempty"            yaml:"advDhcp6IdAssocStatementPrefixVltime,omitempty"`
+	AdvDHCP6PrefixInterfaceStatementSLALen          string `xml:"adv_dhcp6_prefix_interface_statement_sla_len,omitempty"          json:"advDhcp6PrefixInterfaceStatementSlaLen,omitempty"          yaml:"advDhcp6PrefixInterfaceStatementSlaLen,omitempty"`
+	AdvDHCP6AuthenticationStatementAuthName         string `xml:"adv_dhcp6_authentication_statement_authname,omitempty"           json:"advDhcp6AuthenticationStatementAuthname,omitempty"         yaml:"advDhcp6AuthenticationStatementAuthname,omitempty"`
+	AdvDHCP6AuthenticationStatementProtocol         string `xml:"adv_dhcp6_authentication_statement_protocol,omitempty"           json:"advDhcp6AuthenticationStatementProtocol,omitempty"         yaml:"advDhcp6AuthenticationStatementProtocol,omitempty"`
+	AdvDHCP6AuthenticationStatementAlgorithm        string `xml:"adv_dhcp6_authentication_statement_algorithm,omitempty"          json:"advDhcp6AuthenticationStatementAlgorithm,omitempty"        yaml:"advDhcp6AuthenticationStatementAlgorithm,omitempty"`
+	AdvDHCP6AuthenticationStatementRDM              string `xml:"adv_dhcp6_authentication_statement_rdm,omitempty"                json:"advDhcp6AuthenticationStatementRdm,omitempty"              yaml:"advDhcp6AuthenticationStatementRdm,omitempty"`
+	AdvDHCP6KeyInfoStatementKeyName                 string `xml:"adv_dhcp6_key_info_statement_keyname,omitempty"                  json:"advDhcp6KeyInfoStatementKeyname,omitempty"                 yaml:"advDhcp6KeyInfoStatementKeyname,omitempty"`
+	AdvDHCP6KeyInfoStatementRealm                   string `xml:"adv_dhcp6_key_info_statement_realm,omitempty"                    json:"advDhcp6KeyInfoStatementRealm,omitempty"                   yaml:"advDhcp6KeyInfoStatementRealm,omitempty"`
+	AdvDHCP6KeyInfoStatementKeyID                   string `xml:"adv_dhcp6_key_info_statement_keyid,omitempty"                    json:"advDhcp6KeyInfoStatementKeyId,omitempty"                   yaml:"advDhcp6KeyInfoStatementKeyId,omitempty"`
+	AdvDHCP6KeyInfoStatementSecret                  string `xml:"adv_dhcp6_key_info_statement_secret,omitempty"                   json:"advDhcp6KeyInfoStatementSecret,omitempty"                  yaml:"advDhcp6KeyInfoStatementSecret,omitempty"`
+	AdvDHCP6KeyInfoStatementExpire                  string `xml:"adv_dhcp6_key_info_statement_expire,omitempty"                   json:"advDhcp6KeyInfoStatementExpire,omitempty"                  yaml:"advDhcp6KeyInfoStatementExpire,omitempty"`
+	AdvDHCP6ConfigAdvanced                          string `xml:"adv_dhcp6_config_advanced,omitempty"                             json:"advDhcp6ConfigAdvanced,omitempty"                          yaml:"advDhcp6ConfigAdvanced,omitempty"`
+	AdvDHCP6ConfigFileOverride                      string `xml:"adv_dhcp6_config_file_override,omitempty"                        json:"advDhcp6ConfigFileOverride,omitempty"                      yaml:"advDhcp6ConfigFileOverride,omitempty"`
+	AdvDHCP6ConfigFileOverridePath                  string `xml:"adv_dhcp6_config_file_override_path,omitempty"                   json:"advDhcp6ConfigFileOverridePath,omitempty"                  yaml:"advDhcp6ConfigFileOverridePath,omitempty"`
+}
+    DhcpdInterface contains the DHCP server configuration for a specific pfSense
+    interface. It is a copy-on-write fork of opnsense.DhcpdInterface with
+    Enable changed from string to BoolFlag, because pfSense uses presence-based
+    <enable/> elements.
+
+func (d DhcpdInterface) MarshalXML(e *xml.Encoder, start xml.StartElement) error
+    MarshalXML implements custom XML marshaling for DhcpdInterface, ensuring
+    that the Enable BoolFlag field is addressable so (*BoolFlag).MarshalXML
+    is invoked. Without this, direct xml.Marshal calls on DhcpdInterface
+    values would fall back to default bool serialization instead of producing
+    pfSense-compatible <enable/> elements. Uses a value receiver so both value
+    and pointer marshaling work correctly.
+
+type Diag struct {
+	IPv6NAT IPv6NAT `xml:"ipv6nat,omitempty" json:"ipv6nat" yaml:"ipv6nat,omitempty"`
+}
+    Diag represents the pfSense diagnostics configuration.
+
+type Document struct {
+	XMLName      xml.Name                        `xml:"pfsense"                 json:"-"                    yaml:"-"`
+	Version      string                          `xml:"version,omitempty"       json:"version,omitempty"    yaml:"version,omitempty"`
+	LastChange   string                          `xml:"lastchange,omitempty"    json:"lastChange,omitempty" yaml:"lastChange,omitempty"`
+	System       System                          `xml:"system,omitempty"        json:"system"               yaml:"system,omitempty"`
+	Interfaces   Interfaces                      `xml:"interfaces,omitempty"    json:"interfaces"           yaml:"interfaces,omitempty"`
+	Dhcpd        Dhcpd                           `xml:"dhcpd,omitempty"         json:"dhcpd"                yaml:"dhcpd,omitempty"`
+	DHCPv6Server DHCPv6                          `xml:"dhcpdv6,omitempty"       json:"dhcpdv6"              yaml:"dhcpdv6,omitempty"`
+	Snmpd        opnsense.Snmpd                  `xml:"snmpd,omitempty"         json:"snmpd"                yaml:"snmpd,omitempty"`
+	Diag         Diag                            `xml:"diag,omitempty"          json:"diag"                 yaml:"diag,omitempty"`
+	Syslog       SyslogConfig                    `xml:"syslog,omitempty"        json:"syslog"               yaml:"syslog,omitempty"`
+	Nat          Nat                             `xml:"nat,omitempty"           json:"nat"                  yaml:"nat,omitempty"`
+	Filter       Filter                          `xml:"filter,omitempty"        json:"filter"               yaml:"filter,omitempty"`
+	Cron         Cron                            `xml:"cron,omitempty"          json:"cron"                 yaml:"cron,omitempty"`
+	Rrd          opnsense.Rrd                    `xml:"rrd,omitempty"           json:"rrd"                  yaml:"rrd,omitempty"`
+	LoadBalancer opnsense.LoadBalancer           `xml:"load_balancer,omitempty" json:"loadBalancer"         yaml:"loadBalancer,omitempty"`
+	Widgets      Widgets                         `xml:"widgets,omitempty"       json:"widgets"              yaml:"widgets,omitempty"`
+	OpenVPN      opnsense.OpenVPN                `xml:"openvpn,omitempty"       json:"openvpn"              yaml:"openvpn,omitempty"`
+	IPsec        IPsec                           `xml:"ipsec,omitempty"         json:"ipsec"                yaml:"ipsec,omitempty"`
+	Unbound      UnboundConfig                   `xml:"unbound,omitempty"       json:"unbound"              yaml:"unbound,omitempty"`
+	Revision     opnsense.Revision               `xml:"revision,omitempty"      json:"revision"             yaml:"revision,omitempty"`
+	StaticRoutes opnsense.StaticRoutes           `xml:"staticroutes,omitempty"  json:"staticroutes"         yaml:"staticroutes,omitempty"`
+	PPPs         opnsense.PPPInterfaces          `xml:"ppps,omitempty"          json:"ppps"                 yaml:"ppps,omitempty"`
+	Gateways     opnsense.Gateways               `xml:"gateways,omitempty"      json:"gateways"             yaml:"gateways,omitempty"`
+	CAs          []opnsense.CertificateAuthority `xml:"ca,omitempty"            json:"ca,omitempty"         yaml:"ca,omitempty"`
+	Certs        []opnsense.Cert                 `xml:"cert,omitempty"          json:"cert,omitempty"       yaml:"cert,omitempty"`
+	VLANs        opnsense.VLANs                  `xml:"vlans,omitempty"         json:"vlans"                yaml:"vlans,omitempty"`
+	Aliases      AliasList                       `xml:"aliases,omitempty"       json:"aliases"              yaml:"aliases,omitempty"`
+}
+    Document is the root schema type for a pfSense configuration file
+    (config.xml). It maps to the top-level <pfsense> XML element. Fields that
+    are structurally identical to OPNsense reuse opnsense types directly (e.g.,
+    Snmpd, Gateways, VLANs); fields that differ use pfSense-specific types
+    defined in this package.
+
+    Use NewDocument to create a Document with all slice and map fields
+    pre-initialized.
+
+func NewDocument() *Document
+    NewDocument returns a new Document with all slice and map fields initialized
+    for safe use.
+
+func (p *Document) FilterRules() []FilterRule
+    FilterRules returns a slice of all firewall filter rules configured in the
+    system.
+
+func (p *Document) Hostname() string
+    Hostname returns the configured hostname from the system configuration.
+
+func (p *Document) InterfaceByName(name string) (Interface, bool)
+    InterfaceByName returns a network interface by its interface name (e.g.,
+    "em0", "igb0"). Returns a copy of the interface and true if found,
+    or zero-value and false if not.
+
+type Filter struct {
+	Separator string       `xml:"separator,omitempty" json:"separator,omitempty" yaml:"separator,omitempty"`
+	Rule      []FilterRule `xml:"rule"                json:"rules,omitempty"     yaml:"rules,omitempty"`
+}
+    Filter represents the pfSense firewall filter configuration. It maps to the
+    <filter> XML element and contains an ordered list of firewall rules.
+
+type FilterRule struct {
+	XMLName     xml.Name               `xml:"rule"`
+	Type        string                 `xml:"type"                 json:"type"                  yaml:"type"`
+	Descr       string                 `xml:"descr,omitempty"      json:"description,omitempty" yaml:"description,omitempty"`
+	Interface   opnsense.InterfaceList `xml:"interface,omitempty"  json:"interface,omitempty"   yaml:"interface,omitempty"`
+	IPProtocol  string                 `xml:"ipprotocol,omitempty" json:"ipProtocol,omitempty"  yaml:"ipProtocol,omitempty"`
+	StateType   string                 `xml:"statetype,omitempty"  json:"stateType,omitempty"   yaml:"stateType,omitempty"`
+	Direction   string                 `xml:"direction,omitempty"  json:"direction,omitempty"   yaml:"direction,omitempty"`
+	Floating    string                 `xml:"floating,omitempty"   json:"floating,omitempty"    yaml:"floating,omitempty"`
+	Quick       opnsense.BoolFlag      `xml:"quick,omitempty"      json:"quick"                 yaml:"quick,omitempty"`
+	Protocol    string                 `xml:"protocol,omitempty"   json:"protocol,omitempty"    yaml:"protocol,omitempty"`
+	Source      opnsense.Source        `xml:"source"               json:"source"                yaml:"source"`
+	Destination opnsense.Destination   `xml:"destination"          json:"destination"           yaml:"destination"`
+	Target      string                 `xml:"target,omitempty"     json:"target,omitempty"      yaml:"target,omitempty"`
+	Gateway     string                 `xml:"gateway,omitempty"    json:"gateway,omitempty"     yaml:"gateway,omitempty"`
+	SourcePort  string                 `xml:"sourceport,omitempty" json:"sourcePort,omitempty"  yaml:"sourcePort,omitempty"`
+	Log         opnsense.BoolFlag      `xml:"log,omitempty"        json:"log"                   yaml:"log,omitempty"`
+	Disabled    opnsense.BoolFlag      `xml:"disabled,omitempty"   json:"disabled"              yaml:"disabled,omitempty"`
+	Tracker     string                 `xml:"tracker,omitempty"    json:"tracker,omitempty"     yaml:"tracker,omitempty"`
+	// Rate-limiting fields (DoS protection)
+	MaxSrcNodes     string `xml:"max-src-nodes,omitempty"      json:"maxSrcNodes,omitempty"     yaml:"maxSrcNodes,omitempty"`
+	MaxSrcConn      string `xml:"max-src-conn,omitempty"       json:"maxSrcConn,omitempty"      yaml:"maxSrcConn,omitempty"`
+	MaxSrcConnRate  string `xml:"max-src-conn-rate,omitempty"  json:"maxSrcConnRate,omitempty"  yaml:"maxSrcConnRate,omitempty"`
+	MaxSrcConnRates string `xml:"max-src-conn-rates,omitempty" json:"maxSrcConnRates,omitempty" yaml:"maxSrcConnRates,omitempty"`
+	// TCP/ICMP fields
+	TCPFlags1   string            `xml:"tcpflags1,omitempty"    json:"tcpFlags1,omitempty" yaml:"tcpFlags1,omitempty"`
+	TCPFlags2   string            `xml:"tcpflags2,omitempty"    json:"tcpFlags2,omitempty" yaml:"tcpFlags2,omitempty"`
+	TCPFlagsAny opnsense.BoolFlag `xml:"tcpflags_any,omitempty" json:"tcpFlagsAny"         yaml:"tcpFlagsAny,omitempty"`
+	ICMPType    string            `xml:"icmptype,omitempty"     json:"icmpType,omitempty"  yaml:"icmpType,omitempty"`
+	ICMP6Type   string            `xml:"icmp6-type,omitempty"   json:"icmp6Type,omitempty" yaml:"icmp6Type,omitempty"`
+	// State and advanced fields
+	StateTimeout   string            `xml:"statetimeout,omitempty"   json:"stateTimeout,omitempty" yaml:"stateTimeout,omitempty"`
+	AllowOpts      opnsense.BoolFlag `xml:"allowopts,omitempty"      json:"allowOpts"              yaml:"allowOpts,omitempty"`
+	DisableReplyTo opnsense.BoolFlag `xml:"disablereplyto,omitempty" json:"disableReplyTo"         yaml:"disableReplyTo,omitempty"`
+	NoPfSync       opnsense.BoolFlag `xml:"nopfsync,omitempty"       json:"noPfSync"               yaml:"noPfSync,omitempty"`
+	NoSync         opnsense.BoolFlag `xml:"nosync,omitempty"         json:"noSync"                 yaml:"noSync,omitempty"`
+	Updated        *opnsense.Updated `xml:"updated,omitempty"        json:"updated,omitempty"      yaml:"updated,omitempty"`
+	Created        *opnsense.Created `xml:"created,omitempty"        json:"created,omitempty"      yaml:"created,omitempty"`
+	UUID           string            `xml:"uuid,attr,omitempty"      json:"uuid,omitempty"         yaml:"uuid,omitempty"`
+	// pfSense-specific fields
+	ID               string `xml:"id,omitempty"                 json:"id,omitempty"               yaml:"id,omitempty"`
+	Tag              string `xml:"tag,omitempty"                json:"tag,omitempty"              yaml:"tag,omitempty"`
+	Tagged           string `xml:"tagged,omitempty"             json:"tagged,omitempty"           yaml:"tagged,omitempty"`
+	Max              string `xml:"max,omitempty"                json:"max,omitempty"              yaml:"max,omitempty"`
+	MaxSrcStates     string `xml:"max-src-states,omitempty"     json:"maxSrcStates,omitempty"     yaml:"maxSrcStates,omitempty"`
+	OS               string `xml:"os,omitempty"                 json:"os,omitempty"               yaml:"os,omitempty"`
+	AssociatedRuleID string `xml:"associated-rule-id,omitempty" json:"associatedRuleID,omitempty" yaml:"associatedRuleID,omitempty"`
+}
+    FilterRule represents a pfSense firewall rule. It extends the base OPNsense
+    Rule fields with pfSense-specific attributes such as rule ID, pf tags,
+    state limits, OS fingerprinting, and NAT association.
+
+type Group struct {
+	Name        string `xml:"name"        json:"name"                  yaml:"name"`
+	Description string `xml:"description" json:"description,omitempty" yaml:"description,omitempty"`
+	Scope       string `xml:"scope"       json:"scope"                 yaml:"scope"`
+	//
+	Gid    string   `xml:"gid"    json:"gid"                  yaml:"gid"`
+	Member []string `xml:"member" json:"members,omitempty"    yaml:"members,omitempty"`
+	Priv   []string `xml:"priv"   json:"privileges,omitempty" yaml:"privileges,omitempty"`
+}
+    Group represents a pfSense group. Forked from opnsense.Group because pfSense
+    supports multiple <priv> elements per group (copy-on-write per AGENTS.md
+    §6.1).
+
+type IPsec struct {
+	Phase1     []IPsecPhase1 `xml:"phase1,omitempty"    json:"phase1,omitempty"     yaml:"phase1,omitempty"`
+	Phase2     []IPsecPhase2 `xml:"phase2,omitempty"    json:"phase2,omitempty"     yaml:"phase2,omitempty"`
+	MobileKeys []MobileKey   `xml:"mobilekey,omitempty" json:"mobileKeys,omitempty" yaml:"mobileKeys,omitempty"`
+	Client     IPsecClient   `xml:"client,omitempty"    json:"client"               yaml:"client,omitempty"`
+	Logging    IPsecLogging  `xml:"logging,omitempty"   json:"logging"              yaml:"logging,omitempty"`
+}
+    IPsec represents the top-level IPsec VPN configuration container for
+    pfSense. It maps to the <ipsec> XML element and contains Phase 1 (IKE SA),
+    Phase 2 (child SA), mobile key, client pool, and logging sub-configurations.
+
+    Use NewIPsec to create an IPsec with all slice fields pre-initialized.
+
+func NewIPsec() IPsec
+    NewIPsec returns a new IPsec configuration with Phase1, Phase2, and
+    MobileKeys slices initialized for safe use.
+
+type IPsecClient struct {
+	Enable      opnsense.BoolFlag `xml:"enable,omitempty"          json:"enable"                  yaml:"enable,omitempty"`
+	UserSource  string            `xml:"user_source,omitempty"     json:"userSource,omitempty"    yaml:"userSource,omitempty"`
+	GroupSource string            `xml:"group_source,omitempty"    json:"groupSource,omitempty"   yaml:"groupSource,omitempty"`
+	PoolAddress string            `xml:"pool_address,omitempty"    json:"poolAddress,omitempty"   yaml:"poolAddress,omitempty"`
+	PoolNetbits string            `xml:"pool_netbits,omitempty"    json:"poolNetbits,omitempty"   yaml:"poolNetbits,omitempty"`
+	PoolAddrV6  string            `xml:"pool_address_v6,omitempty" json:"poolAddressV6,omitempty" yaml:"poolAddressV6,omitempty"`
+	PoolNetV6   string            `xml:"pool_netbits_v6,omitempty" json:"poolNetbitsV6,omitempty" yaml:"poolNetbitsV6,omitempty"`
+	DNSServer1  string            `xml:"dns_server1,omitempty"     json:"dnsServer1,omitempty"    yaml:"dnsServer1,omitempty"`
+	DNSServer2  string            `xml:"dns_server2,omitempty"     json:"dnsServer2,omitempty"    yaml:"dnsServer2,omitempty"`
+	DNSServer3  string            `xml:"dns_server3,omitempty"     json:"dnsServer3,omitempty"    yaml:"dnsServer3,omitempty"`
+	DNSServer4  string            `xml:"dns_server4,omitempty"     json:"dnsServer4,omitempty"    yaml:"dnsServer4,omitempty"`
+	WINSServer1 string            `xml:"wins_server1,omitempty"    json:"winsServer1,omitempty"   yaml:"winsServer1,omitempty"`
+	WINSServer2 string            `xml:"wins_server2,omitempty"    json:"winsServer2,omitempty"   yaml:"winsServer2,omitempty"`
+	DNSDomain   string            `xml:"dns_domain,omitempty"      json:"dnsDomain,omitempty"     yaml:"dnsDomain,omitempty"`
+	DNSSplit    string            `xml:"dns_split,omitempty"       json:"dnsSplit,omitempty"      yaml:"dnsSplit,omitempty"`
+	LoginBanner string            `xml:"login_banner,omitempty"    json:"loginBanner,omitempty"   yaml:"loginBanner,omitempty"`
+	SavePasswd  opnsense.BoolFlag `xml:"save_passwd,omitempty"     json:"savePasswd"              yaml:"savePasswd,omitempty"`
+}
+    IPsecClient represents the mobile IPsec client pool configuration (the
+    <client> element within <ipsec>).
+
+func (c IPsecClient) MarshalXML(e *xml.Encoder, start xml.StartElement) error
+    MarshalXML implements custom XML marshaling for IPsecClient, ensuring
+    that the Enable and SavePasswd BoolFlag fields are addressable so
+    (*BoolFlag).MarshalXML is invoked. Without this, direct xml.Marshal calls
+    on IPsecClient values would fall back to default bool serialization instead
+    of producing pfSense-compatible presence elements. Uses a value receiver so
+    both value and pointer marshaling work correctly.
+
+type IPsecEncryptionAlgorithm struct {
+	Name   string `xml:"name,omitempty"   json:"name,omitempty"   yaml:"name,omitempty"`
+	KeyLen string `xml:"keylen,omitempty" json:"keyLen,omitempty" yaml:"keyLen,omitempty"`
+}
+    IPsecEncryptionAlgorithm represents a single encryption algorithm option
+    used in Phase 1 and Phase 2.
+
+type IPsecHashAlgorithm struct {
+	Name string `xml:"name,omitempty" json:"name,omitempty" yaml:"name,omitempty"`
+}
+    IPsecHashAlgorithm represents a single hash algorithm option used in Phase
+    2.
+
+type IPsecID struct {
+	Type    string `xml:"type,omitempty"    json:"type,omitempty"    yaml:"type,omitempty"`
+	Address string `xml:"address,omitempty" json:"address,omitempty" yaml:"address,omitempty"`
+	Netbits string `xml:"netbits,omitempty" json:"netbits,omitempty" yaml:"netbits,omitempty"`
+}
+    IPsecID represents a network identity element, used for localid, remoteid,
+    and natlocalid in IPsec configurations.
+
+type IPsecLogging struct {
+	// Dmn is the strongSwan daemon (main process) log level.
+	Dmn string `xml:"dmn,omitempty" json:"dmn,omitempty" yaml:"dmn,omitempty"`
+	// Mgr is the IKE SA manager log level.
+	Mgr string `xml:"mgr,omitempty" json:"mgr,omitempty" yaml:"mgr,omitempty"`
+	// Ike is the IKE protocol log level.
+	Ike string `xml:"ike,omitempty" json:"ike,omitempty" yaml:"ike,omitempty"`
+	// Chd is the child SA (IPsec SA) log level.
+	Chd string `xml:"chd,omitempty" json:"chd,omitempty" yaml:"chd,omitempty"`
+	// Job is the job processing log level.
+	Job string `xml:"job,omitempty" json:"job,omitempty" yaml:"job,omitempty"`
+	// Cfg is the configuration backend log level.
+	Cfg string `xml:"cfg,omitempty" json:"cfg,omitempty" yaml:"cfg,omitempty"`
+	// Knl is the kernel interface log level.
+	Knl string `xml:"knl,omitempty" json:"knl,omitempty" yaml:"knl,omitempty"`
+	// Net is the networking log level.
+	Net string `xml:"net,omitempty" json:"net,omitempty" yaml:"net,omitempty"`
+	// Asn is the ASN.1 encoding/decoding log level.
+	Asn string `xml:"asn,omitempty" json:"asn,omitempty" yaml:"asn,omitempty"`
+	// Enc is the cryptographic operations log level.
+	Enc string `xml:"enc,omitempty" json:"enc,omitempty" yaml:"enc,omitempty"`
+	// Lib is the strongSwan library log level.
+	Lib string `xml:"lib,omitempty" json:"lib,omitempty" yaml:"lib,omitempty"`
+}
+    IPsecLogging represents per-subsystem strongSwan log level configuration.
+    Parsed from config.xml but intentionally not mapped to the common model
+    — log levels are daemon tuning, not security-relevant configuration for
+    audit/export.
+
+type IPsecPhase1 struct {
+	IKEId      string `xml:"ikeid,omitempty"                 json:"ikeId,omitempty"                yaml:"ikeId,omitempty"`
+	IKEType    string `xml:"iketype,omitempty"               json:"ikeType,omitempty"              yaml:"ikeType,omitempty"`
+	Interface  string `xml:"interface,omitempty"             json:"interface,omitempty"            yaml:"interface,omitempty"`
+	RemoteGW   string `xml:"remote-gateway,omitempty"        json:"remoteGateway,omitempty"        yaml:"remoteGateway,omitempty"`
+	Protocol   string `xml:"protocol,omitempty"              json:"protocol,omitempty"             yaml:"protocol,omitempty"`
+	MyIDType   string `xml:"myid_type,omitempty"             json:"myIdType,omitempty"             yaml:"myIdType,omitempty"`
+	MyIDData   string `xml:"myid_data,omitempty"             json:"myIdData,omitempty"             yaml:"myIdData,omitempty"`
+	PeerIDType string `xml:"peerid_type,omitempty"           json:"peerIdType,omitempty"           yaml:"peerIdType,omitempty"`
+	PeerIDData string `xml:"peerid_data,omitempty"           json:"peerIdData,omitempty"           yaml:"peerIdData,omitempty"`
+	AuthMethod string `xml:"authentication_method,omitempty" json:"authenticationMethod,omitempty" yaml:"authenticationMethod,omitempty"`
+	// PreSharedKey is the IPsec pre-shared key. Intentionally excluded from the common model
+	// (secrets must not reach the export pipeline). The sanitizer handles this at the XML level.
+	// If this field is ever mapped to common.IPsecPhase1Tunnel, redactSensitiveFields
+	// in internal/converter/enrichment.go MUST be updated to redact it.
+	PreSharedKey string                `xml:"pre-shared-key,omitempty" json:"-"                      yaml:"-"`
+	CertRef      string                `xml:"certref,omitempty"        json:"certRef,omitempty"      yaml:"certRef,omitempty"`
+	CARef        string                `xml:"caref,omitempty"          json:"caRef,omitempty"        yaml:"caRef,omitempty"`
+	Lifetime     string                `xml:"lifetime,omitempty"       json:"lifetime,omitempty"     yaml:"lifetime,omitempty"`
+	RekeyTime    string                `xml:"rekey_time,omitempty"     json:"rekeyTime,omitempty"    yaml:"rekeyTime,omitempty"`
+	ReauthTime   string                `xml:"reauth_time,omitempty"    json:"reauthTime,omitempty"   yaml:"reauthTime,omitempty"`
+	RandTime     string                `xml:"rand_time,omitempty"      json:"randTime,omitempty"     yaml:"randTime,omitempty"`
+	Mode         string                `xml:"mode,omitempty"           json:"mode,omitempty"         yaml:"mode,omitempty"`
+	NATTraversal string                `xml:"nat_traversal,omitempty"  json:"natTraversal,omitempty" yaml:"natTraversal,omitempty"`
+	Mobike       string                `xml:"mobike,omitempty"         json:"mobike,omitempty"       yaml:"mobike,omitempty"`
+	DPDDelay     string                `xml:"dpd_delay,omitempty"      json:"dpdDelay,omitempty"     yaml:"dpdDelay,omitempty"`
+	DPDMaxFail   string                `xml:"dpd_maxfail,omitempty"    json:"dpdMaxFail,omitempty"   yaml:"dpdMaxFail,omitempty"`
+	StartAction  string                `xml:"startaction,omitempty"    json:"startAction,omitempty"  yaml:"startAction,omitempty"`
+	CloseAction  string                `xml:"closeaction,omitempty"    json:"closeAction,omitempty"  yaml:"closeAction,omitempty"`
+	Disabled     opnsense.BoolFlag     `xml:"disabled,omitempty"       json:"disabled"               yaml:"disabled,omitempty"`
+	Descr        string                `xml:"descr,omitempty"          json:"descr,omitempty"        yaml:"descr,omitempty"`
+	Mobile       opnsense.BoolFlag     `xml:"mobile,omitempty"         json:"mobile"                 yaml:"mobile,omitempty"`
+	IKEPort      string                `xml:"ikeport,omitempty"        json:"ikePort,omitempty"      yaml:"ikePort,omitempty"`
+	NATTPort     string                `xml:"nattport,omitempty"       json:"nattPort,omitempty"     yaml:"nattPort,omitempty"`
+	SplitConn    string                `xml:"splitconn,omitempty"      json:"splitConn,omitempty"    yaml:"splitConn,omitempty"`
+	Encryption   IPsecPhase1Encryption `xml:"encryption,omitempty"     json:"encryption"             yaml:"encryption,omitempty"`
+}
+    IPsecPhase1 represents a single IKE Phase 1 (SA) entry. Phase 1 entries are
+    listtags in pfSense config.xml.
+
+func (p IPsecPhase1) MarshalXML(e *xml.Encoder, start xml.StartElement) error
+    MarshalXML implements custom XML marshaling for IPsecPhase1,
+    ensuring that the Disabled and Mobile BoolFlag fields are addressable so
+    (*BoolFlag).MarshalXML is invoked. Without this, direct xml.Marshal calls
+    on IPsecPhase1 values would fall back to default bool serialization instead
+    of producing pfSense-compatible presence elements. Uses a value receiver so
+    both value and pointer marshaling work correctly.
+
+type IPsecPhase1Encryption struct {
+	Algorithms []IPsecEncryptionAlgorithm `xml:"encryption-algorithm-option,omitempty" json:"algorithms,omitempty" yaml:"algorithms,omitempty"`
+}
+    IPsecPhase1Encryption wraps the <encryption> sub-element containing
+    algorithm options for Phase 1. Each algorithm option specifies a cipher name
+    and optional key length.
+
+type IPsecPhase2 struct {
+	IKEId                string                     `xml:"ikeid,omitempty"                       json:"ikeId,omitempty"                yaml:"ikeId,omitempty"`
+	UniqID               string                     `xml:"uniqid,omitempty"                      json:"uniqId,omitempty"               yaml:"uniqId,omitempty"`
+	Mode                 string                     `xml:"mode,omitempty"                        json:"mode,omitempty"                 yaml:"mode,omitempty"`
+	Disabled             opnsense.BoolFlag          `xml:"disabled,omitempty"                    json:"disabled"                       yaml:"disabled,omitempty"`
+	ReqID                string                     `xml:"reqid,omitempty"                       json:"reqId,omitempty"                yaml:"reqId,omitempty"`
+	LocalID              IPsecID                    `xml:"localid,omitempty"                     json:"localId"                        yaml:"localId,omitempty"`
+	RemoteID             IPsecID                    `xml:"remoteid,omitempty"                    json:"remoteId"                       yaml:"remoteId,omitempty"`
+	NATLocalID           IPsecID                    `xml:"natlocalid,omitempty"                  json:"natLocalId"                     yaml:"natLocalId,omitempty"`
+	Protocol             string                     `xml:"protocol,omitempty"                    json:"protocol,omitempty"             yaml:"protocol,omitempty"`
+	EncryptionAlgorithms []IPsecEncryptionAlgorithm `xml:"encryption-algorithm-option,omitempty" json:"encryptionAlgorithms,omitempty" yaml:"encryptionAlgorithms,omitempty"`
+	HashAlgorithms       []IPsecHashAlgorithm       `xml:"hash-algorithm-option,omitempty"       json:"hashAlgorithms,omitempty"       yaml:"hashAlgorithms,omitempty"`
+	PFSGroup             string                     `xml:"pfsgroup,omitempty"                    json:"pfsGroup,omitempty"             yaml:"pfsGroup,omitempty"`
+	Lifetime             string                     `xml:"lifetime,omitempty"                    json:"lifetime,omitempty"             yaml:"lifetime,omitempty"`
+	PingHost             string                     `xml:"pinghost,omitempty"                    json:"pingHost,omitempty"             yaml:"pingHost,omitempty"`
+	Descr                string                     `xml:"descr,omitempty"                       json:"descr,omitempty"                yaml:"descr,omitempty"`
+}
+    IPsecPhase2 represents a single IPsec Phase 2 (child SA) entry. Phase 2
+    entries are listtags in pfSense config.xml.
+
+func (p IPsecPhase2) MarshalXML(e *xml.Encoder, start xml.StartElement) error
+    MarshalXML implements custom XML marshaling for IPsecPhase2, ensuring
+    that the Disabled BoolFlag field is addressable so (*BoolFlag).MarshalXML
+    is invoked. Without this, direct xml.Marshal calls on IPsecPhase2 values
+    would fall back to default bool serialization instead of producing
+    pfSense-compatible presence elements. Uses a value receiver so both value
+    and pointer marshaling work correctly.
+
+type IPv6NAT struct {
+	IPAddr string `xml:"ipaddr,omitempty" json:"ipaddr,omitempty" yaml:"ipaddr,omitempty"`
+}
+    IPv6NAT represents the pfSense IPv6 NAT diagnostics configuration.
+
+type InboundRule struct {
+	XMLName          xml.Name               `xml:"rule"`
+	Interface        opnsense.InterfaceList `xml:"interface,omitempty"          json:"interface,omitempty"        yaml:"interface,omitempty"`
+	IPProtocol       string                 `xml:"ipprotocol,omitempty"         json:"ipProtocol,omitempty"       yaml:"ipProtocol,omitempty"`
+	Protocol         string                 `xml:"protocol,omitempty"           json:"protocol,omitempty"         yaml:"protocol,omitempty"`
+	Source           opnsense.Source        `xml:"source"                       json:"source"                     yaml:"source"`
+	Destination      opnsense.Destination   `xml:"destination"                  json:"destination"                yaml:"destination"`
+	ExternalPort     string                 `xml:"externalport,omitempty"       json:"externalPort,omitempty"     yaml:"externalPort,omitempty"`
+	Target           string                 `xml:"target,omitempty"             json:"target,omitempty"           yaml:"target,omitempty"`
+	InternalIP       string                 `xml:"internalip,omitempty"         json:"internalIP,omitempty"       yaml:"internalIP,omitempty"`
+	InternalPort     string                 `xml:"internalport,omitempty"       json:"internalPort,omitempty"     yaml:"internalPort,omitempty"`
+	LocalPort        string                 `xml:"local-port,omitempty"         json:"localPort,omitempty"        yaml:"localPort,omitempty"`
+	Reflection       string                 `xml:"reflection,omitempty"         json:"reflection,omitempty"       yaml:"reflection,omitempty"`
+	NATReflection    string                 `xml:"natreflection,omitempty"      json:"natReflection,omitempty"    yaml:"natReflection,omitempty"`
+	AssociatedRuleID string                 `xml:"associated-rule-id,omitempty" json:"associatedRuleID,omitempty" yaml:"associatedRuleID,omitempty"`
+	Priority         int                    `xml:"priority,omitempty"           json:"priority,omitempty"         yaml:"priority,omitempty"`
+	NoRDR            opnsense.BoolFlag      `xml:"nordr,omitempty"              json:"noRDR,omitempty"            yaml:"noRDR,omitempty"`
+	NoSync           opnsense.BoolFlag      `xml:"nosync,omitempty"             json:"noSync,omitempty"           yaml:"noSync,omitempty"`
+	Disabled         opnsense.BoolFlag      `xml:"disabled,omitempty"           json:"disabled,omitempty"         yaml:"disabled,omitempty"`
+	Log              opnsense.BoolFlag      `xml:"log,omitempty"                json:"log,omitempty"              yaml:"log,omitempty"`
+	Descr            string                 `xml:"descr,omitempty"              json:"description,omitempty"      yaml:"description,omitempty"`
+	Updated          *opnsense.Updated      `xml:"updated,omitempty"            json:"updated,omitempty"          yaml:"updated,omitempty"`
+	Created          *opnsense.Created      `xml:"created,omitempty"            json:"created,omitempty"          yaml:"created,omitempty"`
+	UUID             string                 `xml:"uuid,attr,omitempty"          json:"uuid,omitempty"             yaml:"uuid,omitempty"`
+}
+    InboundRule represents a pfSense inbound NAT rule (port forwarding). This is
+    a copy-on-write fork of opnsense.InboundRule because pfSense uses a <target>
+    element for the internal redirect IP, whereas OPNsense uses <internalip>.
+
+type Interface struct {
+	Enable              opnsense.BoolFlag     `xml:"enable,omitempty"              json:"enable,omitempty"              yaml:"enable,omitempty"`
+	If                  string                `xml:"if,omitempty"                  json:"if,omitempty"                  yaml:"if,omitempty"`
+	Descr               string                `xml:"descr,omitempty"               json:"descr,omitempty"               yaml:"descr,omitempty"`
+	Spoofmac            string                `xml:"spoofmac,omitempty"            json:"spoofmac,omitempty"            yaml:"spoofmac,omitempty"`
+	InternalDynamic     int                   `xml:"internal_dynamic,omitempty"    json:"internalDynamic,omitempty"     yaml:"internalDynamic,omitempty"`
+	Type                string                `xml:"type,omitempty"                json:"type,omitempty"                yaml:"type,omitempty"`
+	Virtual             int                   `xml:"virtual,omitempty"             json:"virtual,omitempty"             yaml:"virtual,omitempty"`
+	Lock                int                   `xml:"lock,omitempty"                json:"lock,omitempty"                yaml:"lock,omitempty"`
+	MTU                 string                `xml:"mtu,omitempty"                 json:"mtu,omitempty"                 yaml:"mtu,omitempty"`
+	IPAddr              string                `xml:"ipaddr,omitempty"              json:"ipaddr,omitempty"              yaml:"ipaddr,omitempty"`
+	IPAddrv6            string                `xml:"ipaddrv6,omitempty"            json:"ipaddrv6,omitempty"            yaml:"ipaddrv6,omitempty"`
+	Subnet              string                `xml:"subnet,omitempty"              json:"subnet,omitempty"              yaml:"subnet,omitempty"`
+	Subnetv6            string                `xml:"subnetv6,omitempty"            json:"subnetv6,omitempty"            yaml:"subnetv6,omitempty"`
+	Gateway             string                `xml:"gateway,omitempty"             json:"gateway,omitempty"             yaml:"gateway,omitempty"`
+	Gatewayv6           string                `xml:"gatewayv6,omitempty"           json:"gatewayv6,omitempty"           yaml:"gatewayv6,omitempty"`
+	BlockPriv           string                `xml:"blockpriv,omitempty"           json:"blockpriv,omitempty"           yaml:"blockpriv,omitempty"`
+	BlockBogons         string                `xml:"blockbogons,omitempty"         json:"blockbogons,omitempty"         yaml:"blockbogons,omitempty"`
+	DHCPHostname        string                `xml:"dhcphostname,omitempty"        json:"dhcphostname,omitempty"        yaml:"dhcphostname,omitempty"`
+	Media               string                `xml:"media,omitempty"               json:"media,omitempty"               yaml:"media,omitempty"`
+	MediaOpt            string                `xml:"mediaopt,omitempty"            json:"mediaopt,omitempty"            yaml:"mediaopt,omitempty"`
+	DHCP6IaPdLen        int                   `xml:"dhcp6-ia-pd-len,omitempty"     json:"dhcp6IaPdLen,omitempty"        yaml:"dhcp6IaPdLen,omitempty"`
+	Track6Interface     string                `xml:"track6-interface,omitempty"    json:"track6Interface,omitempty"     yaml:"track6Interface,omitempty"`
+	Track6PrefixID      string                `xml:"track6-prefix-id,omitempty"    json:"track6PrefixId,omitempty"      yaml:"track6PrefixId,omitempty"`
+	AliasAddress        string                `xml:"alias-address,omitempty"       json:"aliasAddress,omitempty"        yaml:"aliasAddress,omitempty"`
+	AliasSubnet         string                `xml:"alias-subnet,omitempty"        json:"aliasSubnet,omitempty"         yaml:"aliasSubnet,omitempty"`
+	DHCPRejectFrom      string                `xml:"dhcprejectfrom,omitempty"      json:"dhcprejectfrom,omitempty"      yaml:"dhcprejectfrom,omitempty"`
+	DDNSDomainAlgorithm string                `xml:"ddnsdomainalgorithm,omitempty" json:"ddnsdomainalgorithm,omitempty" yaml:"ddnsdomainalgorithm,omitempty"`
+	NumberOptions       []opnsense.DhcpOption `xml:"numberoptions,omitempty"       json:"numberoptions,omitempty"       yaml:"numberoptions,omitempty"`
+	Range               opnsense.DhcpRange    `xml:"range,omitempty"               json:"range"                         yaml:"range,omitempty"`
+	Winsserver          string                `xml:"winsserver,omitempty"          json:"winsserver,omitempty"          yaml:"winsserver,omitempty"`
+	// Not mapped into the common model, so a scalar is accurate today. Make it
+	// []string before mapping it: <dnsserver> repeats (GOTCHAS 3.3).
+	Dnsserver string `xml:"dnsserver,omitempty" json:"dnsserver,omitempty" yaml:"dnsserver,omitempty"`
+	Ntpserver string `xml:"ntpserver,omitempty" json:"ntpserver,omitempty" yaml:"ntpserver,omitempty"`
+
+	// Advanced DHCPv4 client fields, set on the interface by the DHCP client tab.
+	AdvDHCPPTTimeout              string `xml:"adv_dhcp_pt_timeout,omitempty"                json:"advDhcpPtTimeout,omitempty"              yaml:"advDhcpPtTimeout,omitempty"`
+	AdvDHCPPTRetry                string `xml:"adv_dhcp_pt_retry,omitempty"                  json:"advDhcpPtRetry,omitempty"                yaml:"advDhcpPtRetry,omitempty"`
+	AdvDHCPPTSelectTimeout        string `xml:"adv_dhcp_pt_select_timeout,omitempty"         json:"advDhcpPtSelectTimeout,omitempty"        yaml:"advDhcpPtSelectTimeout,omitempty"`
+	AdvDHCPPTReboot               string `xml:"adv_dhcp_pt_reboot,omitempty"                 json:"advDhcpPtReboot,omitempty"               yaml:"advDhcpPtReboot,omitempty"`
+	AdvDHCPPTBackoffCutoff        string `xml:"adv_dhcp_pt_backoff_cutoff,omitempty"         json:"advDhcpPtBackoffCutoff,omitempty"        yaml:"advDhcpPtBackoffCutoff,omitempty"`
+	AdvDHCPPTInitialInterval      string `xml:"adv_dhcp_pt_initial_interval,omitempty"       json:"advDhcpPtInitialInterval,omitempty"      yaml:"advDhcpPtInitialInterval,omitempty"`
+	AdvDHCPPTValues               string `xml:"adv_dhcp_pt_values,omitempty"                 json:"advDhcpPtValues,omitempty"               yaml:"advDhcpPtValues,omitempty"`
+	AdvDHCPSendOptions            string `xml:"adv_dhcp_send_options,omitempty"              json:"advDhcpSendOptions,omitempty"            yaml:"advDhcpSendOptions,omitempty"`
+	AdvDHCPRequestOptions         string `xml:"adv_dhcp_request_options,omitempty"           json:"advDhcpRequestOptions,omitempty"         yaml:"advDhcpRequestOptions,omitempty"`
+	AdvDHCPRequiredOptions        string `xml:"adv_dhcp_required_options,omitempty"          json:"advDhcpRequiredOptions,omitempty"        yaml:"advDhcpRequiredOptions,omitempty"`
+	AdvDHCPOptionModifiers        string `xml:"adv_dhcp_option_modifiers,omitempty"          json:"advDhcpOptionModifiers,omitempty"        yaml:"advDhcpOptionModifiers,omitempty"`
+	AdvDHCPConfigAdvanced         string `xml:"adv_dhcp_config_advanced,omitempty"           json:"advDhcpConfigAdvanced,omitempty"         yaml:"advDhcpConfigAdvanced,omitempty"`
+	AdvDHCPConfigFileOverride     string `xml:"adv_dhcp_config_file_override,omitempty"      json:"advDhcpConfigFileOverride,omitempty"     yaml:"advDhcpConfigFileOverride,omitempty"`
+	AdvDHCPConfigFileOverridePath string `xml:"adv_dhcp_config_file_override_path,omitempty" json:"advDhcpConfigFileOverridePath,omitempty" yaml:"advDhcpConfigFileOverridePath,omitempty"`
+
+	// Advanced DHCPv6 client fields, set on the interface by the DHCPv6 client tab.
+	AdvDHCP6InterfaceStatementSendOptions           string            `xml:"adv_dhcp6_interface_statement_send_options,omitempty"            json:"advDhcp6InterfaceStatementSendOptions,omitempty"           yaml:"advDhcp6InterfaceStatementSendOptions,omitempty"`
+	AdvDHCP6InterfaceStatementRequestOptions        string            `xml:"adv_dhcp6_interface_statement_request_options,omitempty"         json:"advDhcp6InterfaceStatementRequestOptions,omitempty"        yaml:"advDhcp6InterfaceStatementRequestOptions,omitempty"`
+	AdvDHCP6InterfaceStatementInformationOnlyEnable opnsense.BoolFlag `xml:"adv_dhcp6_interface_statement_information_only_enable,omitempty" json:"advDhcp6InterfaceStatementInformationOnlyEnable,omitempty" yaml:"advDhcp6InterfaceStatementInformationOnlyEnable,omitempty"`
+	AdvDHCP6InterfaceStatementScript                string            `xml:"adv_dhcp6_interface_statement_script,omitempty"                  json:"advDhcp6InterfaceStatementScript,omitempty"                yaml:"advDhcp6InterfaceStatementScript,omitempty"`
+	AdvDHCP6IDAssocStatementAddressEnable           opnsense.BoolFlag `xml:"adv_dhcp6_id_assoc_statement_address_enable,omitempty"           json:"advDhcp6IdAssocStatementAddressEnable,omitempty"           yaml:"advDhcp6IdAssocStatementAddressEnable,omitempty"`
+	AdvDHCP6IDAssocStatementAddress                 string            `xml:"adv_dhcp6_id_assoc_statement_address,omitempty"                  json:"advDhcp6IdAssocStatementAddress,omitempty"                 yaml:"advDhcp6IdAssocStatementAddress,omitempty"`
+	AdvDHCP6IDAssocStatementAddressID               string            `xml:"adv_dhcp6_id_assoc_statement_address_id,omitempty"               json:"advDhcp6IdAssocStatementAddressId,omitempty"               yaml:"advDhcp6IdAssocStatementAddressId,omitempty"`
+	AdvDHCP6IDAssocStatementAddressPLTime           string            `xml:"adv_dhcp6_id_assoc_statement_address_pltime,omitempty"           json:"advDhcp6IdAssocStatementAddressPltime,omitempty"           yaml:"advDhcp6IdAssocStatementAddressPltime,omitempty"`
+	AdvDHCP6IDAssocStatementAddressVLTime           string            `xml:"adv_dhcp6_id_assoc_statement_address_vltime,omitempty"           json:"advDhcp6IdAssocStatementAddressVltime,omitempty"           yaml:"advDhcp6IdAssocStatementAddressVltime,omitempty"`
+	AdvDHCP6IDAssocStatementPrefixEnable            opnsense.BoolFlag `xml:"adv_dhcp6_id_assoc_statement_prefix_enable,omitempty"            json:"advDhcp6IdAssocStatementPrefixEnable,omitempty"            yaml:"advDhcp6IdAssocStatementPrefixEnable,omitempty"`
+	AdvDHCP6IDAssocStatementPrefix                  string            `xml:"adv_dhcp6_id_assoc_statement_prefix,omitempty"                   json:"advDhcp6IdAssocStatementPrefix,omitempty"                  yaml:"advDhcp6IdAssocStatementPrefix,omitempty"`
+	AdvDHCP6IDAssocStatementPrefixID                string            `xml:"adv_dhcp6_id_assoc_statement_prefix_id,omitempty"                json:"advDhcp6IdAssocStatementPrefixId,omitempty"                yaml:"advDhcp6IdAssocStatementPrefixId,omitempty"`
+	AdvDHCP6IDAssocStatementPrefixPLTime            string            `xml:"adv_dhcp6_id_assoc_statement_prefix_pltime,omitempty"            json:"advDhcp6IdAssocStatementPrefixPltime,omitempty"            yaml:"advDhcp6IdAssocStatementPrefixPltime,omitempty"`
+	AdvDHCP6IDAssocStatementPrefixVLTime            string            `xml:"adv_dhcp6_id_assoc_statement_prefix_vltime,omitempty"            json:"advDhcp6IdAssocStatementPrefixVltime,omitempty"            yaml:"advDhcp6IdAssocStatementPrefixVltime,omitempty"`
+	AdvDHCP6PrefixInterfaceStatementSLALen          string            `xml:"adv_dhcp6_prefix_interface_statement_sla_len,omitempty"          json:"advDhcp6PrefixInterfaceStatementSlaLen,omitempty"          yaml:"advDhcp6PrefixInterfaceStatementSlaLen,omitempty"`
+	AdvDHCP6AuthenticationStatementAuthName         string            `xml:"adv_dhcp6_authentication_statement_authname,omitempty"           json:"advDhcp6AuthenticationStatementAuthName,omitempty"         yaml:"advDhcp6AuthenticationStatementAuthName,omitempty"`
+	AdvDHCP6AuthenticationStatementProtocol         string            `xml:"adv_dhcp6_authentication_statement_protocol,omitempty"           json:"advDhcp6AuthenticationStatementProtocol,omitempty"         yaml:"advDhcp6AuthenticationStatementProtocol,omitempty"`
+	AdvDHCP6AuthenticationStatementAlgorithm        string            `xml:"adv_dhcp6_authentication_statement_algorithm,omitempty"          json:"advDhcp6AuthenticationStatementAlgorithm,omitempty"        yaml:"advDhcp6AuthenticationStatementAlgorithm,omitempty"`
+	AdvDHCP6AuthenticationStatementRDM              string            `xml:"adv_dhcp6_authentication_statement_rdm,omitempty"                json:"advDhcp6AuthenticationStatementRdm,omitempty"              yaml:"advDhcp6AuthenticationStatementRdm,omitempty"`
+	AdvDHCP6KeyInfoStatementKeyName                 string            `xml:"adv_dhcp6_key_info_statement_keyname,omitempty"                  json:"advDhcp6KeyInfoStatementKeyName,omitempty"                 yaml:"advDhcp6KeyInfoStatementKeyName,omitempty"`
+	AdvDHCP6KeyInfoStatementRealm                   string            `xml:"adv_dhcp6_key_info_statement_realm,omitempty"                    json:"advDhcp6KeyInfoStatementRealm,omitempty"                   yaml:"advDhcp6KeyInfoStatementRealm,omitempty"`
+	AdvDHCP6KeyInfoStatementKeyID                   string            `xml:"adv_dhcp6_key_info_statement_keyid,omitempty"                    json:"advDhcp6KeyInfoStatementKeyId,omitempty"                   yaml:"advDhcp6KeyInfoStatementKeyId,omitempty"`
+	AdvDHCP6KeyInfoStatementSecret                  string            `xml:"adv_dhcp6_key_info_statement_secret,omitempty"                   json:"advDhcp6KeyInfoStatementSecret,omitempty"                  yaml:"advDhcp6KeyInfoStatementSecret,omitempty"`
+	AdvDHCP6KeyInfoStatementExpire                  string            `xml:"adv_dhcp6_key_info_statement_expire,omitempty"                   json:"advDhcp6KeyInfoStatementExpire,omitempty"                  yaml:"advDhcp6KeyInfoStatementExpire,omitempty"`
+	AdvDHCP6ConfigAdvanced                          string            `xml:"adv_dhcp6_config_advanced,omitempty"                             json:"advDhcp6ConfigAdvanced,omitempty"                          yaml:"advDhcp6ConfigAdvanced,omitempty"`
+	AdvDHCP6ConfigFileOverride                      string            `xml:"adv_dhcp6_config_file_override,omitempty"                        json:"advDhcp6ConfigFileOverride,omitempty"                      yaml:"advDhcp6ConfigFileOverride,omitempty"`
+	AdvDHCP6ConfigFileOverridePath                  string            `xml:"adv_dhcp6_config_file_override_path,omitempty"                   json:"advDhcp6ConfigFileOverridePath,omitempty"                  yaml:"advDhcp6ConfigFileOverridePath,omitempty"`
+}
+    Interface represents a pfSense network interface configuration. It is a
+    copy-on-write fork of opnsense.Interface with Enable changed from string to
+    BoolFlag, because pfSense uses presence-based <enable/> elements.
+
+func (iface Interface) MarshalXML(e *xml.Encoder, start xml.StartElement) error
+    MarshalXML implements custom XML marshaling for Interface, ensuring that the
+    Enable BoolFlag field is addressable so (*BoolFlag).MarshalXML is invoked.
+    Without this, direct xml.Marshal calls on Interface values would fall back
+    to default bool serialization instead of producing pfSense-compatible
+    <enable/> elements. Uses a value receiver so both value and pointer
+    marshaling work correctly.
+
+type Interfaces struct {
+	Items map[string]Interface `xml:",any" json:"interfaces,omitempty" yaml:"interfaces,omitempty"`
+}
+    Interfaces contains the network interface configurations for a pfSense
+    device. Uses a map-based representation where keys are interface identifiers
+    (wan, lan, opt0, etc.).
+
+    Custom UnmarshalXML and MarshalXML methods handle the dynamic XML
+    element names (e.g., <wan>, <lan>, <opt0>) that cannot be expressed with
+    static struct tags. MarshalXML iterates keys in sorted order to produce
+    deterministic output. This is the same pattern used by opnsense.Interfaces.
+
+func (i *Interfaces) Get(key string) (Interface, bool)
+    Get returns an interface configuration by its key name (e.g., "wan", "lan",
+    "opt0"). Returns the interface configuration and a boolean indicating if it
+    was found.
+
+func (i *Interfaces) Lan() (Interface, bool)
+    Lan returns the LAN interface if it exists, otherwise returns a zero-value
+    Interface and false.
+
+func (i *Interfaces) MarshalXML(e *xml.Encoder, start xml.StartElement) error
+    MarshalXML implements custom XML marshaling for the Interfaces map.
+
+func (i *Interfaces) Names() []string
+    Names returns a sorted list of all interface names.
+
+func (i *Interfaces) UnmarshalXML(decoder *xml.Decoder, start xml.StartElement) error
+    UnmarshalXML implements custom XML unmarshaling for the Interfaces map.
+
+func (i *Interfaces) Wan() (Interface, bool)
+    Wan returns the WAN interface if it exists, otherwise returns a zero-value
+    Interface and false.
+
+type MobileKey struct {
+	Ident string `xml:"ident,omitempty" json:"ident,omitempty" yaml:"ident,omitempty"`
+	// PreSharedKey is a sensitive credential. Excluded from JSON/YAML export to prevent
+	// secret leakage — matching the pattern used on IPsecPhase1.PreSharedKey.
+	PreSharedKey string `xml:"pre-shared-key,omitempty" json:"-" yaml:"-"`
+}
+    MobileKey represents a mobile IPsec pre-shared key entry. MobileKey entries
+    are listtags in pfSense config.xml.
+
+type Nat struct {
+	Outbound  opnsense.Outbound `xml:"outbound"            json:"outbound"            yaml:"outbound"`
+	Inbound   []InboundRule     `xml:"rule"                json:"inbound,omitempty"   yaml:"inbound,omitempty"`
+	Separator string            `xml:"separator,omitempty" json:"separator,omitempty" yaml:"separator,omitempty"`
+}
+    Nat represents the pfSense NAT configuration. The key structural difference
+    from OPNsense is that inbound (port-forward) rules are direct children of
+    <nat> rather than nested under <nat><inbound>.
+
+type SyslogConfig struct {
+	FilterDescriptions string `xml:"filterdescriptions,omitempty" json:"filterDescriptions,omitempty" yaml:"filterDescriptions,omitempty"`
+}
+    SyslogConfig represents the pfSense syslog configuration. It differs from
+    OPNsense by including a filterdescriptions field.
+
+type System struct {
+	Optimization                  string             `xml:"optimization"                            json:"optimization,omitempty"                  yaml:"optimization,omitempty"`
+	Hostname                      string             `xml:"hostname"                                json:"hostname"                                yaml:"hostname"`
+	Domain                        string             `xml:"domain"                                  json:"domain"                                  yaml:"domain"`
+	DNSAllowOverride              opnsense.BoolFlag  `xml:"dnsallowoverride,omitempty"              json:"dnsAllowOverride,omitempty"              yaml:"dnsAllowOverride,omitempty"`
+	DNSServers                    []string           `xml:"dnsserver"                               json:"dnsServers,omitempty"                    yaml:"dnsServers,omitempty"`
+	DNS1GW                        string             `xml:"dns1gw,omitempty"                        json:"dns1gw,omitempty"                        yaml:"dns1gw,omitempty"`
+	DNS2GW                        string             `xml:"dns2gw,omitempty"                        json:"dns2gw,omitempty"                        yaml:"dns2gw,omitempty"`
+	Language                      string             `xml:"language"                                json:"language,omitempty"                      yaml:"language,omitempty"`
+	Group                         []Group            `xml:"group"                                   json:"groups,omitempty"                        yaml:"groups,omitempty"`
+	User                          []User             `xml:"user"                                    json:"users,omitempty"                         yaml:"users,omitempty"`
+	WebGUI                        WebGUI             `xml:"webgui"                                  json:"webgui"                                  yaml:"webgui,omitempty"`
+	SSH                           opnsense.SSHConfig `xml:"ssh"                                     json:"ssh"                                     yaml:"ssh,omitempty"`
+	Timezone                      string             `xml:"timezone"                                json:"timezone,omitempty"                      yaml:"timezone,omitempty"`
+	TimeServers                   string             `xml:"timeservers"                             json:"timeServers,omitempty"                   yaml:"timeServers,omitempty"`
+	DisableNATReflection          string             `xml:"disablenatreflection"                    json:"disableNatReflection,omitempty"          yaml:"disableNatReflection,omitempty"`
+	DisableSegmentationOffloading opnsense.BoolFlag  `xml:"disablesegmentationoffloading,omitempty" json:"disableSegmentationOffloading,omitempty" yaml:"disableSegmentationOffloading,omitempty"`
+	DisableLargeReceiveOffloading opnsense.BoolFlag  `xml:"disablelargereceiveoffloading,omitempty" json:"disableLargeReceiveOffloading,omitempty" yaml:"disableLargeReceiveOffloading,omitempty"`
+	IPv6Allow                     string             `xml:"ipv6allow"                               json:"ipv6Allow,omitempty"                     yaml:"ipv6Allow,omitempty"`
+	MaximumTableEntries           string             `xml:"maximumtableentries,omitempty"           json:"maximumTableEntries,omitempty"           yaml:"maximumTableEntries,omitempty"`
+	CryptoHardware                string             `xml:"crypto_hardware,omitempty"               json:"cryptoHardware,omitempty"                yaml:"cryptoHardware,omitempty"`
+	EnableSerial                  opnsense.BoolFlag  `xml:"enableserial,omitempty"                  json:"enableSerial"                            yaml:"enableSerial,omitempty"`
+	AlreadyRunConfigUpgrade       opnsense.BoolFlag  `xml:"already_run_config_upgrade,omitempty"    json:"alreadyRunConfigUpgrade"                 yaml:"alreadyRunConfigUpgrade,omitempty"`
+	NextUID                       int                `xml:"nextuid"                                 json:"nextUid,omitempty"                       yaml:"nextUid,omitempty"`
+	NextGID                       int                `xml:"nextgid"                                 json:"nextGid,omitempty"                       yaml:"nextGid,omitempty"`
+	PowerdACMode                  string             `xml:"powerd_ac_mode"                          json:"powerdAcMode,omitempty"                  yaml:"powerdAcMode,omitempty"`
+	PowerdBatteryMode             string             `xml:"powerd_battery_mode"                     json:"powerdBatteryMode,omitempty"             yaml:"powerdBatteryMode,omitempty"`
+	PowerdNormalMode              string             `xml:"powerd_normal_mode"                      json:"powerdNormalMode,omitempty"              yaml:"powerdNormalMode,omitempty"`
+	Bogons                        struct {
+		Interval string `xml:"interval" json:"interval,omitempty" yaml:"interval,omitempty"`
+	} `xml:"bogons"                                  json:"bogons"                                  yaml:"bogons,omitempty"`
+}
+    System contains the pfSense system configuration, mapping to the <system>
+    XML element. It is forked from the OPNsense System struct because of
+    pfSense-specific differences: multiple DNS servers ([]string vs single
+    string), bcrypt-hash user passwords instead of password fields, user-level
+    privileges (Priv), and additional power management fields.
+
+    Use NewSystem to create a System with all slice fields pre-initialized.
+
+func NewSystem() System
+    NewSystem returns a System with all slice fields initialized for safe use.
+
+type UnboundConfig struct {
+	Enable                    opnsense.BoolFlag `xml:"enable,omitempty"                        json:"enable"                              yaml:"enable,omitempty"`
+	DNSSEC                    opnsense.BoolFlag `xml:"dnssec,omitempty"                        json:"dnssec"                              yaml:"dnssec,omitempty"`
+	ActiveInterface           string            `xml:"active_interface,omitempty"              json:"activeInterface,omitempty"           yaml:"activeInterface,omitempty"`
+	OutgoingInterface         string            `xml:"outgoing_interface,omitempty"            json:"outgoingInterface,omitempty"         yaml:"outgoingInterface,omitempty"`
+	CustomOptions             string            `xml:"custom_options,omitempty"                json:"customOptions,omitempty"             yaml:"customOptions,omitempty"`
+	HideIdentity              opnsense.BoolFlag `xml:"hideidentity,omitempty"                  json:"hideIdentity"                        yaml:"hideIdentity,omitempty"`
+	HideVersion               opnsense.BoolFlag `xml:"hideversion,omitempty"                   json:"hideVersion"                         yaml:"hideVersion,omitempty"`
+	DNSSECStripped            opnsense.BoolFlag `xml:"dnssecstripped,omitempty"                json:"dnssecStripped"                      yaml:"dnssecStripped,omitempty"`
+	Port                      string            `xml:"port,omitempty"                          json:"port,omitempty"                      yaml:"port,omitempty"`
+	SSLPort                   string            `xml:"sslport,omitempty"                       json:"sslPort,omitempty"                   yaml:"sslPort,omitempty"`
+	SSLCertRef                string            `xml:"sslcertref,omitempty"                    json:"sslCertRef,omitempty"                yaml:"sslCertRef,omitempty"`
+	SystemDomainLocalZoneType string            `xml:"system_domain_local_zone_type,omitempty" json:"systemDomainLocalZoneType,omitempty" yaml:"systemDomainLocalZoneType,omitempty"`
+}
+    UnboundConfig represents the pfSense Unbound DNS resolver configuration. It
+    is forked from the OPNsense Unbound type because pfSense includes additional
+    fields for interface bindings, security options (HideIdentity, HideVersion),
+    SSL/TLS port configuration, and DNSSEC-stripped mode. Several boolean fields
+    use opnsense.BoolFlag for presence-based XML serialization.
+
+type User struct {
+	Name           string            `xml:"name"           json:"name"                     yaml:"name"`
+	Disabled       opnsense.BoolFlag `xml:"disabled"       json:"disabled"                 yaml:"disabled"`
+	Descr          string            `xml:"descr"          json:"description,omitempty"    yaml:"description,omitempty"`
+	Scope          string            `xml:"scope"          json:"scope"                    yaml:"scope"`
+	Groupname      string            `xml:"groupname"      json:"groupname"                yaml:"groupname"`
+	BcryptHash     string            `xml:"bcrypt-hash"    json:"bcryptHash"               yaml:"bcryptHash"`
+	UID            string            `xml:"uid"            json:"uid"                      yaml:"uid"`
+	Priv           []string          `xml:"priv,omitempty" json:"priv,omitempty"           yaml:"priv,omitempty"`
+	Expires        string            `xml:"expires"        json:"expires,omitempty"        yaml:"expires,omitempty"`
+	AuthorizedKeys string            `xml:"authorizedkeys" json:"authorizedKeys,omitempty" yaml:"authorizedKeys,omitempty"`
+}
+    User represents a pfSense user. The critical difference from OPNsense is the
+    use of bcrypt-hash instead of password, and user-level privileges via the
+    Priv field.
+
+type WebGUI struct {
+	Protocol string `xml:"protocol" json:"protocol" yaml:"protocol"`
+	// Port is the custom WebGUI listening port, if configured. Empty means the
+	// protocol default (80 for http, 443 for https) applies.
+	Port              string            `xml:"port,omitempty"              json:"port,omitempty"             yaml:"port,omitempty"`
+	SSLCertRef        string            `xml:"ssl-certref,omitempty"       json:"sslCertRef,omitempty"       yaml:"sslCertRef,omitempty"`
+	LoginAutocomplete opnsense.BoolFlag `xml:"loginautocomplete,omitempty" json:"loginAutocomplete"          yaml:"loginAutocomplete,omitempty"`
+	MaxProcesses      string            `xml:"max_procs,omitempty"         json:"maxProcesses,omitempty"     yaml:"maxProcesses,omitempty"`
+	DashboardColumns  string            `xml:"dashboardcolumns,omitempty"  json:"dashboardColumns,omitempty" yaml:"dashboardColumns,omitempty"`
+	WebGUICSS         string            `xml:"webguicss,omitempty"         json:"webguiCss,omitempty"        yaml:"webguiCss,omitempty"`
+	LoginCSS          string            `xml:"logincss,omitempty"          json:"loginCss,omitempty"         yaml:"loginCss,omitempty"`
+	AltHostnames      string            `xml:"althostnames,omitempty"      json:"altHostnames,omitempty"     yaml:"altHostnames,omitempty"`
+}
+    WebGUI represents the pfSense WebGUI configuration. It extends the OPNsense
+    WebGUIConfig with pfSense-specific fields such as dashboard columns,
+    CSS theme, login CSS, and alternate hostnames.
+
+type Widgets struct {
+	Sequence    string `xml:"sequence,omitempty"     json:"sequence,omitempty"    yaml:"sequence,omitempty"`
+	ColumnCount string `xml:"column_count,omitempty" json:"columnCount,omitempty" yaml:"columnCount,omitempty"`
+	Period      string `xml:"period,omitempty"       json:"period,omitempty"      yaml:"period,omitempty"`
+}
+    Widgets represents the pfSense dashboard widgets configuration. It extends
+    the OPNsense Widgets with a pfSense-specific refresh period field.
+

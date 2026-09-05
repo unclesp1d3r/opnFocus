@@ -1,4 +1,3 @@
-// Package pfsense defines the XML schema types for pfSense configuration files.
 package pfsense
 
 import (

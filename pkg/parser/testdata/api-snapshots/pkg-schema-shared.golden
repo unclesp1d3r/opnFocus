@@ -1,0 +1,149 @@
+package shared // import "github.com/EvilBit-Labs/opnDossier/pkg/schema/shared"
+
+Package shared provides schema-layer primitives reused across device-specific
+schemas (OPNsense, pfSense). The types and helpers here handle the common
+problem of XML-encoded configuration data whose textual encoding varies between
+sources even though the underlying semantics are identical.
+
+FUNCTIONS
+
+func IsValueFalse(s string) bool
+    IsValueFalse reports whether s is an explicitly falsy XML value in the
+    liberal vocabulary.
+
+    Recognised falsy values are "0", "off", "no", "false", "disable",
+    "disabled", and the empty string (after trimming whitespace). Matching is
+    case-insensitive.
+
+    IsValueTrue and IsValueFalse are complementary but not exhaustive: unknown
+    values return false from both so callers can decide how to handle them.
+
+func IsValueTrue(s string) bool
+    IsValueTrue reports whether s is a truthy XML value in the liberal
+    vocabulary shared by OPNsense and pfSense.
+
+    Recognised truthy values are "1", "on", "yes", "true", "enable", and
+    "enabled". Matching is case-insensitive and leading/trailing whitespace is
+    trimmed before comparison.
+
+    Unknown values (e.g., "banana") return false — callers that need to
+    distinguish unknown from falsy should also check IsValueFalse.
+
+
+TYPES
+
+type FlexBool bool
+    FlexBool is a value-level liberal boolean for XML-encoded configuration
+    fields where the source device may emit any of the recognized truthy or
+    falsy strings ("1", "on", "yes", "true", etc. — see IsValueTrue for the full
+    vocabulary).
+
+    Use FlexBool on schema fields whose element is always emitted and whose
+    content carries the boolean signal. If the element's presence itself is
+    the signal (i.e., <tag/> means true and absence means false), use BoolFlag
+    instead — BoolFlag and FlexBool both delegate body parsing to IsValueTrue so
+    they share the same liberal vocabulary.
+
+    FlexBool marshals to XML as "1" (true) or "0" (false) for determinism in
+    reserialised output. JSON and YAML round-trip as native booleans. Unknown
+    values unmarshal to false without error; callers that need to flag unknown
+    inputs should pre-validate with IsValueTrue and IsValueFalse.
+
+    The Marshal/Unmarshal methods require pointer receivers to satisfy the
+    encoding interfaces, while the Bool accessor uses a value receiver for
+    ergonomics (so `FlexBool(true).Bool()` works on non-addressable values).
+    recvcheck is suppressed because the mixed-receiver convention is
+    intentional.
+
+func (fb FlexBool) Bool() bool
+    Bool returns the underlying boolean value for convenient comparison at call
+    sites that do not want to cast explicitly. Uses a value receiver so it can
+    be called on non-addressable values (e.g., `FlexBool(true).Bool()`).
+
+func (fb *FlexBool) MarshalJSON() ([]byte, error)
+    MarshalJSON implements json.Marshaler, emitting a native JSON boolean.
+
+func (fb *FlexBool) MarshalXML(e *xml.Encoder, start xml.StartElement) error
+    MarshalXML implements xml.Marshaler for FlexBool. True marshals as "1",
+    false as "0" — canonical numeric form so downstream tooling sees
+    deterministic output.
+
+func (fb *FlexBool) MarshalYAML() (any, error)
+    MarshalYAML implements the yaml.v3 Marshaler interface, emitting a native
+    YAML boolean.
+
+func (fb *FlexBool) UnmarshalJSON(data []byte) error
+    UnmarshalJSON implements json.Unmarshaler. Accepts:
+      - Native booleans: true → true, false → false.
+      - Native integers: any non-zero integer → true, 0 → false. Note that
+        this intentionally widens beyond the canonical {0,1} — a value of 42 is
+        treated as truthy.
+      - Strings: decoded via encoding/json (so escapes are honored) and passed
+        to IsValueTrue. Unrecognized strings (e.g., "banana") and null unmarshal
+        to false without error, consistent with the type-level "unknown → false"
+        contract.
+
+    Fully malformed JSON (bytes that are neither a bool, number, nor string)
+    returns a wrapped error.
+
+func (fb *FlexBool) UnmarshalXML(d *xml.Decoder, start xml.StartElement) error
+    UnmarshalXML implements xml.Unmarshaler for FlexBool. The element body is
+    decoded as a string and interpreted by IsValueTrue.
+
+func (fb *FlexBool) UnmarshalYAML(node *yaml.Node) error
+    UnmarshalYAML implements the yaml.v3 Unmarshaler interface. Matches
+    UnmarshalJSON's behavior: native YAML booleans (`true`/`false`), integers
+    (0 → false, non-zero → true), and strings in the IsValueTrue vocabulary
+    all parse cleanly. Unrecognized scalars and null unmarshal to false without
+    error, consistent with the "unknown → false" contract.
+
+type FlexInt int
+    FlexInt is a liberal integer for XML-encoded configuration fields that are
+    semantically integers but may receive truthy/falsy strings ("on", "off",
+    "yes", "no") in addition to numeric values. Truthy strings coerce to 1,
+    falsy strings to 0, clean numerics pass through unchanged. Unknown strings
+    return a wrapped error so callers can surface a meaningful message.
+
+    Use FlexInt on fields that must retain int semantics (for example,
+    a field that sometimes carries a count and sometimes a boolean toggle).
+    For fields that are purely boolean, prefer FlexBool or BoolFlag for clearer
+    downstream consumer semantics.
+
+    FlexInt marshals as canonical decimal integer. JSON and YAML round-trip as
+    native integers.
+
+    Marshal/Unmarshal methods require pointer receivers to satisfy the encoding
+    interfaces, while the Int accessor uses a value receiver for ergonomics
+    (so `FlexInt(42).Int()` works on non-addressable values). recvcheck is
+    suppressed because the mixed-receiver convention is intentional.
+
+func (fi FlexInt) Int() int
+    Int returns the underlying int value for convenience at call sites.
+    Uses a value receiver so it can be called on non-addressable values (e.g.,
+    `FlexInt(42).Int()`).
+
+func (fi *FlexInt) MarshalJSON() ([]byte, error)
+    MarshalJSON implements json.Marshaler, emitting a native JSON integer.
+
+func (fi *FlexInt) MarshalXML(e *xml.Encoder, start xml.StartElement) error
+    MarshalXML implements xml.Marshaler for FlexInt.
+
+func (fi *FlexInt) MarshalYAML() (any, error)
+    MarshalYAML implements the yaml.v3 Marshaler interface, emitting a native
+    YAML integer.
+
+func (fi *FlexInt) UnmarshalJSON(data []byte) error
+    UnmarshalJSON implements json.Unmarshaler. Accepts raw integers, bool
+    literals, and string forms recognized by IsValueTrue / IsValueFalse.
+
+func (fi *FlexInt) UnmarshalXML(d *xml.Decoder, start xml.StartElement) error
+    UnmarshalXML implements xml.Unmarshaler for FlexInt.
+
+func (fi *FlexInt) UnmarshalYAML(node *yaml.Node) error
+    UnmarshalYAML implements the yaml.v3 Unmarshaler interface. Matches
+    FlexBool.UnmarshalYAML's branching: native !!int scalars are decoded
+    by yaml.v3 (so non-decimal forms like 0x10 and underscored 1_000 work
+    correctly), native !!bool scalars coerce to 0/1, and string-tagged scalars
+    fall through to parse(). This mirrors the FlexBool contract so callers see
+    consistent behavior across both types.
+

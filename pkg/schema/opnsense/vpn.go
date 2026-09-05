@@ -1,4 +1,3 @@
-// Package opnsense defines the data structures for OPNsense configurations.
 package opnsense
 
 import "encoding/xml"
