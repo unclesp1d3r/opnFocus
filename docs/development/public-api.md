@@ -150,15 +150,16 @@ Consumers who serialize `CommonDevice` to JSON, YAML, or any other format must r
 
 The secret-bearing fields on `CommonDevice` are:
 
-| Struct                       | Field                            |
-| ---------------------------- | -------------------------------- |
-| `model.Certificate`          | `PrivateKey`                     |
-| `model.CertificateAuthority` | `PrivateKey`                     |
-| `model.WireGuardClient`      | `PSK`                            |
-| `model.APIKey`               | `Secret`                         |
-| `model.HighAvailability`     | `Password`                       |
-| `model.SNMPConfig`           | `ROCommunity`                    |
-| `model.DHCPAdvancedV6`       | `AdvDHCP6KeyInfoStatementSecret` |
+| Struct                          | Field                            |
+| ------------------------------- | -------------------------------- |
+| `model.Certificate`             | `PrivateKey`                     |
+| `model.CertificateAuthority`    | `PrivateKey`                     |
+| `model.WireGuardClient`         | `PSK`                            |
+| `model.APIKey`                  | `Secret`                         |
+| `model.HighAvailability`        | `Password`                       |
+| `model.SNMPConfig`              | `ROCommunity`                    |
+| `model.DHCPAdvancedV6`          | `AdvDHCP6KeyInfoStatementSecret` |
+| `model.InterfaceDHCPAdvancedV6` | `AdvDHCP6KeyInfoStatementSecret` |
 
 If you add a new secret-bearing field to `CommonDevice`, update this table in the same PR.
 

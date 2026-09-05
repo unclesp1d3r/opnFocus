@@ -1,6 +1,6 @@
 # Model Reference
 
-> **Auto-generated documentation** - Do not edit manually. Generated: 2026-08-28 12:00:06
+> **Auto-generated documentation** - Do not edit manually. Generated: 2026-09-04 22:15:32
 
 This document provides a complete reference of all data fields available in the opnDossier configuration model. Use this reference when working with JSON/YAML exports or building custom integrations.
 
@@ -117,6 +117,7 @@ Core system settings including hostname, users, and SSH configuration.
 | `Groupname`      | `string`   | `system.users[].groupname`      | Required                  |
 | `Password`       | `string`   | `system.users[].password`       | Required                  |
 | `UID`            | `string`   | `system.users[].uid`            | Required                  |
+| `Priv`           | `[]string` | `system.users[].privileges`     | Optional                  |
 | `APIKeys`        | `[]APIKey` | `system.users[].apiKeys`        | Optional                  |
 | `Expires`        | `BoolFlag` | `system.users[].expires`        | -                         |
 | `AuthorizedKeys` | `BoolFlag` | `system.users[].authorizedKeys` | -                         |
@@ -125,14 +126,14 @@ Core system settings including hostname, users, and SSH configuration.
 
 ### Group
 
-| Field         | Type     | JSON Path                     | Description               |
-| ------------- | -------- | ----------------------------- | ------------------------- |
-| `Name`        | `string` | `system.groups[].name`        | Required                  |
-| `Description` | `string` | `system.groups[].description` | Optional                  |
-| `Scope`       | `string` | `system.groups[].scope`       | Required; Options: system |
-| `Gid`         | `string` | `system.groups[].gid`         | Required                  |
-| `Member`      | `string` | `system.groups[].member`      | Optional                  |
-| `Priv`        | `string` | `system.groups[].privileges`  | Optional                  |
+| Field         | Type       | JSON Path                     | Description               |
+| ------------- | ---------- | ----------------------------- | ------------------------- |
+| `Name`        | `string`   | `system.groups[].name`        | Required                  |
+| `Description` | `string`   | `system.groups[].description` | Optional                  |
+| `Scope`       | `string`   | `system.groups[].scope`       | Required; Options: system |
+| `Gid`         | `string`   | `system.groups[].gid`         | Required                  |
+| `Member`      | `[]string` | `system.groups[].member`      | Optional                  |
+| `Priv`        | `[]string` | `system.groups[].privileges`  | Optional                  |
 
 ---
 
@@ -142,45 +143,81 @@ Network interface configuration including VLANs and gateways.
 
 ### Interface
 
-| Field                                      | Type           | JSON Path                                                    | Description |
-| ------------------------------------------ | -------------- | ------------------------------------------------------------ | ----------- |
-| `Enable`                                   | `string`       | `interfaces.<name>.enable`                                   | Optional    |
-| `If`                                       | `string`       | `interfaces.<name>.if`                                       | Optional    |
-| `Descr`                                    | `string`       | `interfaces.<name>.descr`                                    | Optional    |
-| `Spoofmac`                                 | `string`       | `interfaces.<name>.spoofmac`                                 | Optional    |
-| `InternalDynamic`                          | `int`          | `interfaces.<name>.internalDynamic`                          | Optional    |
-| `Type`                                     | `string`       | `interfaces.<name>.type`                                     | Optional    |
-| `Virtual`                                  | `int`          | `interfaces.<name>.virtual`                                  | Optional    |
-| `Lock`                                     | `int`          | `interfaces.<name>.lock`                                     | Optional    |
-| `MTU`                                      | `string`       | `interfaces.<name>.mtu`                                      | Optional    |
-| `IPAddr`                                   | `string`       | `interfaces.<name>.ipaddr`                                   | Optional    |
-| `IPAddrv6`                                 | `string`       | `interfaces.<name>.ipaddrv6`                                 | Optional    |
-| `Subnet`                                   | `string`       | `interfaces.<name>.subnet`                                   | Optional    |
-| `Subnetv6`                                 | `string`       | `interfaces.<name>.subnetv6`                                 | Optional    |
-| `Gateway`                                  | `string`       | `interfaces.<name>.gateway`                                  | Optional    |
-| `Gatewayv6`                                | `string`       | `interfaces.<name>.gatewayv6`                                | Optional    |
-| `BlockPriv`                                | `string`       | `interfaces.<name>.blockpriv`                                | Optional    |
-| `BlockBogons`                              | `string`       | `interfaces.<name>.blockbogons`                              | Optional    |
-| `DHCPHostname`                             | `string`       | `interfaces.<name>.dhcphostname`                             | Optional    |
-| `Media`                                    | `string`       | `interfaces.<name>.media`                                    | Optional    |
-| `MediaOpt`                                 | `string`       | `interfaces.<name>.mediaopt`                                 | Optional    |
-| `DHCP6IaPdLen`                             | `int`          | `interfaces.<name>.dhcp6IaPdLen`                             | Optional    |
-| `Track6Interface`                          | `string`       | `interfaces.<name>.track6Interface`                          | Optional    |
-| `Track6PrefixID`                           | `string`       | `interfaces.<name>.track6PrefixId`                           | Optional    |
-| `AliasAddress`                             | `string`       | `interfaces.<name>.aliasAddress`                             | Optional    |
-| `AliasSubnet`                              | `string`       | `interfaces.<name>.aliasSubnet`                              | Optional    |
-| `DHCPRejectFrom`                           | `string`       | `interfaces.<name>.dhcprejectfrom`                           | Optional    |
-| `DDNSDomainAlgorithm`                      | `string`       | `interfaces.<name>.ddnsdomainalgorithm`                      | Optional    |
-| `NumberOptions`                            | `[]DhcpOption` | `interfaces.<name>.numberoptions`                            | Optional    |
-| `Range`                                    | `DhcpRange`    | `interfaces.<name>.range`                                    | -           |
-| `Winsserver`                               | `string`       | `interfaces.<name>.winsserver`                               | Optional    |
-| `Dnsserver`                                | `string`       | `interfaces.<name>.dnsserver`                                | Optional    |
-| `Ntpserver`                                | `string`       | `interfaces.<name>.ntpserver`                                | Optional    |
-| `AdvDHCPRequestOptions`                    | `string`       | `interfaces.<name>.advDhcpRequestOptions`                    | Optional    |
-| `AdvDHCPRequiredOptions`                   | `string`       | `interfaces.<name>.advDhcpRequiredOptions`                   | Optional    |
-| `AdvDHCP6InterfaceStatementRequestOptions` | `string`       | `interfaces.<name>.advDhcp6InterfaceStatementRequestOptions` | Optional    |
-| `AdvDHCP6ConfigFileOverride`               | `string`       | `interfaces.<name>.advDhcp6ConfigFileOverride`               | Optional    |
-| `AdvDHCP6IDAssocStatementPrefixPLTime`     | `string`       | `interfaces.<name>.advDhcp6IdAssocStatementPrefixPltime`     | Optional    |
+| Field                                             | Type           | JSON Path                                                           | Description |
+| ------------------------------------------------- | -------------- | ------------------------------------------------------------------- | ----------- |
+| `Enable`                                          | `string`       | `interfaces.<name>.enable`                                          | Optional    |
+| `If`                                              | `string`       | `interfaces.<name>.if`                                              | Optional    |
+| `Descr`                                           | `string`       | `interfaces.<name>.descr`                                           | Optional    |
+| `Spoofmac`                                        | `string`       | `interfaces.<name>.spoofmac`                                        | Optional    |
+| `InternalDynamic`                                 | `int`          | `interfaces.<name>.internalDynamic`                                 | Optional    |
+| `Type`                                            | `string`       | `interfaces.<name>.type`                                            | Optional    |
+| `Virtual`                                         | `int`          | `interfaces.<name>.virtual`                                         | Optional    |
+| `Lock`                                            | `int`          | `interfaces.<name>.lock`                                            | Optional    |
+| `MTU`                                             | `string`       | `interfaces.<name>.mtu`                                             | Optional    |
+| `IPAddr`                                          | `string`       | `interfaces.<name>.ipaddr`                                          | Optional    |
+| `IPAddrv6`                                        | `string`       | `interfaces.<name>.ipaddrv6`                                        | Optional    |
+| `Subnet`                                          | `string`       | `interfaces.<name>.subnet`                                          | Optional    |
+| `Subnetv6`                                        | `string`       | `interfaces.<name>.subnetv6`                                        | Optional    |
+| `Gateway`                                         | `string`       | `interfaces.<name>.gateway`                                         | Optional    |
+| `Gatewayv6`                                       | `string`       | `interfaces.<name>.gatewayv6`                                       | Optional    |
+| `BlockPriv`                                       | `string`       | `interfaces.<name>.blockpriv`                                       | Optional    |
+| `BlockBogons`                                     | `string`       | `interfaces.<name>.blockbogons`                                     | Optional    |
+| `DHCPHostname`                                    | `string`       | `interfaces.<name>.dhcphostname`                                    | Optional    |
+| `Media`                                           | `string`       | `interfaces.<name>.media`                                           | Optional    |
+| `MediaOpt`                                        | `string`       | `interfaces.<name>.mediaopt`                                        | Optional    |
+| `DHCP6IaPdLen`                                    | `int`          | `interfaces.<name>.dhcp6IaPdLen`                                    | Optional    |
+| `Track6Interface`                                 | `string`       | `interfaces.<name>.track6Interface`                                 | Optional    |
+| `Track6PrefixID`                                  | `string`       | `interfaces.<name>.track6PrefixId`                                  | Optional    |
+| `AliasAddress`                                    | `string`       | `interfaces.<name>.aliasAddress`                                    | Optional    |
+| `AliasSubnet`                                     | `string`       | `interfaces.<name>.aliasSubnet`                                     | Optional    |
+| `DHCPRejectFrom`                                  | `string`       | `interfaces.<name>.dhcprejectfrom`                                  | Optional    |
+| `DDNSDomainAlgorithm`                             | `string`       | `interfaces.<name>.ddnsdomainalgorithm`                             | Optional    |
+| `NumberOptions`                                   | `[]DhcpOption` | `interfaces.<name>.numberoptions`                                   | Optional    |
+| `Range`                                           | `DhcpRange`    | `interfaces.<name>.range`                                           | -           |
+| `Winsserver`                                      | `string`       | `interfaces.<name>.winsserver`                                      | Optional    |
+| `Dnsserver`                                       | `string`       | `interfaces.<name>.dnsserver`                                       | Optional    |
+| `Ntpserver`                                       | `string`       | `interfaces.<name>.ntpserver`                                       | Optional    |
+| `AdvDHCPPTTimeout`                                | `string`       | `interfaces.<name>.advDhcpPtTimeout`                                | Optional    |
+| `AdvDHCPPTRetry`                                  | `string`       | `interfaces.<name>.advDhcpPtRetry`                                  | Optional    |
+| `AdvDHCPPTSelectTimeout`                          | `string`       | `interfaces.<name>.advDhcpPtSelectTimeout`                          | Optional    |
+| `AdvDHCPPTReboot`                                 | `string`       | `interfaces.<name>.advDhcpPtReboot`                                 | Optional    |
+| `AdvDHCPPTBackoffCutoff`                          | `string`       | `interfaces.<name>.advDhcpPtBackoffCutoff`                          | Optional    |
+| `AdvDHCPPTInitialInterval`                        | `string`       | `interfaces.<name>.advDhcpPtInitialInterval`                        | Optional    |
+| `AdvDHCPPTValues`                                 | `string`       | `interfaces.<name>.advDhcpPtValues`                                 | Optional    |
+| `AdvDHCPSendOptions`                              | `string`       | `interfaces.<name>.advDhcpSendOptions`                              | Optional    |
+| `AdvDHCPRequestOptions`                           | `string`       | `interfaces.<name>.advDhcpRequestOptions`                           | Optional    |
+| `AdvDHCPRequiredOptions`                          | `string`       | `interfaces.<name>.advDhcpRequiredOptions`                          | Optional    |
+| `AdvDHCPOptionModifiers`                          | `string`       | `interfaces.<name>.advDhcpOptionModifiers`                          | Optional    |
+| `AdvDHCPConfigAdvanced`                           | `string`       | `interfaces.<name>.advDhcpConfigAdvanced`                           | Optional    |
+| `AdvDHCPConfigFileOverride`                       | `string`       | `interfaces.<name>.advDhcpConfigFileOverride`                       | Optional    |
+| `AdvDHCPConfigFileOverridePath`                   | `string`       | `interfaces.<name>.advDhcpConfigFileOverridePath`                   | Optional    |
+| `AdvDHCP6InterfaceStatementSendOptions`           | `string`       | `interfaces.<name>.advDhcp6InterfaceStatementSendOptions`           | Optional    |
+| `AdvDHCP6InterfaceStatementRequestOptions`        | `string`       | `interfaces.<name>.advDhcp6InterfaceStatementRequestOptions`        | Optional    |
+| `AdvDHCP6InterfaceStatementInformationOnlyEnable` | `BoolFlag`     | `interfaces.<name>.advDhcp6InterfaceStatementInformationOnlyEnable` | Optional    |
+| `AdvDHCP6InterfaceStatementScript`                | `string`       | `interfaces.<name>.advDhcp6InterfaceStatementScript`                | Optional    |
+| `AdvDHCP6IDAssocStatementAddressEnable`           | `BoolFlag`     | `interfaces.<name>.advDhcp6IdAssocStatementAddressEnable`           | Optional    |
+| `AdvDHCP6IDAssocStatementAddress`                 | `string`       | `interfaces.<name>.advDhcp6IdAssocStatementAddress`                 | Optional    |
+| `AdvDHCP6IDAssocStatementAddressID`               | `string`       | `interfaces.<name>.advDhcp6IdAssocStatementAddressId`               | Optional    |
+| `AdvDHCP6IDAssocStatementAddressPLTime`           | `string`       | `interfaces.<name>.advDhcp6IdAssocStatementAddressPltime`           | Optional    |
+| `AdvDHCP6IDAssocStatementAddressVLTime`           | `string`       | `interfaces.<name>.advDhcp6IdAssocStatementAddressVltime`           | Optional    |
+| `AdvDHCP6IDAssocStatementPrefixEnable`            | `BoolFlag`     | `interfaces.<name>.advDhcp6IdAssocStatementPrefixEnable`            | Optional    |
+| `AdvDHCP6IDAssocStatementPrefix`                  | `string`       | `interfaces.<name>.advDhcp6IdAssocStatementPrefix`                  | Optional    |
+| `AdvDHCP6IDAssocStatementPrefixID`                | `string`       | `interfaces.<name>.advDhcp6IdAssocStatementPrefixId`                | Optional    |
+| `AdvDHCP6IDAssocStatementPrefixPLTime`            | `string`       | `interfaces.<name>.advDhcp6IdAssocStatementPrefixPltime`            | Optional    |
+| `AdvDHCP6IDAssocStatementPrefixVLTime`            | `string`       | `interfaces.<name>.advDhcp6IdAssocStatementPrefixVltime`            | Optional    |
+| `AdvDHCP6PrefixInterfaceStatementSLALen`          | `string`       | `interfaces.<name>.advDhcp6PrefixInterfaceStatementSlaLen`          | Optional    |
+| `AdvDHCP6AuthenticationStatementAuthName`         | `string`       | `interfaces.<name>.advDhcp6AuthenticationStatementAuthName`         | Optional    |
+| `AdvDHCP6AuthenticationStatementProtocol`         | `string`       | `interfaces.<name>.advDhcp6AuthenticationStatementProtocol`         | Optional    |
+| `AdvDHCP6AuthenticationStatementAlgorithm`        | `string`       | `interfaces.<name>.advDhcp6AuthenticationStatementAlgorithm`        | Optional    |
+| `AdvDHCP6AuthenticationStatementRDM`              | `string`       | `interfaces.<name>.advDhcp6AuthenticationStatementRdm`              | Optional    |
+| `AdvDHCP6KeyInfoStatementKeyName`                 | `string`       | `interfaces.<name>.advDhcp6KeyInfoStatementKeyName`                 | Optional    |
+| `AdvDHCP6KeyInfoStatementRealm`                   | `string`       | `interfaces.<name>.advDhcp6KeyInfoStatementRealm`                   | Optional    |
+| `AdvDHCP6KeyInfoStatementKeyID`                   | `string`       | `interfaces.<name>.advDhcp6KeyInfoStatementKeyId`                   | Optional    |
+| `AdvDHCP6KeyInfoStatementSecret`                  | `string`       | `interfaces.<name>.advDhcp6KeyInfoStatementSecret`                  | Optional    |
+| `AdvDHCP6KeyInfoStatementExpire`                  | `string`       | `interfaces.<name>.advDhcp6KeyInfoStatementExpire`                  | Optional    |
+| `AdvDHCP6ConfigAdvanced`                          | `string`       | `interfaces.<name>.advDhcp6ConfigAdvanced`                          | Optional    |
+| `AdvDHCP6ConfigFileOverride`                      | `string`       | `interfaces.<name>.advDhcp6ConfigFileOverride`                      | Optional    |
+| `AdvDHCP6ConfigFileOverridePath`                  | `string`       | `interfaces.<name>.advDhcp6ConfigFileOverridePath`                  | Optional    |
 
 ### Gateway
 
@@ -244,6 +281,8 @@ Firewall rules and NAT configuration.
 | `DisableReplyTo`  | `BoolFlag`    | `filter.rule[].disablereplyto`  | -           |
 | `NoPfSync`        | `BoolFlag`    | `filter.rule[].nopfsync`        | -           |
 | `NoSync`          | `BoolFlag`    | `filter.rule[].nosync`          | -           |
+| `Tag`             | `string`      | `filter.rule[].tag`             | -           |
+| `Tagged`          | `string`      | `filter.rule[].tagged`          | -           |
 | `Updated`         | `*Updated`    | `filter.rule[].updated`         | -           |
 | `Created`         | `*Created`    | `filter.rule[].created`         | -           |
 | `UUID`            | `string`      | `filter.rule[].uuid`            | -           |
@@ -260,6 +299,7 @@ Firewall rules and NAT configuration.
 | `Destination`        | `Destination` | `nat.outbound.rule[].destination`        | -           |
 | `Target`             | `string`      | `nat.outbound.rule[].target`             | Optional    |
 | `SourcePort`         | `string`      | `nat.outbound.rule[].sourcePort`         | Optional    |
+| `DstPort`            | `string`      | `nat.outbound.rule[].dstPort`            | Optional    |
 | `NatPort`            | `string`      | `nat.outbound.rule[].natPort`            | Optional    |
 | `PoolOpts`           | `string`      | `nat.outbound.rule[].poolOpts`           | Optional    |
 | `PoolOptsSrcHashKey` | `string`      | `nat.outbound.rule[].poolOptsSrcHashKey` | Optional    |
@@ -297,6 +337,7 @@ System services configuration.
 | `Range`                                           | `Range`              | `dhcpd.<interface>.range`                                           | -           |
 | `Gateway`                                         | `string`             | `dhcpd.<interface>.gateway`                                         | -           |
 | `DdnsDomainAlgorithm`                             | `string`             | `dhcpd.<interface>.ddnsdomainalgorithm`                             | -           |
+| `FailoverPeerIP`                                  | `string`             | `dhcpd.<interface>.failoverpeerip`                                  | -           |
 | `NumberOptions`                                   | `[]DHCPNumberOption` | `dhcpd.<interface>.numberoptions`                                   | -           |
 | `Winsserver`                                      | `string`             | `dhcpd.<interface>.winsserver`                                      | -           |
 | `Dnsserver`                                       | `[]string`           | `dhcpd.<interface>.dnsserver`                                       | -           |
@@ -386,6 +427,9 @@ VPN service configuration including OpenVPN and WireGuard.
 | `Local_networkv6`   | `string`   | `openvpn.server[].local_networkv6`   | -           |
 | `Maxclients`        | `string`   | `openvpn.server[].maxclients`        | -           |
 | `Compression`       | `string`   | `openvpn.server[].compression`       | -           |
+| `Crypto`            | `string`   | `openvpn.server[].crypto`            | -           |
+| `Digest`            | `string`   | `openvpn.server[].digest`            | -           |
+| `NCPCiphers`        | `string`   | `openvpn.server[].ncpciphers`        | -           |
 | `Passtos`           | `BoolFlag` | `openvpn.server[].passtos`           | -           |
 | `Client2client`     | `BoolFlag` | `openvpn.server[].client2client`     | -           |
 | `Dynamic_ip`        | `BoolFlag` | `openvpn.server[].dynamic_ip`        | -           |
@@ -423,6 +467,9 @@ VPN service configuration including OpenVPN and WireGuard.
 | `Cert_ref`        | `string` | `openvpn.client[].cert_ref`        | -           |
 | `CA_ref`          | `string` | `openvpn.client[].ca_ref`          | -           |
 | `Compression`     | `string` | `openvpn.client[].compression`     | -           |
+| `Crypto`          | `string` | `openvpn.client[].crypto`          | -           |
+| `Digest`          | `string` | `openvpn.client[].digest`          | -           |
+| `NCPCiphers`      | `string` | `openvpn.client[].ncpciphers`      | -           |
 | `Verbosity_level` | `string` | `openvpn.client[].verbosity_level` | -           |
 | `Created`         | `string` | `openvpn.client[].created`         | -           |
 | `Updated`         | `string` | `openvpn.client[].updated`         | -           |

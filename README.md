@@ -518,15 +518,16 @@ Log all warnings; treat `high` and above as signals to investigate the source co
 
 The secret-bearing fields are:
 
-| Struct                       | Field                            |
-| ---------------------------- | -------------------------------- |
-| `model.Certificate`          | `PrivateKey`                     |
-| `model.CertificateAuthority` | `PrivateKey`                     |
-| `model.WireGuardClient`      | `PSK`                            |
-| `model.APIKey`               | `Secret`                         |
-| `model.HighAvailability`     | `Password`                       |
-| `model.SNMPConfig`           | `ROCommunity`                    |
-| `model.DHCPAdvancedV6`       | `AdvDHCP6KeyInfoStatementSecret` |
+| Struct                          | Field                            |
+| ------------------------------- | -------------------------------- |
+| `model.Certificate`             | `PrivateKey`                     |
+| `model.CertificateAuthority`    | `PrivateKey`                     |
+| `model.WireGuardClient`         | `PSK`                            |
+| `model.APIKey`                  | `Secret`                         |
+| `model.HighAvailability`        | `Password`                       |
+| `model.SNMPConfig`              | `ROCommunity`                    |
+| `model.DHCPAdvancedV6`          | `AdvDHCP6KeyInfoStatementSecret` |
+| `model.InterfaceDHCPAdvancedV6` | `AdvDHCP6KeyInfoStatementSecret` |
 
 If you add a new secret-bearing field to `CommonDevice`, update this table in the same PR.
 

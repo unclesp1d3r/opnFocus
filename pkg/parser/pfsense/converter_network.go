@@ -27,26 +27,28 @@ func (c *converter) convertInterfaces(doc *pfsense.Document) []common.Interface 
 	for _, key := range keys {
 		iface := items[key]
 		result = append(result, common.Interface{
-			Name:         key,
-			PhysicalIf:   iface.If,
-			Description:  iface.Descr,
-			Enabled:      iface.Enable.Bool(),
-			IPAddress:    iface.IPAddr,
-			IPv6Address:  iface.IPAddrv6,
-			Subnet:       iface.Subnet,
-			SubnetV6:     iface.Subnetv6,
-			Gateway:      iface.Gateway,
-			GatewayV6:    iface.Gatewayv6,
-			BlockPrivate: shared.IsValueTrue(iface.BlockPriv),
-			BlockBogons:  shared.IsValueTrue(iface.BlockBogons),
-			Type:         iface.Type,
-			MTU:          iface.MTU,
-			SpoofMAC:     iface.Spoofmac,
-			DHCPHostname: iface.DHCPHostname,
-			Media:        iface.Media,
-			MediaOpt:     iface.MediaOpt,
-			Virtual:      iface.Virtual != 0,
-			Lock:         iface.Lock != 0,
+			Name:           key,
+			PhysicalIf:     iface.If,
+			Description:    iface.Descr,
+			Enabled:        iface.Enable.Bool(),
+			IPAddress:      iface.IPAddr,
+			IPv6Address:    iface.IPAddrv6,
+			Subnet:         iface.Subnet,
+			SubnetV6:       iface.Subnetv6,
+			Gateway:        iface.Gateway,
+			GatewayV6:      iface.Gatewayv6,
+			BlockPrivate:   shared.IsValueTrue(iface.BlockPriv),
+			BlockBogons:    shared.IsValueTrue(iface.BlockBogons),
+			Type:           iface.Type,
+			MTU:            iface.MTU,
+			SpoofMAC:       iface.Spoofmac,
+			DHCPHostname:   iface.DHCPHostname,
+			Media:          iface.Media,
+			MediaOpt:       iface.MediaOpt,
+			Virtual:        iface.Virtual != 0,
+			Lock:           iface.Lock != 0,
+			DHCPAdvancedV4: c.buildInterfaceDHCPAdvancedV4(iface),
+			DHCPAdvancedV6: c.buildInterfaceDHCPAdvancedV6(iface),
 		})
 	}
 
@@ -203,4 +205,79 @@ func (c *converter) convertStaticRoutes(doc *pfsense.Document) []common.StaticRo
 	}
 
 	return result
+}
+
+// buildInterfaceDHCPAdvancedV4 constructs a DHCPAdvancedV4 from the advanced DHCPv4
+// *client* elements stored on the interface itself. Real config.xml files put these
+// under <interfaces><wan>, not under <dhcpd>.
+// Returns nil when all fields are empty, so the pointer is omitted during serialization.
+func (c *converter) buildInterfaceDHCPAdvancedV4(iface pfsense.Interface) *common.InterfaceDHCPAdvancedV4 {
+	v4 := common.InterfaceDHCPAdvancedV4{
+		AliasAddress:                  iface.AliasAddress,
+		AliasSubnet:                   iface.AliasSubnet,
+		DHCPRejectFrom:                iface.DHCPRejectFrom,
+		AdvDHCPPTTimeout:              iface.AdvDHCPPTTimeout,
+		AdvDHCPPTRetry:                iface.AdvDHCPPTRetry,
+		AdvDHCPPTSelectTimeout:        iface.AdvDHCPPTSelectTimeout,
+		AdvDHCPPTReboot:               iface.AdvDHCPPTReboot,
+		AdvDHCPPTBackoffCutoff:        iface.AdvDHCPPTBackoffCutoff,
+		AdvDHCPPTInitialInterval:      iface.AdvDHCPPTInitialInterval,
+		AdvDHCPPTValues:               iface.AdvDHCPPTValues,
+		AdvDHCPSendOptions:            iface.AdvDHCPSendOptions,
+		AdvDHCPRequestOptions:         iface.AdvDHCPRequestOptions,
+		AdvDHCPRequiredOptions:        iface.AdvDHCPRequiredOptions,
+		AdvDHCPOptionModifiers:        iface.AdvDHCPOptionModifiers,
+		AdvDHCPConfigAdvanced:         iface.AdvDHCPConfigAdvanced,
+		AdvDHCPConfigFileOverride:     iface.AdvDHCPConfigFileOverride,
+		AdvDHCPConfigFileOverridePath: iface.AdvDHCPConfigFileOverridePath,
+	}
+
+	if (v4 == common.InterfaceDHCPAdvancedV4{}) {
+		return nil
+	}
+
+	return &v4
+}
+
+// buildInterfaceDHCPAdvancedV6 constructs a DHCPAdvancedV6 from the advanced DHCPv6
+// client elements stored on the interface itself.
+// Returns nil when all fields are empty, so the pointer is omitted during serialization.
+func (c *converter) buildInterfaceDHCPAdvancedV6(iface pfsense.Interface) *common.InterfaceDHCPAdvancedV6 {
+	v6 := common.InterfaceDHCPAdvancedV6{
+		Track6Interface:                                 iface.Track6Interface,
+		Track6PrefixID:                                  iface.Track6PrefixID,
+		AdvDHCP6InterfaceStatementSendOptions:           iface.AdvDHCP6InterfaceStatementSendOptions,
+		AdvDHCP6InterfaceStatementRequestOptions:        iface.AdvDHCP6InterfaceStatementRequestOptions,
+		AdvDHCP6InterfaceStatementInformationOnlyEnable: bool(iface.AdvDHCP6InterfaceStatementInformationOnlyEnable),
+		AdvDHCP6InterfaceStatementScript:                iface.AdvDHCP6InterfaceStatementScript,
+		AdvDHCP6IDAssocStatementAddressEnable:           bool(iface.AdvDHCP6IDAssocStatementAddressEnable),
+		AdvDHCP6IDAssocStatementAddress:                 iface.AdvDHCP6IDAssocStatementAddress,
+		AdvDHCP6IDAssocStatementAddressID:               iface.AdvDHCP6IDAssocStatementAddressID,
+		AdvDHCP6IDAssocStatementAddressPLTime:           iface.AdvDHCP6IDAssocStatementAddressPLTime,
+		AdvDHCP6IDAssocStatementAddressVLTime:           iface.AdvDHCP6IDAssocStatementAddressVLTime,
+		AdvDHCP6IDAssocStatementPrefixEnable:            bool(iface.AdvDHCP6IDAssocStatementPrefixEnable),
+		AdvDHCP6IDAssocStatementPrefix:                  iface.AdvDHCP6IDAssocStatementPrefix,
+		AdvDHCP6IDAssocStatementPrefixID:                iface.AdvDHCP6IDAssocStatementPrefixID,
+		AdvDHCP6IDAssocStatementPrefixPLTime:            iface.AdvDHCP6IDAssocStatementPrefixPLTime,
+		AdvDHCP6IDAssocStatementPrefixVLTime:            iface.AdvDHCP6IDAssocStatementPrefixVLTime,
+		AdvDHCP6PrefixInterfaceStatementSLALen:          iface.AdvDHCP6PrefixInterfaceStatementSLALen,
+		AdvDHCP6AuthenticationStatementAuthName:         iface.AdvDHCP6AuthenticationStatementAuthName,
+		AdvDHCP6AuthenticationStatementProtocol:         iface.AdvDHCP6AuthenticationStatementProtocol,
+		AdvDHCP6AuthenticationStatementAlgorithm:        iface.AdvDHCP6AuthenticationStatementAlgorithm,
+		AdvDHCP6AuthenticationStatementRDM:              iface.AdvDHCP6AuthenticationStatementRDM,
+		AdvDHCP6KeyInfoStatementKeyName:                 iface.AdvDHCP6KeyInfoStatementKeyName,
+		AdvDHCP6KeyInfoStatementRealm:                   iface.AdvDHCP6KeyInfoStatementRealm,
+		AdvDHCP6KeyInfoStatementKeyID:                   iface.AdvDHCP6KeyInfoStatementKeyID,
+		AdvDHCP6KeyInfoStatementSecret:                  iface.AdvDHCP6KeyInfoStatementSecret,
+		AdvDHCP6KeyInfoStatementExpire:                  iface.AdvDHCP6KeyInfoStatementExpire,
+		AdvDHCP6ConfigAdvanced:                          iface.AdvDHCP6ConfigAdvanced,
+		AdvDHCP6ConfigFileOverride:                      iface.AdvDHCP6ConfigFileOverride,
+		AdvDHCP6ConfigFileOverridePath:                  iface.AdvDHCP6ConfigFileOverridePath,
+	}
+
+	if (v6 == common.InterfaceDHCPAdvancedV6{}) {
+		return nil
+	}
+
+	return &v6
 }
