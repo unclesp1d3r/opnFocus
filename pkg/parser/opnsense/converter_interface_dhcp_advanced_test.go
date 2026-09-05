@@ -41,6 +41,25 @@ const advDHCPConfigTemplate = `<?xml version="1.0"?>
 // the wrong source field produces a mismatch rather than an accidental pass.
 func advDHCPSentinel(field string) string { return "sentinel-" + field }
 
+// advDHCPFlagFields reports which fields of the given advanced-DHCP structs are
+// presence-only flags (bool) rather than value-bearing strings. The XML those
+// two kinds require differs, so the generator and the assertions both key off
+// this rather than hardcoding a list that would drift.
+func advDHCPFlagFields(structs ...any) map[string]bool {
+	flags := map[string]bool{}
+
+	for _, v := range structs {
+		rt := reflect.TypeOf(v)
+		for f := range rt.Fields() {
+			if f.Type.Kind() == reflect.Bool {
+				flags[f.Name] = true
+			}
+		}
+	}
+
+	return flags
+}
+
 // advDHCPFieldNames lists the string fields of a common advanced-DHCP struct.
 // The common struct is the source of truth for what must be wired: a field added
 // there without a matching builder assignment fails the tests below.
@@ -84,7 +103,16 @@ func advDHCPAssertFields(t *testing.T, got reflect.Value, fields []string) {
 	t.Helper()
 
 	for _, name := range fields {
-		assert.Equalf(t, advDHCPSentinel(name), got.FieldByName(name).String(),
+		field := got.FieldByName(name)
+
+		if field.Kind() == reflect.Bool {
+			assert.Truef(t, field.Bool(),
+				"%s is a presence-only flag and is unwired in the interface advanced-DHCP builder", name)
+
+			continue
+		}
+
+		assert.Equalf(t, advDHCPSentinel(name), field.String(),
 			"%s is unwired or cross-wired in the interface advanced-DHCP builder", name)
 	}
 }
@@ -100,7 +128,19 @@ func TestConverter_InterfaceDHCPAdvanced_AllFieldsWired(t *testing.T) {
 	tags := advDHCPXMLTags(t, reflect.TypeFor[schema.Interface](), slices.Concat(v4Fields, v6Fields))
 
 	var body strings.Builder
+	flags := advDHCPFlagFields(common.InterfaceDHCPAdvancedV4{}, common.InterfaceDHCPAdvancedV6{})
+
 	for _, name := range slices.Concat(v4Fields, v6Fields) {
+		// Presence-only flags are written by both GUIs as a self-closing element.
+		// Emitting them that way is what proves BoolFlag reads presence rather
+		// than body text; a sentinel body would not be truthy and the field
+		// would read false whether or not the wiring is correct.
+		if flags[name] {
+			fmt.Fprintf(&body, "      <%s/>\n", tags[name])
+
+			continue
+		}
+
 		fmt.Fprintf(&body, "      <%s>%s</%s>\n", tags[name], advDHCPSentinel(name), tags[name])
 	}
 
@@ -132,8 +172,20 @@ func TestConverter_InterfaceDHCPAdvanced_NilWhenUnset(t *testing.T) {
 	v6Fields := advDHCPFieldNames(common.InterfaceDHCPAdvancedV6{})
 	tags := advDHCPXMLTags(t, reflect.TypeFor[schema.Interface](), slices.Concat(v4Fields, v6Fields))
 
+	// Presence-only flags are deliberately excluded here. For a value-bearing
+	// element an empty tag means "no value set"; for a flag it means the box is
+	// checked, so emitting one would correctly produce a non-nil struct and
+	// would be testing the opposite of what this case is about. Flag presence
+	// has its own test, TestConverter_InterfaceDHCPAdvancedV6_FlagOnlyConfig_NotDropped.
+	flags := advDHCPFlagFields(common.InterfaceDHCPAdvancedV4{}, common.InterfaceDHCPAdvancedV6{})
+
 	var empties strings.Builder
+
 	for _, name := range slices.Concat(v4Fields, v6Fields) {
+		if flags[name] {
+			continue
+		}
+
 		fmt.Fprintf(&empties, "      <%s/>\n", tags[name])
 	}
 
@@ -268,4 +320,34 @@ func TestSchema_Interface_CoversFixtureAdvancedDHCPElements(t *testing.T) {
 		found,
 		"fixture no longer carries advanced DHCP elements under <interfaces>; this test is vacuous",
 	)
+}
+
+// TestConverter_InterfaceDHCPAdvancedV6_FlagOnlyConfig_NotDropped pins the
+// presence-only flag handling that a plain string field silently lost.
+//
+// Both GUIs write a checked box as a self-closing element. As a string field an
+// absent element and a checked one both unmarshal to "", so a configuration
+// whose only advanced-DHCPv6 setting was a checkbox matched the builder's
+// all-fields-empty guard and the entire InterfaceDHCPAdvancedV6 struct was
+// omitted from every export. BoolFlag distinguishes the two, so the guard sees
+// a non-zero struct and the setting survives.
+func TestConverter_InterfaceDHCPAdvancedV6_FlagOnlyConfig_NotDropped(t *testing.T) {
+	t.Parallel()
+
+	body := "      <adv_dhcp6_interface_statement_information_only_enable/>\n"
+	xmlBody := fmt.Sprintf(advDHCPConfigTemplate, body)
+
+	device, _, err := parser.NewFactory(cfgparser.NewXMLParser()).CreateDevice(
+		context.Background(), strings.NewReader(xmlBody), common.DeviceTypeUnknown, false,
+	)
+	require.NoError(t, err)
+	require.NotNil(t, device)
+	require.Len(t, device.Interfaces, 1)
+
+	adv := device.Interfaces[0].DHCPAdvancedV6
+	require.NotNil(t, adv,
+		"an interface whose only advanced-DHCPv6 setting is a checked box must still convert; "+
+			"nil here means the presence-only flag was read as empty and the whole struct was dropped")
+	assert.True(t, adv.AdvDHCP6InterfaceStatementInformationOnlyEnable,
+		"the information-only checkbox is set in the config and must survive conversion")
 }

@@ -242,22 +242,20 @@ func (c *converter) buildInterfaceDHCPAdvancedV4(iface pfsense.Interface) *commo
 // buildInterfaceDHCPAdvancedV6 constructs a DHCPAdvancedV6 from the advanced DHCPv6
 // client elements stored on the interface itself.
 // Returns nil when all fields are empty, so the pointer is omitted during serialization.
-//
-//nolint:dupl // Field-for-field copy between two deliberately separate types: the <interfaces> and <dhcpd> element sets have diverged, so InterfaceDHCPAdvancedV6 and DHCPAdvancedV6 are kept apart on purpose. Sharing a body would need reflection or a 29-method accessor interface, and would re-couple exactly what that split decouples. Both sides carry the directive because dupl reports pairs (GOTCHAS.md 9.1).
 func (c *converter) buildInterfaceDHCPAdvancedV6(iface pfsense.Interface) *common.InterfaceDHCPAdvancedV6 {
 	v6 := common.InterfaceDHCPAdvancedV6{
 		Track6Interface:                                 iface.Track6Interface,
 		Track6PrefixID:                                  iface.Track6PrefixID,
 		AdvDHCP6InterfaceStatementSendOptions:           iface.AdvDHCP6InterfaceStatementSendOptions,
 		AdvDHCP6InterfaceStatementRequestOptions:        iface.AdvDHCP6InterfaceStatementRequestOptions,
-		AdvDHCP6InterfaceStatementInformationOnlyEnable: iface.AdvDHCP6InterfaceStatementInformationOnlyEnable,
+		AdvDHCP6InterfaceStatementInformationOnlyEnable: bool(iface.AdvDHCP6InterfaceStatementInformationOnlyEnable),
 		AdvDHCP6InterfaceStatementScript:                iface.AdvDHCP6InterfaceStatementScript,
-		AdvDHCP6IDAssocStatementAddressEnable:           iface.AdvDHCP6IDAssocStatementAddressEnable,
+		AdvDHCP6IDAssocStatementAddressEnable:           bool(iface.AdvDHCP6IDAssocStatementAddressEnable),
 		AdvDHCP6IDAssocStatementAddress:                 iface.AdvDHCP6IDAssocStatementAddress,
 		AdvDHCP6IDAssocStatementAddressID:               iface.AdvDHCP6IDAssocStatementAddressID,
 		AdvDHCP6IDAssocStatementAddressPLTime:           iface.AdvDHCP6IDAssocStatementAddressPLTime,
 		AdvDHCP6IDAssocStatementAddressVLTime:           iface.AdvDHCP6IDAssocStatementAddressVLTime,
-		AdvDHCP6IDAssocStatementPrefixEnable:            iface.AdvDHCP6IDAssocStatementPrefixEnable,
+		AdvDHCP6IDAssocStatementPrefixEnable:            bool(iface.AdvDHCP6IDAssocStatementPrefixEnable),
 		AdvDHCP6IDAssocStatementPrefix:                  iface.AdvDHCP6IDAssocStatementPrefix,
 		AdvDHCP6IDAssocStatementPrefixID:                iface.AdvDHCP6IDAssocStatementPrefixID,
 		AdvDHCP6IDAssocStatementPrefixPLTime:            iface.AdvDHCP6IDAssocStatementPrefixPLTime,

@@ -1576,12 +1576,12 @@ type InterfaceDHCPAdvancedV6 struct {
 	// AdvDHCP6InterfaceStatementRequestOptions specifies DHCPv6 options to request.
 	AdvDHCP6InterfaceStatementRequestOptions string `json:"advDhcp6InterfaceStatementRequestOptions,omitempty" yaml:"advDhcp6InterfaceStatementRequestOptions,omitempty"`
 	// AdvDHCP6InterfaceStatementInformationOnlyEnable enables information-only mode.
-	AdvDHCP6InterfaceStatementInformationOnlyEnable string `json:"advDhcp6InterfaceStatementInformationOnlyEnable,omitempty" yaml:"advDhcp6InterfaceStatementInformationOnlyEnable,omitempty"`
+	AdvDHCP6InterfaceStatementInformationOnlyEnable bool `json:"advDhcp6InterfaceStatementInformationOnlyEnable,omitempty" yaml:"advDhcp6InterfaceStatementInformationOnlyEnable,omitempty"`
 	// AdvDHCP6InterfaceStatementScript is the script path for DHCPv6 events.
 	AdvDHCP6InterfaceStatementScript string `json:"advDhcp6InterfaceStatementScript,omitempty" yaml:"advDhcp6InterfaceStatementScript,omitempty"`
 
 	// AdvDHCP6IDAssocStatementAddressEnable enables IA_NA address assignment.
-	AdvDHCP6IDAssocStatementAddressEnable string `json:"advDhcp6IdAssocStatementAddressEnable,omitempty" yaml:"advDhcp6IdAssocStatementAddressEnable,omitempty"`
+	AdvDHCP6IDAssocStatementAddressEnable bool `json:"advDhcp6IdAssocStatementAddressEnable,omitempty" yaml:"advDhcp6IdAssocStatementAddressEnable,omitempty"`
 	// AdvDHCP6IDAssocStatementAddress is the requested IA_NA address.
 	AdvDHCP6IDAssocStatementAddress string `json:"advDhcp6IdAssocStatementAddress,omitempty" yaml:"advDhcp6IdAssocStatementAddress,omitempty"`
 	// AdvDHCP6IDAssocStatementAddressID is the identity association ID for addresses.
@@ -1592,7 +1592,7 @@ type InterfaceDHCPAdvancedV6 struct {
 	AdvDHCP6IDAssocStatementAddressVLTime string `json:"advDhcp6IdAssocStatementAddressVlTime,omitempty" yaml:"advDhcp6IdAssocStatementAddressVlTime,omitempty"`
 
 	// AdvDHCP6IDAssocStatementPrefixEnable enables IA_PD prefix delegation.
-	AdvDHCP6IDAssocStatementPrefixEnable string `json:"advDhcp6IdAssocStatementPrefixEnable,omitempty" yaml:"advDhcp6IdAssocStatementPrefixEnable,omitempty"`
+	AdvDHCP6IDAssocStatementPrefixEnable bool `json:"advDhcp6IdAssocStatementPrefixEnable,omitempty" yaml:"advDhcp6IdAssocStatementPrefixEnable,omitempty"`
 	// AdvDHCP6IDAssocStatementPrefix is the requested IA_PD prefix.
 	AdvDHCP6IDAssocStatementPrefix string `json:"advDhcp6IdAssocStatementPrefix,omitempty" yaml:"advDhcp6IdAssocStatementPrefix,omitempty"`
 	// AdvDHCP6IDAssocStatementPrefixID is the identity association ID for prefixes.
