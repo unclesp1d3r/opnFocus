@@ -1500,8 +1500,141 @@ type Interface struct {
 	Virtual bool `json:"virtual,omitempty" yaml:"virtual,omitempty"`
 	// Lock prevents the interface from being accidentally deleted or modified.
 	Lock bool `json:"lock,omitempty" yaml:"lock,omitempty"`
+
+	// DHCPAdvancedV4 holds the advanced DHCPv4 *client* settings configured on this
+	// interface (pfSense/OPNsense "DHCP client configuration" panel). These are the
+	// <interfaces><wan>/<lan> elements, distinct from the DHCP *server* settings of
+	// the same name that DHCPScope.AdvancedV4 carries from <dhcpd>. Nil when unset,
+	// so the field is omitted during serialization.
+	DHCPAdvancedV4 *InterfaceDHCPAdvancedV4 `json:"dhcpAdvancedV4,omitempty" yaml:"dhcpAdvancedV4,omitempty"`
+	// DHCPAdvancedV6 holds the advanced DHCPv6 client settings configured on this
+	// interface. See DHCPAdvancedV4 for the server/client distinction. Nil when unset.
+	DHCPAdvancedV6 *InterfaceDHCPAdvancedV6 `json:"dhcpAdvancedV6,omitempty" yaml:"dhcpAdvancedV6,omitempty"`
 }
     Interface represents a network interface with normalized fields.
+
+type InterfaceDHCPAdvancedV4 struct {
+
+	// AliasAddress is an additional IP alias for the DHCP server interface.
+	AliasAddress string `json:"aliasAddress,omitempty" yaml:"aliasAddress,omitempty"`
+	// AliasSubnet is the subnet mask for the alias address.
+	AliasSubnet string `json:"aliasSubnet,omitempty" yaml:"aliasSubnet,omitempty"`
+	// DHCPRejectFrom is a comma-separated list of MAC addresses to reject.
+	DHCPRejectFrom string `json:"dhcpRejectFrom,omitempty" yaml:"dhcpRejectFrom,omitempty"`
+
+	// AdvDHCPPTTimeout is the protocol timeout for DHCP client requests.
+	AdvDHCPPTTimeout string `json:"advDhcpPtTimeout,omitempty" yaml:"advDhcpPtTimeout,omitempty"`
+	// AdvDHCPPTRetry is the retry interval for DHCP client requests.
+	AdvDHCPPTRetry string `json:"advDhcpPtRetry,omitempty" yaml:"advDhcpPtRetry,omitempty"`
+	// AdvDHCPPTSelectTimeout is the timeout for selecting a DHCP offer.
+	AdvDHCPPTSelectTimeout string `json:"advDhcpPtSelectTimeout,omitempty" yaml:"advDhcpPtSelectTimeout,omitempty"`
+	// AdvDHCPPTReboot is the time to wait before rebooting the DHCP client.
+	AdvDHCPPTReboot string `json:"advDhcpPtReboot,omitempty" yaml:"advDhcpPtReboot,omitempty"`
+	// AdvDHCPPTBackoffCutoff is the maximum backoff time for DHCP retries.
+	AdvDHCPPTBackoffCutoff string `json:"advDhcpPtBackoffCutoff,omitempty" yaml:"advDhcpPtBackoffCutoff,omitempty"`
+	// AdvDHCPPTInitialInterval is the initial retry interval for DHCP requests.
+	AdvDHCPPTInitialInterval string `json:"advDhcpPtInitialInterval,omitempty" yaml:"advDhcpPtInitialInterval,omitempty"`
+	// AdvDHCPPTValues contains additional protocol timing values.
+	AdvDHCPPTValues string `json:"advDhcpPtValues,omitempty" yaml:"advDhcpPtValues,omitempty"`
+
+	// AdvDHCPSendOptions specifies additional DHCP options to send.
+	AdvDHCPSendOptions string `json:"advDhcpSendOptions,omitempty" yaml:"advDhcpSendOptions,omitempty"`
+	// AdvDHCPRequestOptions specifies additional DHCP options to request.
+	AdvDHCPRequestOptions string `json:"advDhcpRequestOptions,omitempty" yaml:"advDhcpRequestOptions,omitempty"`
+	// AdvDHCPRequiredOptions specifies DHCP options that must be present.
+	AdvDHCPRequiredOptions string `json:"advDhcpRequiredOptions,omitempty" yaml:"advDhcpRequiredOptions,omitempty"`
+	// AdvDHCPOptionModifiers contains DHCP option modifier expressions.
+	AdvDHCPOptionModifiers string `json:"advDhcpOptionModifiers,omitempty" yaml:"advDhcpOptionModifiers,omitempty"`
+
+	// AdvDHCPConfigAdvanced contains raw advanced DHCP configuration text.
+	AdvDHCPConfigAdvanced string `json:"advDhcpConfigAdvanced,omitempty" yaml:"advDhcpConfigAdvanced,omitempty"`
+	// AdvDHCPConfigFileOverride enables overriding the DHCP config file.
+	AdvDHCPConfigFileOverride string `json:"advDhcpConfigFileOverride,omitempty" yaml:"advDhcpConfigFileOverride,omitempty"`
+	// AdvDHCPConfigFileOverridePath is the filesystem path for the DHCP config override file.
+	AdvDHCPConfigFileOverridePath string `json:"advDhcpConfigFileOverridePath,omitempty" yaml:"advDhcpConfigFileOverridePath,omitempty"`
+}
+    InterfaceDHCPAdvancedV4 holds the advanced DHCPv4 *client* settings an
+    interface carries, populated from the <interfaces> section. It deliberately
+    does not reuse DHCPAdvancedV4: that struct models the <dhcpd> server
+    section, and the two element sets have diverged (ddnsdomainalgorithm,
+    ddnsdomainkeyalgorithm and failover_peerip occur only under <dhcpd>).
+    Keeping them separate means a field added for the server cannot silently
+    appear, unpopulated, on every interface.
+
+    Every field below was verified to occur under <interfaces> in the shipped
+    fixtures.
+
+type InterfaceDHCPAdvancedV6 struct {
+
+	// Track6Interface is the upstream interface used for IPv6 prefix tracking.
+	Track6Interface string `json:"track6Interface,omitempty" yaml:"track6Interface,omitempty"`
+	// Track6PrefixID is the prefix delegation ID for IPv6 tracking.
+	Track6PrefixID string `json:"track6PrefixId,omitempty" yaml:"track6PrefixId,omitempty"`
+
+	// AdvDHCP6InterfaceStatementSendOptions specifies DHCPv6 options to send.
+	AdvDHCP6InterfaceStatementSendOptions string `json:"advDhcp6InterfaceStatementSendOptions,omitempty" yaml:"advDhcp6InterfaceStatementSendOptions,omitempty"`
+	// AdvDHCP6InterfaceStatementRequestOptions specifies DHCPv6 options to request.
+	AdvDHCP6InterfaceStatementRequestOptions string `json:"advDhcp6InterfaceStatementRequestOptions,omitempty" yaml:"advDhcp6InterfaceStatementRequestOptions,omitempty"`
+	// AdvDHCP6InterfaceStatementInformationOnlyEnable enables information-only mode.
+	AdvDHCP6InterfaceStatementInformationOnlyEnable bool `json:"advDhcp6InterfaceStatementInformationOnlyEnable,omitempty" yaml:"advDhcp6InterfaceStatementInformationOnlyEnable,omitempty"`
+	// AdvDHCP6InterfaceStatementScript is the script path for DHCPv6 events.
+	AdvDHCP6InterfaceStatementScript string `json:"advDhcp6InterfaceStatementScript,omitempty" yaml:"advDhcp6InterfaceStatementScript,omitempty"`
+
+	// AdvDHCP6IDAssocStatementAddressEnable enables IA_NA address assignment.
+	AdvDHCP6IDAssocStatementAddressEnable bool `json:"advDhcp6IdAssocStatementAddressEnable,omitempty" yaml:"advDhcp6IdAssocStatementAddressEnable,omitempty"`
+	// AdvDHCP6IDAssocStatementAddress is the requested IA_NA address.
+	AdvDHCP6IDAssocStatementAddress string `json:"advDhcp6IdAssocStatementAddress,omitempty" yaml:"advDhcp6IdAssocStatementAddress,omitempty"`
+	// AdvDHCP6IDAssocStatementAddressID is the identity association ID for addresses.
+	AdvDHCP6IDAssocStatementAddressID string `json:"advDhcp6IdAssocStatementAddressId,omitempty" yaml:"advDhcp6IdAssocStatementAddressId,omitempty"`
+	// AdvDHCP6IDAssocStatementAddressPLTime is the preferred lifetime for IA_NA addresses.
+	AdvDHCP6IDAssocStatementAddressPLTime string `json:"advDhcp6IdAssocStatementAddressPlTime,omitempty" yaml:"advDhcp6IdAssocStatementAddressPlTime,omitempty"`
+	// AdvDHCP6IDAssocStatementAddressVLTime is the valid lifetime for IA_NA addresses.
+	AdvDHCP6IDAssocStatementAddressVLTime string `json:"advDhcp6IdAssocStatementAddressVlTime,omitempty" yaml:"advDhcp6IdAssocStatementAddressVlTime,omitempty"`
+
+	// AdvDHCP6IDAssocStatementPrefixEnable enables IA_PD prefix delegation.
+	AdvDHCP6IDAssocStatementPrefixEnable bool `json:"advDhcp6IdAssocStatementPrefixEnable,omitempty" yaml:"advDhcp6IdAssocStatementPrefixEnable,omitempty"`
+	// AdvDHCP6IDAssocStatementPrefix is the requested IA_PD prefix.
+	AdvDHCP6IDAssocStatementPrefix string `json:"advDhcp6IdAssocStatementPrefix,omitempty" yaml:"advDhcp6IdAssocStatementPrefix,omitempty"`
+	// AdvDHCP6IDAssocStatementPrefixID is the identity association ID for prefixes.
+	AdvDHCP6IDAssocStatementPrefixID string `json:"advDhcp6IdAssocStatementPrefixId,omitempty" yaml:"advDhcp6IdAssocStatementPrefixId,omitempty"`
+	// AdvDHCP6IDAssocStatementPrefixPLTime is the preferred lifetime for IA_PD prefixes.
+	AdvDHCP6IDAssocStatementPrefixPLTime string `json:"advDhcp6IdAssocStatementPrefixPlTime,omitempty" yaml:"advDhcp6IdAssocStatementPrefixPlTime,omitempty"`
+	// AdvDHCP6IDAssocStatementPrefixVLTime is the valid lifetime for IA_PD prefixes.
+	AdvDHCP6IDAssocStatementPrefixVLTime string `json:"advDhcp6IdAssocStatementPrefixVlTime,omitempty" yaml:"advDhcp6IdAssocStatementPrefixVlTime,omitempty"`
+
+	// AdvDHCP6PrefixInterfaceStatementSLALen is the SLA prefix length for interface delegation.
+	AdvDHCP6PrefixInterfaceStatementSLALen string `json:"advDhcp6PrefixInterfaceStatementSlaLen,omitempty" yaml:"advDhcp6PrefixInterfaceStatementSlaLen,omitempty"`
+
+	// AdvDHCP6AuthenticationStatementAuthName is the authentication profile name.
+	AdvDHCP6AuthenticationStatementAuthName string `json:"advDhcp6AuthenticationStatementAuthName,omitempty" yaml:"advDhcp6AuthenticationStatementAuthName,omitempty"`
+	// AdvDHCP6AuthenticationStatementProtocol is the authentication protocol.
+	AdvDHCP6AuthenticationStatementProtocol string `json:"advDhcp6AuthenticationStatementProtocol,omitempty" yaml:"advDhcp6AuthenticationStatementProtocol,omitempty"`
+	// AdvDHCP6AuthenticationStatementAlgorithm is the authentication algorithm.
+	AdvDHCP6AuthenticationStatementAlgorithm string `json:"advDhcp6AuthenticationStatementAlgorithm,omitempty" yaml:"advDhcp6AuthenticationStatementAlgorithm,omitempty"`
+	// AdvDHCP6AuthenticationStatementRDM is the replay detection method.
+	AdvDHCP6AuthenticationStatementRDM string `json:"advDhcp6AuthenticationStatementRdm,omitempty" yaml:"advDhcp6AuthenticationStatementRdm,omitempty"`
+
+	// AdvDHCP6KeyInfoStatementKeyName is the key name for DHCPv6 authentication.
+	AdvDHCP6KeyInfoStatementKeyName string `json:"advDhcp6KeyInfoStatementKeyName,omitempty" yaml:"advDhcp6KeyInfoStatementKeyName,omitempty"`
+	// AdvDHCP6KeyInfoStatementRealm is the authentication realm.
+	AdvDHCP6KeyInfoStatementRealm string `json:"advDhcp6KeyInfoStatementRealm,omitempty" yaml:"advDhcp6KeyInfoStatementRealm,omitempty"`
+	// AdvDHCP6KeyInfoStatementKeyID is the key identifier.
+	AdvDHCP6KeyInfoStatementKeyID string `json:"advDhcp6KeyInfoStatementKeyId,omitempty" yaml:"advDhcp6KeyInfoStatementKeyId,omitempty"`
+	// AdvDHCP6KeyInfoStatementSecret is the shared secret for DHCPv6 authentication.
+	AdvDHCP6KeyInfoStatementSecret string `json:"advDhcp6KeyInfoStatementSecret,omitempty" yaml:"advDhcp6KeyInfoStatementSecret,omitempty"`
+	// AdvDHCP6KeyInfoStatementExpire is the key expiration time.
+	AdvDHCP6KeyInfoStatementExpire string `json:"advDhcp6KeyInfoStatementExpire,omitempty" yaml:"advDhcp6KeyInfoStatementExpire,omitempty"`
+
+	// AdvDHCP6ConfigAdvanced contains raw advanced DHCPv6 configuration text.
+	AdvDHCP6ConfigAdvanced string `json:"advDhcp6ConfigAdvanced,omitempty" yaml:"advDhcp6ConfigAdvanced,omitempty"`
+	// AdvDHCP6ConfigFileOverride enables overriding the DHCPv6 config file.
+	AdvDHCP6ConfigFileOverride string `json:"advDhcp6ConfigFileOverride,omitempty" yaml:"advDhcp6ConfigFileOverride,omitempty"`
+	// AdvDHCP6ConfigFileOverridePath is the filesystem path for the DHCPv6 config override file.
+	AdvDHCP6ConfigFileOverridePath string `json:"advDhcp6ConfigFileOverridePath,omitempty" yaml:"advDhcp6ConfigFileOverridePath,omitempty"`
+}
+    InterfaceDHCPAdvancedV6 holds the advanced DHCPv6 client settings an
+    interface carries. See InterfaceDHCPAdvancedV4 for why this does not reuse
+    DHCPAdvancedV6.
 
 type InterfaceGroup struct {
 	// Name is the interface group name.
