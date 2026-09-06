@@ -379,7 +379,10 @@ issues:
   max-same-issues: 0
   new: false
   uniq-by-line: true
-  fix: true
+  # `fix` is deliberately unset: with `fix: true`, `golangci-lint run` repairs
+  # formatter findings in place and reports a clean tree, so neither CI nor
+  # `just lint` can fail on formatting drift. Rewriting stays opt-in at the
+  # call site (`just format`, pre-commit, `golangci-lint fmt`). GOTCHAS §25.1.
 formatters:
   enable:
     - golines
@@ -389,7 +392,8 @@ formatters:
   settings:
     gofumpt:
       module-path: "github.com/EvilBit-Labs/opnDossier"
-      extra-rules: true
+      extra:
+        group-params: true
     golines:
       max-len: 120
   exclusions:

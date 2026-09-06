@@ -31,6 +31,10 @@ jobs:
       - uses: golangci/golangci-lint-action@ba0d7d2ec06a0ea1cb5fa41b2e4a3ab91d21278a # v9
         with:
           version: v2.13.2
+          # The action runs a bare `golangci-lint run`, which obeys whatever
+          # `.golangci.yml` sets. The `fix` key is unset there; this flag keeps
+          # the gate shut if it ever returns. See GOTCHAS §25.1.
+          args: --fix=false
 
       # The action above runs only the golangci linters. `just lint` also
       # chains modernize-check, which nothing in CI invoked, so three

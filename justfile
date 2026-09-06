@@ -127,12 +127,12 @@ format:
 # Check formatting without making changes
 [group('quality')]
 format-check:
-    @{{ mise_exec }} golangci-lint fmt ./...
+    @{{ mise_exec }} golangci-lint fmt --diff ./...
 
 # Run linter
 [group('quality')]
 lint:
-    @{{ mise_exec }} golangci-lint run ./...
+    @{{ mise_exec }} golangci-lint run --fix=false ./...
     @just modernize-check
 
 # Run pre-commit checks on all files
