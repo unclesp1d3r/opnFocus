@@ -679,3 +679,31 @@ The published image sets `USER 65532:65532`, which is the correct default for a 
   Without `--user` that fails; with `--user 1001:1001` it writes `report.json` owned by 1001 at mode 600 (`export.DefaultFilePermissions`).
 
 - **Do not "fix" this by dropping `USER` from the Dockerfile.** The non-root default protects direct `docker run` users; the Action overrides it only because it has a bind mount to match.
+
+## 25. Lint Gate Self-Satisfaction
+
+### 25.1 `fix: true` Makes `golangci-lint run` Unable to Fail
+
+`.golangci.yml` set `fix: true` under `issues:`, which applies to every fixable finding, and that includes every formatter in the `formatters:` block. `run` repaired each one in place and then reported `0 issues` with exit 0. CI's Lint job invokes a bare `golangci-lint run`, so the repair landed in the runner's own checkout and was thrown away with it. Formatting drift could not turn the job red, and `just lint` behaved the same way on a developer machine.
+
+Reproduce on any revision carrying the key by adding stray indentation to a `.go` file:
+
+```console
+$ golangci-lint run
+0 issues.           # exit 0
+
+$ git diff --stat   # empty: the indentation was repaired, never reported
+```
+
+- **Rule:** rewriting is opt-in at the call site, never in config. `just format` and the pre-commit hook pass `--fix` explicitly, and `golangci-lint fmt` rewrites by design. Nothing else may mutate the tree.
+- CI's step also passes `args: --fix=false`, which overrides a `fix:` key if one is ever restored. Verified against a config with `fix: true` present.
+- **Same trap, second location, and mind the caveat.** `just format-check` ran `golangci-lint fmt ./...`, which rewrites rather than checks, so that recipe could never fail on its own. `just ci-check` did still catch drift, but at the earlier `check` step, where pre-commit fails any hook that modified files, and the tree was silently reformatted on the way past. `format-check` now passes `--diff` so it gates where its own description says it does. Treat `lint` as the authoritative formatter gate regardless, since `fmt` and `run` can disagree about the same file (section 25.2).
+- **Verify a change to this gate locally, not with a probe commit.** `act -j lint -P ubuntu-latest=catthehacker/ubuntu:act-latest` runs the real Lint job. Check both directions, green on a clean tree and red with a misformat planted, because a one-sided pass proves nothing. Without `-P`, and with no `~/.config/act/actrc` on the machine, act prompts for an image size and exits `level=fatal msg=EOF`, which looks like a failing gate and is not one.
+
+### 25.2 A Construct Can Have No Formatting That Passes
+
+`golines` and `gofumpt` both run in the `formatters:` pipeline and disagreed permanently on a multi-value `return` of two composite literals. `golangci-lint fmt` produced a shallow form that `run` rejected as `gofumpt`; `gofmt -w` produced a deeper form that `run` rejected as `gci`. No file content satisfied both, and `fix: true` hid the standoff by rewriting on every run and reporting nothing.
+
+- **Symptom:** a formatter finding that successive PRs each report as pre-existing and each defer. Three did before this was traced.
+- **Change the code, not the pipeline.** Building each literal into a local and returning the locals removes the disputed construct entirely. Reordering or dropping a formatter was the more disruptive option and proved unnecessary.
+- The config change and the code change are load-bearing together. Closing the gate on a tree that still contains the standoff turns `main` red immediately.
