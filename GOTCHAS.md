@@ -697,7 +697,7 @@ $ git diff --stat   # empty: the indentation was repaired, never reported
 
 - **Rule:** rewriting is opt-in at the call site, never in config. `just format` and the pre-commit hook pass `--fix` explicitly, and `golangci-lint fmt` rewrites by design. Nothing else may mutate the tree.
 - CI's step also passes `args: --fix=false`, which overrides a `fix:` key if one is ever restored. Verified against a config with `fix: true` present.
-- **Same trap, second location:** `just format-check` ran `golangci-lint fmt ./...`, which rewrites rather than checks, so `just ci-check` could not fail on drift either. A check recipe must pass `--diff`.
+- **Same trap, second location, and mind the caveat.** `just format-check` ran `golangci-lint fmt ./...`, which rewrites rather than checks, so that recipe could never fail on its own. `just ci-check` did still catch drift, but at the earlier `check` step, where pre-commit fails any hook that modified files, and the tree was silently reformatted on the way past. `format-check` now passes `--diff` so it gates where its own description says it does. Treat `lint` as the authoritative formatter gate regardless, since `fmt` and `run` can disagree about the same file (section 25.2).
 - **Verify a change to this gate locally, not with a probe commit.** `act -j lint -P ubuntu-latest=catthehacker/ubuntu:act-latest` runs the real Lint job. Check both directions, green on a clean tree and red with a misformat planted, because a one-sided pass proves nothing. Without `-P`, and with no `~/.config/act/actrc` on the machine, act prompts for an image size and exits `level=fatal msg=EOF`, which looks like a failing gate and is not one.
 
 ### 25.2 A Construct Can Have No Formatting That Passes

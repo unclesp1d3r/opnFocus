@@ -124,7 +124,7 @@ format:
     @{{ mise_exec }} golangci-lint run --fix ./...
     @just modernize
 
-# Check formatting without making changes
+# Check formatting without making changes (lint is the authoritative gate)
 [group('quality')]
 format-check:
     @{{ mise_exec }} golangci-lint fmt --diff ./...
